@@ -36,7 +36,7 @@ To build the docs locally::
 
     $ virtualenv ve
     $ source ve/bin/activate
-    (ve)$ pip install requirements-docs.txt
+    (ve)$ pip install -r requirements-docs.txt
     (ve)$ cd docs
     (ve)$ make html
 
