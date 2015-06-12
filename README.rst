@@ -4,11 +4,11 @@ Junebug
 Junebug is a system for managing text messaging transports via a
 RESTful HTTP interface that supports:
 
- * Creating, introspecting, updating and deleting transports
- * Sending and receiving text messages
- * Receiving status updates on text messages sent
- * Monitoring transport health and performance
- * Retrieving recent transport logs for debugging transport issues.
+* Creating, introspecting, updating and deleting transports
+* Sending and receiving text messages
+* Receiving status updates on text messages sent
+* Monitoring transport health and performance
+* Retrieving recent transport logs for debugging transport issues.
 
 
 Design Principles
