@@ -4,6 +4,8 @@
 HTTP API
 ========
 
+Junebug's HTTP API.
+
 
 HTTP API endpoints
 ------------------
@@ -187,3 +189,55 @@ Messages
           ]
         }
       }
+
+
+Events
+------
+
+Events POSTed to the ``event_url`` specified in
+:http:post:`/channels/(channel_id:str)/messages` have the following
+format:
+
+.. http:post:: /event/url
+
+   :param str event_type:
+       The type of the event. See the list of event types below.
+   :param str message_id:
+       The UUID of the message the event is for.
+   :param str channel_id:
+       The UUID of the channel the event occurred for.
+   :param str timestamp:
+       The timestamp at which the event occurred.
+   :param dict event_details:
+       Details specific to the event type.
+
+Events are posted to the message’s ``event_url`` after the message is
+submitted to the provider, and when delivery reports are received.
+
+**Request example**:
+
+.. sourcecode:: json
+
+   {
+     event_type: "submitted",
+     message_id: "msg-uuid-1234",
+     channel_id: "channel-uuid-5678",
+     timestamp: "2015-06-15 13:00:00",
+     event_details: {
+        /* detail specific to the channel implementation. */
+     }
+   }
+
+Event types
+^^^^^^^^^^^
+
+Sent when the message is submitted to the provider:
+
+* ``submitted``: message successfully sent to the provider.
+* ``rejected``: message rejected by the channel.
+
+Sent later when (or if) delivery reports are received:
+
+* ``delivery_succeeded``: provider confirmed that the message was delivered.
+* ``delivery_failed``: provider declared that message delivery failed.
+* ``delivery_pending``: provider is still attempting to deliver the message.
