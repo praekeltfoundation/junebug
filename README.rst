@@ -1,6 +1,13 @@
 Junebug
 =======
 
+|junebug-docs|
+
+.. |junebug-docs| image:: https://readthedocs.org/projects/junebug/badge/?version=latest
+    :alt: Documentation
+    :scale: 100%
+    :target: http://junebug.readthedocs.org/
+
 Junebug is a system for managing text messaging transports via a
 RESTful HTTP interface that supports:
 
@@ -36,7 +43,7 @@ To build the docs locally::
 
     $ virtualenv ve
     $ source ve/bin/activate
-    (ve)$ pip install requirements-docs.txt
+    (ve)$ pip install -r requirements-docs.txt
     (ve)$ cd docs
     (ve)$ make html
 
