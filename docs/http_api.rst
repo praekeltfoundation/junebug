@@ -6,6 +6,11 @@ HTTP API
 
 Junebug's HTTP API.
 
+.. warning::
+
+   Junebug's HTTP API doesn't exist yet. This document describes what
+   its HTTP API might look like.
+
 
 HTTP API endpoints
 ------------------

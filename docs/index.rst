@@ -6,12 +6,20 @@
 Welcome to Junebug's documentation!
 ===================================
 
+Junebug is a system for managing text messaging transports via a
+RESTful HTTP interface.
+
+.. warning::
+
+   Junebug doesn't exist yet. These notes are a description of its
+   intended goals.
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
-   introduction
+   design
    http_api
 
 
