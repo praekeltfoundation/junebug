@@ -105,7 +105,7 @@ Channels
 
    Modify a channel's configuration.
 
-   Accepts the same parameters as :http:put:`/channels`. Only the
+   Accepts the same parameters as :http:post:`/channels`. Only the
    parameters provided are updated. Others retain their original
    values.
 
