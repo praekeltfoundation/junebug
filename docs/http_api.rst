@@ -101,7 +101,7 @@ Channels
       }
 
 
-.. http:put:: /channels/(channel_id:str)
+.. http:post:: /channels/(channel_id:str)
 
    Modify a channel's configuration.
 
