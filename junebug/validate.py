@@ -4,7 +4,7 @@ from twisted.web import http
 
 from jsonschema import Draft4Validator
 
-from vumi_http_retry.workers.api.utils import response
+from junebug.utils import response
 
 
 def validate(*validators):

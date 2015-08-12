@@ -1,3 +1,4 @@
 /docs/_build/*
 *.pyc
 junebug.egg-info
+_trial_temp

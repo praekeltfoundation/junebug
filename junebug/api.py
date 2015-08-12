@@ -17,19 +17,19 @@ class JunebugApi(object):
     def usage_error(self, request, failure):
         return response(request, 'api usage error', {
             'errors': [{
-                'type': str(failure.type),
-                'message': str(failure.value),
+                'type': 'ApiUsageError',
+                'message': failure.getErrorMessage(),
                 }]
             }, code=http.BAD_REQUEST)
 
-    @app.handle_errors(Exception)
+    @app.handle_errors
     def generic_error(self, request, failure):
         return response(request, 'generic error', {
             'errors': [{
-                'type': str(failure.type),
-                'message': str(failure.value),
+                'type': failure.type.__name__,
+                'message': failure.getErrorMessage(),
                 }]
-            }, code=http.SERVER_ERROR)
+            }, code=http.INTERNAL_SERVER_ERROR)
 
     @app.route('/channels', methods=['GET'])
     def get_channel_list(self, request):
@@ -102,7 +102,7 @@ class JunebugApi(object):
         '''Mondify the channel configuration'''
         raise NotImplementedError()
 
-    @app.route('/channels/<string:channel_id', methods=['DELETE'])
+    @app.route('/channels/<string:channel_id>', methods=['DELETE'])
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''
         raise NotImplementedError()

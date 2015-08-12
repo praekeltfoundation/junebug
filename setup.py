@@ -22,6 +22,7 @@ setup(
     install_requires=[
         'klein',
         'jsonschema',
+        'treq',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
