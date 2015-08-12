@@ -1,1 +1,3 @@
 /docs/_build/*
+*.pyc
+junebug.egg-info
