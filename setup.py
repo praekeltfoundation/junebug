@@ -1,6 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
+
 def read_file(filename):
     filepath = os.path.join(os.path.dirname(__file__), filename)
     return open(filepath, 'r').read()
@@ -20,6 +21,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'klein',
+        'jsonschema',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
