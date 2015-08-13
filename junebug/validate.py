@@ -19,7 +19,9 @@ def validate(*validators):
             if not errors:
                 return fn(api, req, *a, **kw)
             else:
-                return response(req, {'errors': errors}, code=http.BAD_REQUEST)
+                return response(
+                    req, 'api usage error', {'errors': errors},
+                    code=http.BAD_REQUEST)
 
         return wrapper
 

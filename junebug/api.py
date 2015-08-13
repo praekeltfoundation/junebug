@@ -1,4 +1,5 @@
 from klein import Klein
+import logging
 from twisted.web import http
 
 from junebug.validate import body_schema, validate
@@ -24,6 +25,7 @@ class JunebugApi(object):
 
     @app.handle_errors
     def generic_error(self, request, failure):
+        logging.exception(failure)
         return response(request, 'generic error', {
             'errors': [{
                 'type': failure.type.__name__,
@@ -57,7 +59,7 @@ class JunebugApi(object):
                     'minimum': 0,
                 },
                 'character_limit': {
-                    'type': 'int',
+                    'type': 'integer',
                     'minimum': 0,
                 },
             },
@@ -93,12 +95,12 @@ class JunebugApi(object):
                     'minimum': 0,
                 },
                 'character_limit': {
-                    'type': 'int',
+                    'type': 'integer',
                     'minimum': 0,
                 },
             },
         }))
-    def modify_channel(self, request, channel_id):
+    def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
         raise NotImplementedError()
 
@@ -125,9 +127,12 @@ class JunebugApi(object):
         '''Send an outbound (mobile terminated) message'''
         to_addr = body.get('to')
         reply_to = body.get('reply_to')
-        if (to_addr and not reply_to) or (not to_addr and reply_to):
+        if not (to_addr or reply_to):
             raise ApiUsageError(
-                'Only one of "from" and "reply_to" may be specified')
+                'Either "to" or "reply_to" must be specified')
+        if (to_addr and reply_to):
+            raise ApiUsageError(
+                'Only one of "to" and "reply_to" may be specified')
 
         raise NotImplementedError()
 
