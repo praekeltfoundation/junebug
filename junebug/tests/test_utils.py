@@ -51,7 +51,7 @@ class TestUtils(TestCase):
 
         resp = yield treq.get(srv.url, persistent=False)
         self.assertEqual(resp.code, http.BAD_REQUEST)
-    
+
     @inlineCallbacks
     def test_json_body(self):
         class Api(object):
