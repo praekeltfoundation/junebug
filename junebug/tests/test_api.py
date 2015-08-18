@@ -208,3 +208,9 @@ class TestJunebugApi(TestCase):
                     'type': 'NotImplementedError',
                 }]
             })
+
+    @inlineCallbacks
+    def test_get_health_check(self):
+        resp = yield self.get('/health')
+        yield self.assert_response(
+            resp, http.OK, 'health ok', {})
