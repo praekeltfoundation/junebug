@@ -1,4 +1,5 @@
 import json
+import logging
 import treq
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -12,10 +13,14 @@ from junebug.api import JunebugApi
 class TestJunebugApi(TestCase):
     @inlineCallbacks
     def setUp(self):
+        self.logging_handler = logging.handlers.MemoryHandler(100)
+        logging.getLogger().addHandler(self.logging_handler)
         yield self.start_server()
 
     @inlineCallbacks
     def tearDown(self):
+        self.logging_handler.close()
+        logging.getLogger().removeHandler(self.logging_handler)
         yield self.stop_server()
 
     @inlineCallbacks
@@ -52,6 +57,19 @@ class TestJunebugApi(TestCase):
             'description': description,
             'result': result,
         })
+
+    @inlineCallbacks
+    def test_http_error(self):
+        resp = yield self.get('/foobar')
+        yield self.assert_response(
+            resp, http.NOT_FOUND,
+            'The requested URL was not found on the server.  If you entered '
+            'the URL manually please check your spelling and try again.', {
+                'errors': [{
+                    'message': '404: Not Found',
+                    'type': 'Not Found',
+                    }]
+                })
 
     @inlineCallbacks
     def test_get_channel_list(self):
