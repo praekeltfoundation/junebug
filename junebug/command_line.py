@@ -62,8 +62,12 @@ def start_server(interface, port):
     return port
 
 
-if __name__ == '__main__':
+def main():
     args = parse_arguments(sys.argv[1:])
     logging_setup(args.logfile)
     start_server(args.interface, args.port)
     reactor.run()
+
+
+if __name__ == '__main__':
+    main()
