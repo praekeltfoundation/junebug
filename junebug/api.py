@@ -154,3 +154,7 @@ class JunebugApi(object):
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
         raise NotImplementedError()
+
+    @app.route('/health', methods=['GET'])
+    def health_status(self, request):
+        return response(request, 'health ok', {})
