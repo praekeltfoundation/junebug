@@ -14,9 +14,10 @@
 
 import sys
 import os
+from mock import Mock as MagicMock
 
 # ReadTheDocs fix, don't import any modules not related to documentation
-class Mock(object):
+class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
         return Mock()
