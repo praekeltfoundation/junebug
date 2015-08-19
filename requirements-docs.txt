@@ -1,2 +1,1 @@
 sphinxcontrib-httpdomain>=1.2.0
-mock
