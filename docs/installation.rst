@@ -25,7 +25,7 @@ pip will install the following requirements automatically:
 
 Installation
 ------------
-Installation in performed by the following command:
+Installation is performed by the following command:
 
 ``pip install junebug``
 
