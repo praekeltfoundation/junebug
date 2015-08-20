@@ -19,6 +19,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   installation
+   running
    design
    http_api
 
