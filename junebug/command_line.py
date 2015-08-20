@@ -5,9 +5,8 @@ import sys
 
 from twisted.internet import reactor
 from twisted.python import log
-from twisted.web.server import Site
 
-from junebug import JunebugApi
+from junebug.service import JunebugService
 
 
 def parse_arguments(args):
@@ -55,11 +54,8 @@ def logging_setup(filename):
 def start_server(interface, port):
     '''Starts a new Junebug HTTP API server on the specified resource and
     port'''
-
-    port = reactor.listenTCP(
-        port, Site(JunebugApi().app.resource()), interface=interface)
-    log.msg('Junebug is listening on %s:%s' % (interface, port))
-    return port
+    service = JunebugService(interface, port)
+    return service.startService()
 
 
 def main():
