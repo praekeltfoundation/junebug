@@ -17,6 +17,9 @@ class ApiUsageError(Exception):
 class JunebugApi(object):
     app = Klein()
 
+    def __init__(self, service):
+        self.service = service
+
     @app.handle_errors(ApiUsageError)
     def usage_error(self, request, failure):
         return response(request, 'api usage error', {

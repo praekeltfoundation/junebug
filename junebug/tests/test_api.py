@@ -1,13 +1,11 @@
 import json
 import logging
 import treq
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twisted.web import http
-from twisted.web.server import Site
 
-from junebug.api import JunebugApi
+from junebug.service import JunebugService
 
 
 class TestJunebugApi(TestCase):
@@ -25,14 +23,14 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def start_server(self):
-        self.app = JunebugApi()
-        self.server = yield reactor.listenTCP(0, Site(self.app.app.resource()))
+        self.service = JunebugService('localhost', 0)
+        self.server = yield self.service.startService()
         addr = self.server.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
     @inlineCallbacks
     def stop_server(self):
-        yield self.server.loseConnection()
+        yield self.service.stopService()
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
