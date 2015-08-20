@@ -24,6 +24,10 @@ setup(
         'jsonschema',
         'treq',
     ],
+    entry_points='''
+    [console_scripts]
+    jb = junebug.command_line:main
+    ''',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
