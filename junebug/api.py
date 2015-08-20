@@ -1,9 +1,12 @@
 from klein import Klein
 import logging
+from werkzeug.exceptions import HTTPException
 from twisted.web import http
 
 from junebug.validate import body_schema, validate
 from junebug.utils import json_body, response
+
+logging = logging.getLogger(__name__)
 
 
 class ApiUsageError(Exception):
@@ -22,6 +25,15 @@ class JunebugApi(object):
                 'message': failure.getErrorMessage(),
                 }]
             }, code=http.BAD_REQUEST)
+
+    @app.handle_errors(HTTPException)
+    def http_error(self, request, failure):
+        return response(request, failure.value.description, {
+            'errors': [{
+                'type': failure.value.name,
+                'message': failure.getErrorMessage(),
+                }]
+            }, code=failure.value.code)
 
     @app.handle_errors
     def generic_error(self, request, failure):
