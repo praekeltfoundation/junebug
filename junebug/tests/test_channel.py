@@ -22,14 +22,14 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def test_save_channel(self):
-        channel = Channel(self.redis, {'label': 'test'})
+        channel = Channel(self.redis._config, {'label': 'test'})
         yield channel.save()
         properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(properties), {'label': 'test'})
 
     @inlineCallbacks
     def test_delete_channel(self):
-        channel = Channel(self.redis, {'label': 'test'})
+        channel = Channel(self.redis._config, {'label': 'test'})
         yield channel.save()
         properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(properties), {'label': 'test'})
@@ -40,21 +40,36 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def test_create_channel_from_id(self):
-        channel1 = Channel(self.redis, {'label': 'test'})
+        channel1 = Channel(self.redis._config, {'label': 'test'})
         yield channel1.save()
 
-        channel2 = yield Channel.from_id(self.redis, channel1.id)
+        channel2 = yield Channel.from_id(self.redis._config, channel1.id)
         self.assertEqual(channel1.status, channel2.status)
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):
         yield self.assertFailure(
-            Channel.from_id(self.redis, 'foobar'), ChannelNotFound)
+            Channel.from_id(self.redis._config, 'foobar'), ChannelNotFound)
 
     def test_channel_status(self):
-        channel = Channel(self.redis, {'label': 'test'}, 'channel-id')
+        channel = Channel(self.redis._config, {'label': 'test'}, 'channel-id')
         self.assertEqual(channel.status, {
             'id': 'channel-id',
             'label': 'test',
             'status': {}
         })
+
+    @inlineCallbacks
+    def test_get_all_channels(self):
+        channels = yield Channel.get_all(self.redis._config)
+        self.assertEqual(channels, set())
+
+        channel1 = Channel(self.redis._config, {})
+        yield channel1.save()
+        channels = yield Channel.get_all(self.redis._config)
+        self.assertEqual(channels, set([channel1.id]))
+
+        channel2 = Channel(self.redis._config, {})
+        yield channel2.save()
+        channels = yield Channel.get_all(self.redis._config)
+        self.assertEqual(channels, set([channel1.id, channel2.id]))

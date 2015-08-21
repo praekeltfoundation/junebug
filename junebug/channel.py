@@ -4,6 +4,7 @@ import uuid
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
+from vumi.persist.redis_manager import RedisManager
 
 
 class ChannelNotFound(Exception):
@@ -20,15 +21,16 @@ transports = {
 
 
 class Channel(object):
-    def __init__(self, redis, properties, id=None):
-        '''Creates a new channel. ``redis`` is the redis manager, from which a
-        sub manager is created using the channel id. If the channel id is not
-        supplied, a UUID one is generated. Call ``save`` to save the channel
-        data.'''
+    def __init__(self, redis_config, properties, id=None):
+        '''Creates a new channel. ``redis_config`` is the redis config, from
+        which a sub manager is created using the channel id. If the channel id
+        is not supplied, a UUID one is generated. Call ``save`` to save the
+        channel data.'''
         self._properties, self.id = properties, id
         if self.id is None:
             self.id = str(uuid.uuid4())
-        self._redis = redis.sub_manager(self.id)
+        self._redis_base = RedisManager.from_config(redis_config)
+        self._redis = self._redis_base.sub_manager(self.id)
 
     def start(self, service):
         '''Starts the relevant workers for the channel'''
@@ -37,6 +39,7 @@ class Channel(object):
             raise InvalidChannelType(
                 'Invalid channel type %r, must be one of: %r' % (
                     self._properties['type'], transports.keys()))
+        options = deepcopy(VumiOptions
         workercreator = WorkerCreator(VumiOptions.default_vumi_options)
         self.transport_worker = workercreator.create_worker(
             class_name, self._properties['config'])
@@ -52,6 +55,7 @@ class Channel(object):
         '''Saves the channel data into redis.'''
         properties = json.dumps(self._properties)
         yield self._redis.set('properties', properties)
+        yield self._redis_base.sadd('channels', self.id)
 
     @inlineCallbacks
     def delete(self):
@@ -60,14 +64,22 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis, id):
+    def from_id(cls, redis_config, id):
         '''Creates a channel by loading the data from redis, given the
         channel's id'''
-        properties = yield redis.get('%s:properties' % id)
+        redis_base = RedisManager.from_config(redis_config)
+        redis = redis_base.sub_manager(id)
+        properties = yield redis.get('properties')
         if properties is None:
             raise ChannelNotFound()
         properties = json.loads(properties)
-        returnValue(cls(redis, properties, id))
+        returnValue(cls(redis_config, properties, id))
+
+    @classmethod
+    def get_all(cls, redis_config):
+        '''Returns a set of keys of all of the channels'''
+        redis = RedisManager.from_config(redis_config)
+        return redis.smembers('channels')
 
     @property
     def status(self):
