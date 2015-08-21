@@ -42,6 +42,54 @@ class TestCommandLine(TestCase):
         args = parse_arguments(['-l', 'foo.bar'])
         self.assertEqual(args.logfile, 'foo.bar')
 
+    def test_parse_arguments_redis_host(self):
+        '''The redis host command line argument can be specified by
+        "--redis-host" or "-redish" and has a default value of "localhost"'''
+        args = parse_arguments([])
+        self.assertEqual(args.redis_host, 'localhost')
+
+        args = parse_arguments(['--redis-host', 'foo.bar'])
+        self.assertEqual(args.redis_host, 'foo.bar')
+
+        args = parse_arguments(['-redish', 'foo.bar'])
+        self.assertEqual(args.redis_host, 'foo.bar')
+
+    def test_parse_arguments_redis_port(self):
+        '''The redis port command line argument can be specified by
+        "--redis-port" or "-redisp" and has a default value of 6379'''
+        args = parse_arguments([])
+        self.assertEqual(args.redis_port, 6379)
+
+        args = parse_arguments(['--redis-port', '80'])
+        self.assertEqual(args.redis_port, 80)
+
+        args = parse_arguments(['-redisp', '80'])
+        self.assertEqual(args.redis_port, 80)
+
+    def test_parse_arguments_redis_database(self):
+        '''The redis database command line argument can be specified by
+        "--redis-db" or "-redisdb" and has a default value of 0'''
+        args = parse_arguments([])
+        self.assertEqual(args.redis_db, 0)
+
+        args = parse_arguments(['--redis-db', '80'])
+        self.assertEqual(args.redis_db, 80)
+
+        args = parse_arguments(['-redisdb', '80'])
+        self.assertEqual(args.redis_db, 80)
+
+    def test_parse_arguments_redis_password(self):
+        '''The redis password command line argument can be specified by
+        "--redis-password" or "-redispass" and has a default value of None'''
+        args = parse_arguments([])
+        self.assertEqual(args.redis_pass, None)
+
+        args = parse_arguments(['--redis-password', 'foo.bar'])
+        self.assertEqual(args.redis_pass, 'foo.bar')
+
+        args = parse_arguments(['-redispass', 'foo.bar'])
+        self.assertEqual(args.redis_pass, 'foo.bar')
+
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
         is not None, both the stdout logger and a file logger is created'''
@@ -65,7 +113,7 @@ class TestCommandLine(TestCase):
     def test_start_server(self):
         '''Starting the server should listen on the specified interface and
         port'''
-        port = start_server('localhost', 0)
+        port = start_server('localhost', 0, {})
         host = port.getHost()
         self.assertEqual(host.host, '127.0.0.1')
         self.assertEqual(host.type, 'TCP')

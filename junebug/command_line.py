@@ -26,6 +26,22 @@ def parse_arguments(args):
     parser.add_argument(
         '--log-file', '-l', dest='logfile', default=None, type=str,
         help='The file to log to. Defaults to not logging to a file')
+    parser.add_argument(
+        '--redis-host', '-redish', dest='redis_host', default='localhost',
+        type=str,
+        help='The hostname of the redis instance. Defaults to "localhost"')
+    parser.add_argument(
+        '--redis-port', '-redisp', dest='redis_port', default=6379,
+        type=int,
+        help='The port of the redis instance. Defaults to "6379"')
+    parser.add_argument(
+        '--redis-db', '-redisdb', dest='redis_db', default=0,
+        type=int,
+        help='The database to use for the redis instance. Defaults to "0"')
+    parser.add_argument(
+        '--redis-password', '-redispass', dest='redis_pass', default=None,
+        type=str,
+        help='The password to use for the redis instance. Defaults to "None"')
 
     return parser.parse_args(args)
 
@@ -51,17 +67,23 @@ def logging_setup(filename):
         logging.getLogger().addHandler(handler)
 
 
-def start_server(interface, port):
+def start_server(interface, port, redis_config):
     '''Starts a new Junebug HTTP API server on the specified resource and
     port'''
-    service = JunebugService(interface, port)
+    service = JunebugService(interface, port, redis_config)
     return service.startService()
 
 
 def main():
     args = parse_arguments(sys.argv[1:])
     logging_setup(args.logfile)
-    start_server(args.interface, args.port)
+    redis_config = {
+        'host': args.redis_host,
+        'port': args.redis_port,
+        'db': args.redis_db,
+        'password': args.redis_pass,
+    }
+    start_server(args.interface, args.port, redis_config)
     reactor.run()
 
 
