@@ -1,33 +1,40 @@
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 
-from junebug.validate import body_schema, validate
+from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
+from junebug.error import JunebugError
 from junebug.utils import json_body, response
+from junebug.validate import body_schema, validate
 
 logging = logging.getLogger(__name__)
 
 
-class ApiUsageError(Exception):
+class ApiUsageError(JunebugError):
     '''Exception that is raised whenever the API is used incorrectly.
     Used for incorrect requests and invalid data.'''
+    name = 'ApiUsageError'
+    description = 'api usage error'
+    code = http.BAD_REQUEST
 
 
 class JunebugApi(object):
     app = Klein()
 
-    def __init__(self, service):
+    def __init__(self, service, redis_config):
         self.service = service
+        self.redis_config = redis_config
 
-    @app.handle_errors(ApiUsageError)
-    def usage_error(self, request, failure):
-        return response(request, 'api usage error', {
+    @app.handle_errors(JunebugError)
+    def generic_junebug_error(self, request, failure):
+        return response(request, failure.value.description, {
             'errors': [{
-                'type': 'ApiUsageError',
+                'type': failure.value.name,
                 'message': failure.getErrorMessage(),
                 }]
-            }, code=http.BAD_REQUEST)
+            }, code=failure.value.code)
 
     @app.handle_errors(HTTPException)
     def http_error(self, request, failure):
