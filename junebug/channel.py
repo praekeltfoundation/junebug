@@ -1,7 +1,9 @@
+import collections
 from copy import deepcopy
 import json
 import uuid
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.web import http
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 from vumi.persist.redis_manager import RedisManager
@@ -24,34 +26,54 @@ class InvalidChannelType(JunebugError):
 
 
 transports = {
-    'telnet': 'vumi.transport.telnet.TelnetServerTransport',
+    'telnet': 'vumi.transports.telnet.TelnetServerTransport',
+    'xmpp': 'vumi.transports.xmpp.XMPPTransport',
 }
 
 
 class Channel(object):
-    def __init__(self, redis_config, properties, id=None):
+    def __init__(self, redis_config, properties, id=None, parent=None):
         '''Creates a new channel. ``redis_config`` is the redis config, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
-        channel data.'''
+        channel data. If ``parent`` is supplied, the channel is automatically
+        started as a child of parent, else it is not started, and can be
+        started using the ``start`` function.'''
         self._properties, self.id = properties, id
         if self.id is None:
             self.id = str(uuid.uuid4())
         self._redis_base = RedisManager.from_config(redis_config)
         self._redis = self._redis_base.sub_manager(self.id)
+        if parent is not None:
+            self.start(parent)
+
+    def _convert_unicode(self, data):
+        # Twisted doesn't like it when we give unicode in for config things
+        if isinstance(data, basestring):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(map(self._convert_unicode, data.iteritems()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(self._convert_unicode, data))
+        else:
+            return data
 
     def start(self, service):
-        '''Starts the relevant workers for the channel'''
-        class_name = transports.get(self._properties['type'])
+        '''Starts the relevant workers for the channel. ``service`` is the
+        parent of under which the workers should be started.'''
+        class_name = transports.get(self._properties.get('type'))
         if class_name is None:
             raise InvalidChannelType(
-                'Invalid channel type %r, must be one of: %r' % (
-                    self._properties['type'], transports.keys()))
-        options = deepcopy(VumiOptions
+                'Invalid channel type %r, must be one of: %s' % (
+                    self._properties.get('type'),
+                    ', '.join(transports.keys())))
         workercreator = WorkerCreator(VumiOptions.default_vumi_options)
+        config = self._convert_unicode(self._properties['config'])
         self.transport_worker = workercreator.create_worker(
-            class_name, self._properties['config'])
-        self.transport_worker.setServiceParent(service)
+            class_name, config)
+        self.transport_worker.setName(self.id)
+        if service is not None:
+            self.transport_worker.setServiceParent(service)
 
     @inlineCallbacks
     def stop(self):
@@ -72,16 +94,18 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis_config, id):
+    def from_id(cls, redis_config, id, parent):
         '''Creates a channel by loading the data from redis, given the
-        channel's id'''
+        channel's id, and the parent service of the channel'''
         redis_base = RedisManager.from_config(redis_config)
         redis = redis_base.sub_manager(id)
         properties = yield redis.get('properties')
         if properties is None:
             raise ChannelNotFound()
         properties = json.loads(properties)
-        returnValue(cls(redis_config, properties, id))
+        obj = cls(redis_config, properties, id)
+        obj.transport_worker = parent.getServiceNamed(id)
+        returnValue(obj)
 
     @classmethod
     def get_all(cls, redis_config):
