@@ -1,5 +1,6 @@
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
+from vumi.tests.fake_amqp import FakeAMQPBroker
 from vumi.tests.helpers import PersistenceHelper
 
 from junebug.service import JunebugService
@@ -14,7 +15,7 @@ class TestJunebugService(TestCase):
 
     @inlineCallbacks
     def test_start_service(self):
-        service = JunebugService('localhost', 0, self.redis._config)
+        service = JunebugService('localhost', 0, self.redis._config, {})
 
         server = yield service.startService()
         self.assertTrue(server.connected)

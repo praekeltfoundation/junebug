@@ -27,7 +27,7 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def start_server(self):
-        self.service = JunebugService('localhost', 0, self.redis._config)
+        self.service = JunebugService('localhost', 0, self.redis._config, {})
         self.server = yield self.service.startService()
         addr = self.server.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)

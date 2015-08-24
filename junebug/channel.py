@@ -32,14 +32,17 @@ transports = {
 
 
 class Channel(object):
-    def __init__(self, redis_config, properties, id=None, parent=None):
+    def __init__(
+            self, redis_config, amqp_config, properties, id=None,
+            parent=None):
         '''Creates a new channel. ``redis_config`` is the redis config, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
         channel data. If ``parent`` is supplied, the channel is automatically
         started as a child of parent, else it is not started, and can be
         started using the ``start`` function.'''
-        self._properties, self.id = properties, id
+        self._properties, self.id, self.amqp_config = (
+            properties, id, amqp_config)
         if self.id is None:
             self.id = str(uuid.uuid4())
         self._redis_base = RedisManager.from_config(redis_config)
@@ -67,7 +70,9 @@ class Channel(object):
                 'Invalid channel type %r, must be one of: %s' % (
                     self._properties.get('type'),
                     ', '.join(transports.keys())))
-        workercreator = WorkerCreator(VumiOptions.default_vumi_options)
+        options = deepcopy(VumiOptions.default_vumi_options)
+        options.update(self.amqp_config)
+        workercreator = WorkerCreator(options)
         config = self._convert_unicode(self._properties['config'])
         self.transport_worker = workercreator.create_worker(
             class_name, config)
@@ -94,7 +99,7 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis_config, id, parent):
+    def from_id(cls, redis_config, amqp_config, id, parent):
         '''Creates a channel by loading the data from redis, given the
         channel's id, and the parent service of the channel'''
         redis_base = RedisManager.from_config(redis_config)
@@ -103,7 +108,7 @@ class Channel(object):
         if properties is None:
             raise ChannelNotFound()
         properties = json.loads(properties)
-        obj = cls(redis_config, properties, id)
+        obj = cls(redis_config, amqp_config, properties, id)
         obj.transport_worker = parent.getServiceNamed(id)
         returnValue(obj)
 

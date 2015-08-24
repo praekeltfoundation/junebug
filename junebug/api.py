@@ -23,9 +23,10 @@ class ApiUsageError(JunebugError):
 class JunebugApi(object):
     app = Klein()
 
-    def __init__(self, service, redis_config):
+    def __init__(self, service, redis_config, amqp_config):
         self.service = service
         self.redis_config = redis_config
+        self.amqp_config = amqp_config
 
     @app.handle_errors(JunebugError)
     def generic_junebug_error(self, request, failure):
@@ -90,7 +91,8 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
-        channel = Channel(self.redis_config, body, parent=self.service)
+        channel = Channel(
+            self.redis_config, self.amqp_config, body, parent=self.service)
         yield channel.save()
         returnValue(response(
             request, 'channel created', (yield channel.status())))

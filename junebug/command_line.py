@@ -42,6 +42,26 @@ def parse_arguments(args):
         '--redis-password', '-redispass', dest='redis_pass', default=None,
         type=str,
         help='The password to use for the redis instance. Defaults to "None"')
+    parser.add_argument(
+        '--amqp-host', '-amqph', dest='amqp_host', default='127.0.0.1',
+        type=str,
+        help='The hostname of the amqp endpoint. Defaults to "127.0.0.1"')
+    parser.add_argument(
+        '--amqp-vhost', '-amqpvh', dest='amqp_vhost', default='/',
+        type=str,
+        help='The amqp vhost. Defaults to "/"')
+    parser.add_argument(
+        '--amqp-port', '-amqpp', dest='amqp_port', default=5672,
+        type=int,
+        help='The port of the amqp endpoint. Defaults to "5672"')
+    parser.add_argument(
+        '--amqp-user', '-amqpu', dest='amqp_user', default='guest',
+        type=str,
+        help='The username to use for the amqp auth. Defaults to "guest"')
+    parser.add_argument(
+        '--amqp-password', '-amqppass', dest='amqp_pass', default='guest',
+        type=str,
+        help='The password to use for the amqp auth. Defaults to "guest"')
 
     return parser.parse_args(args)
 
@@ -67,10 +87,10 @@ def logging_setup(filename):
         logging.getLogger().addHandler(handler)
 
 
-def start_server(interface, port, redis_config):
+def start_server(interface, port, redis_config, amqp_config):
     '''Starts a new Junebug HTTP API server on the specified resource and
     port'''
-    service = JunebugService(interface, port, redis_config)
+    service = JunebugService(interface, port, redis_config, amqp_config)
     return service.startService()
 
 
@@ -83,7 +103,14 @@ def main():
         'db': args.redis_db,
         'password': args.redis_pass,
     }
-    start_server(args.interface, args.port, redis_config)
+    amqp_config = {
+        'hostname': args.amqp_host,
+        'vhost': args.amqp_vhost,
+        'port': args.amqp_port,
+        'username': args.amqp_user,
+        'password': args.amqp_pass,
+    }
+    start_server(args.interface, args.port, redis_config, amqp_config)
     reactor.run()
 
 

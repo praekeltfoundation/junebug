@@ -90,6 +90,66 @@ class TestCommandLine(TestCase):
         args = parse_arguments(['-redispass', 'foo.bar'])
         self.assertEqual(args.redis_pass, 'foo.bar')
 
+    def test_parse_arguments_amqp_host(self):
+        '''The amqp host command line argument can be specified by
+        "--amqp-host" or "-amqph" and has a default value of "127.0.0.1"'''
+        args = parse_arguments([])
+        self.assertEqual(args.amqp_host, '127.0.0.1')
+
+        args = parse_arguments(['--amqp-host', 'foo.bar'])
+        self.assertEqual(args.amqp_host, 'foo.bar')
+
+        args = parse_arguments(['-amqph', 'foo.bar'])
+        self.assertEqual(args.amqp_host, 'foo.bar')
+
+    def test_parse_arguments_amqp_port(self):
+        '''The amqp port command line argument can be specified by
+        "--amqp-port" or "-amqpp" and has a default value of 5672'''
+        args = parse_arguments([])
+        self.assertEqual(args.amqp_port, 5672)
+
+        args = parse_arguments(['--amqp-port', '80'])
+        self.assertEqual(args.amqp_port, 80)
+
+        args = parse_arguments(['-amqpp', '80'])
+        self.assertEqual(args.amqp_port, 80)
+
+    def test_parse_arguments_amqp_username(self):
+        '''The amqp username command line argument can be specified by
+        "--amqp-user" or "-amqpu" and has a default value of "guest"'''
+        args = parse_arguments([])
+        self.assertEqual(args.amqp_user, 'guest')
+
+        args = parse_arguments(['--amqp-user', 'test'])
+        self.assertEqual(args.amqp_user, 'test')
+
+        args = parse_arguments(['-amqpu', 'test'])
+        self.assertEqual(args.amqp_user, 'test')
+
+    def test_parse_arguments_amqp_password(self):
+        '''The amqp password command line argument can be specified by
+        "--amqp-password" or "-amqppass" and has a default value of "guest"'''
+        args = parse_arguments([])
+        self.assertEqual(args.amqp_pass, 'guest')
+
+        args = parse_arguments(['--amqp-password', 'foo.bar'])
+        self.assertEqual(args.amqp_pass, 'foo.bar')
+
+        args = parse_arguments(['-amqppass', 'foo.bar'])
+        self.assertEqual(args.amqp_pass, 'foo.bar')
+
+    def test_parse_arguments_amqp_vhost(self):
+        '''The amqp vhost command line argument can be specified by
+        "--amqp-vhost" or "-amqpv" and has a default value of "/"'''
+        args = parse_arguments([])
+        self.assertEqual(args.amqp_vhost, '/')
+
+        args = parse_arguments(['--amqp-vhost', 'foo.bar'])
+        self.assertEqual(args.amqp_vhost, 'foo.bar')
+
+        args = parse_arguments(['-amqpv', 'foo.bar'])
+        self.assertEqual(args.amqp_vhost, 'foo.bar')
+
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
         is not None, both the stdout logger and a file logger is created'''
@@ -113,11 +173,9 @@ class TestCommandLine(TestCase):
     def test_start_server(self):
         '''Starting the server should listen on the specified interface and
         port'''
-        port = start_server('localhost', 0, {})
+        port = start_server('localhost', 0, {}, {})
         host = port.getHost()
         self.assertEqual(host.host, '127.0.0.1')
         self.assertEqual(host.type, 'TCP')
         self.assertTrue(host.port > 0)
         port.stopListening()
-
-
