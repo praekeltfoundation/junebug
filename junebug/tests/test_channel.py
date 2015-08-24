@@ -57,7 +57,7 @@ class TestJunebugApi(TestCase):
 
         channel2 = yield Channel.from_id(
             self.redis._config, channel1.id, self.service)
-        self.assertEqual(channel1.status, channel2.status)
+        self.assertEqual((yield channel1.status()), (yield channel2.status()))
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):
@@ -65,12 +65,13 @@ class TestJunebugApi(TestCase):
             Channel.from_id(
                 self.redis._config, 'foobar', None), ChannelNotFound)
 
+    @inlineCallbacks
     def test_channel_status(self):
         channel = Channel(self.redis._config, self.test_config, 'channel-id')
         expected_response = deepcopy(self.test_config)
         expected_response['id'] = 'channel-id'
         expected_response['status'] = {}
-        self.assertEqual(channel.status, expected_response)
+        self.assertEqual((yield channel.status()), expected_response)
 
     @inlineCallbacks
     def test_get_all_channels(self):

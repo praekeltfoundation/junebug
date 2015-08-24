@@ -4,7 +4,7 @@ from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 
-from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
+from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
@@ -87,9 +87,13 @@ class JunebugApi(object):
             },
             'required': ['type', 'config', 'mo_url'],
         }))
+    @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
-        raise NotImplementedError()
+        channel = Channel(self.redis_config, body, parent=self.service)
+        yield channel.save()
+        returnValue(response(
+            request, 'channel created', (yield channel.status())))
 
     @app.route('/channels/<string:channel_id>', methods=['GET'])
     def get_channel(self, request, channel_id):

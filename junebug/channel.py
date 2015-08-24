@@ -113,7 +113,6 @@ class Channel(object):
         redis = RedisManager.from_config(redis_config)
         return redis.smembers('channels')
 
-    @property
     def status(self):
         '''Returns a dict with the configuration and status of the channel'''
         status = deepcopy(self._properties)

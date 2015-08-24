@@ -4,6 +4,7 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twisted.web import http
+from vumi.tests.helpers import PersistenceHelper
 
 from junebug.service import JunebugService
 
@@ -13,6 +14,9 @@ class TestJunebugApi(TestCase):
     def setUp(self):
         self.logging_handler = logging.handlers.MemoryHandler(100)
         logging.getLogger().addHandler(self.logging_handler)
+        self.persistencehelper = PersistenceHelper()
+        yield self.persistencehelper.setup()
+        self.redis = yield self.persistencehelper.get_redis_manager()
         yield self.start_server()
 
     @inlineCallbacks
@@ -23,7 +27,7 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def start_server(self):
-        self.service = JunebugService('localhost', 0)
+        self.service = JunebugService('localhost', 0, self.redis._config)
         self.server = yield self.service.startService()
         addr = self.server.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
@@ -46,9 +50,11 @@ class TestJunebugApi(TestCase):
         return treq.delete("%s%s" % (self.url, url), persistent=False)
 
     @inlineCallbacks
-    def assert_response(self, response, code, description, result):
+    def assert_response(self, response, code, description, result, ignore=[]):
         data = yield response.json()
         self.assertEqual(response.code, code)
+        for field in ignore:
+            data['result'].pop(field)
         self.assertEqual(data, {
             'status': code,
             'code': http.RESPONSES[code],
@@ -83,19 +89,38 @@ class TestJunebugApi(TestCase):
     @inlineCallbacks
     def test_create_channel(self):
         resp = yield self.post('/channels', {
-            'type': 'dummy_transport',
+            'type': 'telnet',
             'config': {
-                'transport_name': 'dummy_transport1'
+                'transport_name': 'dummy_transport1',
+                'twisted_endpoint': 'tcp:0',
             },
             'mo_url': 'http://foo.bar',
         })
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
-                'errors': [{
-                    'message': '',
-                    'type': 'NotImplementedError',
-                }]
+            resp, http.OK, 'channel created', {
+                'config': {
+                    'transport_name': 'dummy_transport1',
+                    'twisted_endpoint': 'tcp:0',
+                },
+                'mo_url': 'http://foo.bar',
+                'status': {},
+                'type': 'telnet',
+            }, ignore=['id'])
+        # Check that the transport is created with the correct config
+        [transport] = self.service.services
+        self.assertEqual(transport.parent, self.service)
+        self.assertEqual(transport.config, {
+            'transport_name': 'dummy_transport1',
+            'twisted_endpoint': 'tcp:0',
             })
+
+        # Check that the transport starts up and is listening
+        yield transport.setup_transport()
+        telnet_server = transport.telnet_server.getHost()
+        self.assertEqual(telnet_server.host, '0.0.0.0')
+        self.assertEqual(telnet_server.type, 'TCP')
+        self.assertTrue(telnet_server.port > 0)
+        yield transport.teardown_transport()
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):

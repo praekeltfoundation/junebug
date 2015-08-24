@@ -10,6 +10,7 @@ class JunebugService(MultiService, object):
     '''Base service that runs the HTTP API, and contains transports as child
     services'''
     def __init__(self, interface, port, redis_config):
+        super(JunebugService, self).__init__()
         self.interface = interface
         self.port = port
         self.redis_config = redis_config
