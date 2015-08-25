@@ -19,11 +19,10 @@ class JunebugService(MultiService, object):
     def startService(self):
         '''Starts the HTTP server, and returns the port object that the server
         is listening on'''
+        self.api = JunebugApi(
+            self, self.redis_config, self.amqp_config)
         self._port = reactor.listenTCP(
-            self.port, Site(
-                JunebugApi(
-                    self, self.redis_config, self.amqp_config
-                    ).app.resource()),
+            self.port, Site(self.api.app.resource()),
             interface=self.interface)
         log.msg('Junebug is listening on %s:%s' % (self.interface, self.port))
         return self._port

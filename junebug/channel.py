@@ -33,8 +33,7 @@ transports = {
 
 class Channel(object):
     def __init__(
-            self, redis_config, amqp_config, properties, id=None,
-            parent=None):
+            self, redis_config, amqp_config, properties, id=None):
         '''Creates a new channel. ``redis_config`` is the redis config, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
@@ -47,8 +46,6 @@ class Channel(object):
             self.id = str(uuid.uuid4())
         self._redis_base = RedisManager.from_config(redis_config)
         self._redis = self._redis_base.sub_manager(self.id)
-        if parent is not None:
-            self.start(parent)
 
     def _convert_unicode(self, data):
         # Twisted doesn't like it when we give unicode in for config things
@@ -61,7 +58,8 @@ class Channel(object):
         else:
             return data
 
-    def start(self, service):
+    @inlineCallbacks
+    def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
         class_name = transports.get(self._properties.get('type'))
@@ -72,18 +70,26 @@ class Channel(object):
                     ', '.join(transports.keys())))
         options = deepcopy(VumiOptions.default_vumi_options)
         options.update(self.amqp_config)
-        workercreator = WorkerCreator(options)
-        config = self._convert_unicode(self._properties['config'])
-        self.transport_worker = workercreator.create_worker(
-            class_name, config)
-        self.transport_worker.setName(self.id)
-        if service is not None:
-            self.transport_worker.setServiceParent(service)
+
+        # transport_worker parameter is for testing, if it isn't specified,
+        # create the transport worker
+        if transport_worker is None:
+            workercreator = WorkerCreator(options)
+            config = self._convert_unicode(self._properties['config'])
+            transport_worker = workercreator.create_worker(
+                class_name, config)
+        transport_worker.setName(self.id)
+        transport_worker.setServiceParent(service)
+        yield transport_worker.startService()
+        self.transport_worker = transport_worker
 
     @inlineCallbacks
     def stop(self):
         '''Stops the relevant workers for the channel'''
-        yield self.transport_worker.stopService()
+        if hasattr(self, 'transport_worker'):
+            yield self.transport_worker.stopService()
+            yield self.transport_worker.disownServiceParent()
+            del self.transport_worker
 
     @inlineCallbacks
     def save(self):

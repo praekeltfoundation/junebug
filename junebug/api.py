@@ -92,8 +92,9 @@ class JunebugApi(object):
     def create_channel(self, request, body):
         '''Create a channel'''
         channel = Channel(
-            self.redis_config, self.amqp_config, body, parent=self.service)
+            self.redis_config, self.amqp_config, body)
         yield channel.save()
+        yield channel.start(self.service)
         returnValue(response(
             request, 'channel created', (yield channel.status())))
 

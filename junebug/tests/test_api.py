@@ -4,9 +4,11 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twisted.web import http
-from vumi.tests.helpers import PersistenceHelper
+from vumi.tests.helpers import PersistenceHelper, WorkerHelper
+from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.service import JunebugService
+from junebug.channel import Channel
 
 
 class TestJunebugApi(TestCase):
@@ -18,12 +20,36 @@ class TestJunebugApi(TestCase):
         yield self.persistencehelper.setup()
         self.redis = yield self.persistencehelper.get_redis_manager()
         yield self.start_server()
+        self.test_config = {
+            'type': 'telnet',
+            'config': {
+                'transport_name': 'dummy_transport1',
+                'twisted_endpoint': 'tcp:0',
+            },
+            'mo_url': 'http://foo.bar',
+            }
+
+        yield self.patch_worker_creation()
 
     @inlineCallbacks
+    def patch_worker_creation(self):
+        self.worker_helper = WorkerHelper()
+        transport_worker = yield self.worker_helper.get_worker(
+            TelnetServerTransport, self.test_config['config'])
+        self.addCleanup(transport_worker.stopService)
+        self.transport_worker = transport_worker
+        yield transport_worker.startService()
+        self._replaced_functions = {'Channel.start': Channel.start}
+        old_start = Channel.start
+
+        def new_start(self, service):
+            return old_start(self, service, transport_worker)
+        Channel.start = new_start
+
     def tearDown(self):
         self.logging_handler.close()
         logging.getLogger().removeHandler(self.logging_handler)
-        yield self.stop_server()
+        Channel.start = self._replaced_functions['Channel.start']
 
     @inlineCallbacks
     def start_server(self):
@@ -31,10 +57,7 @@ class TestJunebugApi(TestCase):
         self.server = yield self.service.startService()
         addr = self.server.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
-
-    @inlineCallbacks
-    def stop_server(self):
-        yield self.service.stopService()
+        self.addCleanup(self.service.stopService)
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
@@ -90,18 +113,12 @@ class TestJunebugApi(TestCase):
     def test_create_channel(self):
         resp = yield self.post('/channels', {
             'type': 'telnet',
-            'config': {
-                'transport_name': 'dummy_transport1',
-                'twisted_endpoint': 'tcp:0',
-            },
+            'config': self.test_config,
             'mo_url': 'http://foo.bar',
         })
         yield self.assert_response(
             resp, http.OK, 'channel created', {
-                'config': {
-                    'transport_name': 'dummy_transport1',
-                    'twisted_endpoint': 'tcp:0',
-                },
+                'config': self.test_config,
                 'mo_url': 'http://foo.bar',
                 'status': {},
                 'type': 'telnet',
@@ -112,15 +129,9 @@ class TestJunebugApi(TestCase):
         self.assertEqual(transport.config, {
             'transport_name': 'dummy_transport1',
             'twisted_endpoint': 'tcp:0',
+            'worker_name': 'unnamed',
             })
-
-        # Check that the transport starts up and is listening
-        yield transport.setup_transport()
-        telnet_server = transport.telnet_server.getHost()
-        self.assertEqual(telnet_server.host, '0.0.0.0')
-        self.assertEqual(telnet_server.type, 'TCP')
-        self.assertTrue(telnet_server.port > 0)
-        yield transport.teardown_transport()
+        self.assertTrue(transport.running)
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
