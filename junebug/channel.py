@@ -14,14 +14,14 @@ from junebug.error import JunebugError
 class ChannelNotFound(JunebugError):
     '''Raised when a channel's data cannot be found.'''
     name = 'ChannelNotFound'
-    description = 'channel not found',
+    description = 'channel not found'
     code = http.NOT_FOUND
 
 
 class InvalidChannelType(JunebugError):
     '''Raised when an invalid channel type is specified'''
     name = 'InvalidChannelType',
-    description = 'invalid channel type',
+    description = 'invalid channel type'
     code = http.BAD_REQUEST
 
 

@@ -99,9 +99,13 @@ class JunebugApi(object):
             request, 'channel created', (yield channel.status())))
 
     @app.route('/channels/<string:channel_id>', methods=['GET'])
+    @inlineCallbacks
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
-        raise NotImplementedError()
+        channel = yield Channel.from_id(
+            self.redis_config, self.amqp_config, channel_id, self.service)
+        returnValue(response(
+            request, 'channel found', (yield channel.status())))
 
     @app.route('/channels/<string:channel_id>', methods=['POST'])
     @json_body

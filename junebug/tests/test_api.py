@@ -160,14 +160,29 @@ class TestJunebugApi(TestCase):
             })
 
     @inlineCallbacks
-    def test_get_channel(self):
+    def test_get_missing_channel(self):
         resp = yield self.get('/channels/foo-bar')
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
+                    'type': 'ChannelNotFound',
                 }]
+            })
+
+    @inlineCallbacks
+    def test_get_channel(self):
+        channel = Channel(self.redis._config, {}, {
+            'type': 'telnet',
+            }, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.get('/channels/test-channel')
+        yield self.assert_response(
+            resp, http.OK, 'channel found', {
+                'status': {},
+                'type': 'telnet',
+                'id': 'test-channel'
             })
 
     @inlineCallbacks
