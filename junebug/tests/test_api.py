@@ -9,55 +9,15 @@ from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.service import JunebugService
 from junebug.channel import Channel
+from junebug.tests.helpers import JunebugTestBase
 
 
-class TestJunebugApi(TestCase):
+class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
-        self.logging_handler = logging.handlers.MemoryHandler(100)
-        logging.getLogger().addHandler(self.logging_handler)
-        self.persistencehelper = PersistenceHelper()
-        yield self.persistencehelper.setup()
-        self.redis = yield self.persistencehelper.get_redis_manager()
+        self.patch_logger()
         yield self.start_server()
-        self.test_config = {
-            'type': 'telnet',
-            'config': {
-                'transport_name': 'dummy_transport1',
-                'twisted_endpoint': 'tcp:0',
-            },
-            'mo_url': 'http://foo.bar',
-            }
-
-        yield self.patch_worker_creation()
-
-    @inlineCallbacks
-    def patch_worker_creation(self):
-        self.worker_helper = WorkerHelper()
-        transport_worker = yield self.worker_helper.get_worker(
-            TelnetServerTransport, self.test_config['config'])
-        self.addCleanup(transport_worker.stopService)
-        self.transport_worker = transport_worker
-        yield transport_worker.startService()
-        self._replaced_functions = {'Channel.start': Channel.start}
-        old_start = Channel.start
-
-        def new_start(self, service):
-            return old_start(self, service, transport_worker)
-        Channel.start = new_start
-
-    def tearDown(self):
-        self.logging_handler.close()
-        logging.getLogger().removeHandler(self.logging_handler)
-        Channel.start = self._replaced_functions['Channel.start']
-
-    @inlineCallbacks
-    def start_server(self):
-        self.service = JunebugService('localhost', 0, self.redis._config, {})
-        self.server = yield self.service.startService()
-        addr = self.server.getHost()
-        self.url = "http://%s:%s" % (addr.host, addr.port)
-        self.addCleanup(self.service.stopService)
+        yield self.patch_worker_creation(TelnetServerTransport)
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
@@ -113,12 +73,12 @@ class TestJunebugApi(TestCase):
     def test_create_channel(self):
         resp = yield self.post('/channels', {
             'type': 'telnet',
-            'config': self.test_config,
+            'config': self.default_channel_config,
             'mo_url': 'http://foo.bar',
         })
         yield self.assert_response(
             resp, http.OK, 'channel created', {
-                'config': self.test_config,
+                'config': self.default_channel_config,
                 'mo_url': 'http://foo.bar',
                 'status': {},
                 'type': 'telnet',
@@ -172,7 +132,8 @@ class TestJunebugApi(TestCase):
 
     @inlineCallbacks
     def test_get_channel(self):
-        channel = Channel(self.redis._config, {}, {
+        redis = yield self.get_redis()
+        channel = Channel(redis._config, {}, {
             'type': 'telnet',
             }, 'test-channel')
         yield channel.save()
