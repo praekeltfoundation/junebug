@@ -5,7 +5,7 @@ from twisted.trial.unittest import TestCase
 from vumi.tests.helpers import PersistenceHelper, WorkerHelper
 from vumi.transports.telnet import TelnetServerTransport
 
-from junebug.channel import Channel, ChannelNotFound
+from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
 from junebug.service import JunebugService
 from junebug.tests.helpers import JunebugTestBase
 
@@ -27,7 +27,9 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, redis, TelnetServerTransport)
         properties = yield redis.get('%s:properties' % channel.id)
-        self.assertEqual(json.loads(properties), self.default_channel_config)
+        expected = deepcopy(self.default_channel_config)
+        expected['config']['worker_name'] = channel.id
+        self.assertEqual(json.loads(properties), expected)
 
     @inlineCallbacks
     def test_delete_channel(self):
@@ -35,7 +37,9 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, redis, TelnetServerTransport)
         properties = yield redis.get('%s:properties' % channel.id)
-        self.assertEqual(json.loads(properties), self.default_channel_config)
+        expected = deepcopy(self.default_channel_config)
+        expected['config']['worker_name'] = channel.id
+        self.assertEqual(json.loads(properties), expected)
 
         yield channel.delete()
         properties = yield redis.get('%s:properties' % channel.id)
@@ -48,6 +52,16 @@ class TestChannel(JunebugTestBase):
             self.service, redis, TelnetServerTransport)
         self.assertEqual(
             self.service.namedServices[channel.id], channel.transport_worker)
+
+    @inlineCallbacks
+    def test_create_channel_invalid_type(self):
+        redis = yield self.get_redis()
+        channel = yield self.create_channel(
+            self.service, redis, TelnetServerTransport)
+        channel._properties['type'] = 'foo'
+        err = yield self.assertFailure(channel.start(None), InvalidChannelType)
+        self.assertTrue(all(
+            s in err.message for s in ('xmpp', 'telnet', 'foo')))
 
     @inlineCallbacks
     def test_update_channel(self):
@@ -65,6 +79,7 @@ class TestChannel(JunebugTestBase):
             'status': {},
             'id': channel.id,
             })
+        expected['config']['worker_name'] = channel.id
         self.assertEqual(update, expected)
 
     @inlineCallbacks
@@ -101,10 +116,13 @@ class TestChannel(JunebugTestBase):
         redis = yield self.get_redis()
         channel = yield self.create_channel(
             self.service, redis, TelnetServerTransport, id='channel-id')
-        expected_response = deepcopy(self.default_channel_config)
-        expected_response['id'] = 'channel-id'
-        expected_response['status'] = {}
-        self.assertEqual((yield channel.status()), expected_response)
+        expected= deepcopy(self.default_channel_config)
+        expected.update({
+            'id': 'channel-id',
+            'status': {},
+            })
+        expected['config']['worker_name'] = channel.id
+        self.assertEqual((yield channel.status()), expected)
 
     @inlineCallbacks
     def test_get_all_channels(self):
@@ -121,3 +139,26 @@ class TestChannel(JunebugTestBase):
             self.service, redis, TelnetServerTransport)
         channels = yield Channel.get_all(redis._config)
         self.assertEqual(channels, set([channel1.id, channel2.id]))
+
+    @inlineCallbacks
+    def test_convert_unicode(self):
+        redis = yield self.get_redis()
+        channel = yield self.create_channel(
+            self.service, redis, TelnetServerTransport, id='channel-id')
+        resp = channel._convert_unicode({
+            u'both': u'unicode',
+            u'key': 'unicode',
+            'value': u'unicode',
+            'nested': {
+                u'unicode': u'nested'
+                },
+            })
+        for key, value in resp.iteritems():
+            self.assertTrue(isinstance(key, str))
+            if not isinstance(value, dict):
+                self.assertTrue(isinstance(value, str))
+        for key, value in resp['nested'].iteritems():
+            self.assertTrue(isinstance(key, str))
+            self.assertTrue(isinstance(value, str))
+
+        self.assertTrue(isinstance(channel._convert_unicode(1), int))

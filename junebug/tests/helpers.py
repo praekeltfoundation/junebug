@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
@@ -37,6 +38,7 @@ class JunebugTestBase(TestCase):
             config=default_channel_config, id=None):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
+        config = deepcopy(config)
         channel = Channel(redis._config, {}, config, id=id)
         config['config']['worker_name'] = channel.id
         transport_worker = yield WorkerHelper().get_worker(
