@@ -13,13 +13,13 @@ class JunebugTestBase(TestCase):
     helper functions'''
 
     default_channel_config = {
-            'type': 'telnet',
-            'config': {
-                'transport_name': 'dummy_transport1',
-                'twisted_endpoint': 'tcp:0',
-            },
-            'mo_url': 'http://foo.bar',
-        }
+        'type': 'telnet',
+        'config': {
+            'transport_name': 'dummy_transport1',
+            'twisted_endpoint': 'tcp:0',
+        },
+        'mo_url': 'http://foo.bar',
+    }
 
     def patch_logger(self):
         ''' Patches the logger with an in-memory logger, which is acccessable

@@ -141,7 +141,6 @@ class JunebugApi(object):
         returnValue(response(
             request, 'channel updated', (yield channel.update(body))))
 
-
     @app.route('/channels/<string:channel_id>', methods=['DELETE'])
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''

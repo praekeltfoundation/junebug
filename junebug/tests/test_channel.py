@@ -1,8 +1,6 @@
 from copy import deepcopy
 import json
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial.unittest import TestCase
-from vumi.tests.helpers import PersistenceHelper, WorkerHelper
+from twisted.internet.defer import inlineCallbacks
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
@@ -116,7 +114,7 @@ class TestChannel(JunebugTestBase):
         redis = yield self.get_redis()
         channel = yield self.create_channel(
             self.service, redis, TelnetServerTransport, id='channel-id')
-        expected= deepcopy(self.default_channel_config)
+        expected = deepcopy(self.default_channel_config)
         expected.update({
             'id': 'channel-id',
             'status': {},

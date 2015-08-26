@@ -1,14 +1,10 @@
 from copy import deepcopy
 import json
-import logging
 import treq
 from twisted.internet.defer import inlineCallbacks
-from twisted.trial.unittest import TestCase
 from twisted.web import http
-from vumi.tests.helpers import PersistenceHelper, WorkerHelper
 from vumi.transports.telnet import TelnetServerTransport
 
-from junebug.service import JunebugService
 from junebug.channel import Channel
 from junebug.tests.helpers import JunebugTestBase
 
@@ -167,7 +163,7 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post(
-                '/channels/test-channel', {'metadata': {'foo': 'bar'}})
+            '/channels/test-channel', {'metadata': {'foo': 'bar'}})
         expected = deepcopy(self.default_channel_config)
         expected.update({
             'status': {},
@@ -185,7 +181,7 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post(
-                '/channels/test-channel', {'config': {'name': 'bar'}})
+            '/channels/test-channel', {'config': {'name': 'bar'}})
         expected = deepcopy(self.default_channel_config)
         expected.update({
             'status': {},
