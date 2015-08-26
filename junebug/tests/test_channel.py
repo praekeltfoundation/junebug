@@ -50,6 +50,24 @@ class TestChannel(JunebugTestBase):
             self.service.namedServices[channel.id], channel.transport_worker)
 
     @inlineCallbacks
+    def test_update_channel(self):
+        self.maxDiff = None
+        redis = yield self.get_redis()
+        channel = yield self.create_channel(
+            self.service, redis, TelnetServerTransport)
+        self.assertEqual(
+            self.service.namedServices[channel.id], channel.transport_worker)
+
+        update = yield channel.update({'foo': 'bar'})
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'foo': 'bar',
+            'status': {},
+            'id': channel.id,
+            })
+        self.assertEqual(update, expected)
+
+    @inlineCallbacks
     def test_stop_channel(self):
         redis = yield self.get_redis()
         channel = yield self.create_channel(

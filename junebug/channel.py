@@ -37,15 +37,15 @@ class Channel(object):
         '''Creates a new channel. ``redis_config`` is the redis config, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
-        channel data. If ``parent`` is supplied, the channel is automatically
-        started as a child of parent, else it is not started, and can be
-        started using the ``start`` function.'''
-        self._properties, self.id, self.amqp_config = (
-            properties, id, amqp_config)
+        channel data. It can be started using the ``start`` function.'''
+        self._properties, self.id = properties, id
         if self.id is None:
             self.id = str(uuid.uuid4())
         self._redis_base = RedisManager.from_config(redis_config)
         self._redis = self._redis_base.sub_manager(self.id)
+
+        self.options = deepcopy(VumiOptions.default_vumi_options)
+        self.options.update(amqp_config)
 
     def _convert_unicode(self, data):
         # Twisted doesn't like it when we give unicode in for config things
@@ -68,13 +68,11 @@ class Channel(object):
                 'Invalid channel type %r, must be one of: %s' % (
                     self._properties.get('type'),
                     ', '.join(transports.keys())))
-        options = deepcopy(VumiOptions.default_vumi_options)
-        options.update(self.amqp_config)
 
         # transport_worker parameter is for testing, if it isn't specified,
         # create the transport worker
         if transport_worker is None:
-            workercreator = WorkerCreator(options)
+            workercreator = WorkerCreator(self.options)
             config = self._convert_unicode(self._properties['config'])
             transport_worker = workercreator.create_worker(
                 class_name, config)
@@ -97,6 +95,22 @@ class Channel(object):
         properties = json.dumps(self._properties)
         yield self._redis.set('properties', properties)
         yield self._redis_base.sadd('channels', self.id)
+
+    @inlineCallbacks
+    def update(self, properties):
+        '''Updates the channel configuration, saves the updated configuration,
+        and (if needed) restarts the channel with the new configuration.
+        Returns the updated configuration and status.'''
+        self._properties.update(properties)
+        yield self.save()
+
+        # Only restart if the channel config has changed
+        if properties.get('config') is not None:
+            service = self.transport_worker.parent
+            yield self.stop()
+            yield self.start(service)
+
+        returnValue((yield self.status()))
 
     @inlineCallbacks
     def delete(self):

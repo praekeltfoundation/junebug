@@ -133,9 +133,14 @@ class JunebugApi(object):
                 },
             },
         }))
+    @inlineCallbacks
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
-        raise NotImplementedError()
+        channel = yield Channel.from_id(
+            self.redis_config, self.amqp_config, channel_id, self.service)
+        returnValue(response(
+            request, 'channel updated', (yield channel.update(body))))
+
 
     @app.route('/channels/<string:channel_id>', methods=['DELETE'])
     def delete_channel(self, request, channel_id):

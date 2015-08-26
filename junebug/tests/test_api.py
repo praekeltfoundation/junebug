@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 import logging
 import treq
@@ -132,30 +133,67 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel(self):
+        self.maxDiff = None
         redis = yield self.get_redis()
-        channel = Channel(redis._config, {}, {
-            'type': 'telnet',
-            }, 'test-channel')
+        channel = Channel(
+            redis._config, {}, self.default_channel_config, u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            })
         yield self.assert_response(
-            resp, http.OK, 'channel found', {
-                'status': {},
-                'type': 'telnet',
-                'id': 'test-channel'
+            resp, http.OK, 'channel found', expected)
+
+    @inlineCallbacks
+    def test_modify_unknown_channel(self):
+        resp = yield self.post('/channels/foo-bar', {})
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'channel not found', {
+                'errors': [{
+                    'message': '',
+                    'type': 'ChannelNotFound',
+                }]
             })
 
     @inlineCallbacks
-    def test_modify_channel(self):
-        resp = yield self.post('/channels/foo-bar', {})
-        yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
-                'errors': [{
-                    'message': '',
-                    'type': 'NotImplementedError',
-                }]
+    def test_modify_channel_no_config_change(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis._config, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post(
+                '/channels/test-channel', {'metadata': {'foo': 'bar'}})
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            'metadata': {'foo': 'bar'},
             })
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', expected)
+
+    @inlineCallbacks
+    def test_modify_channel_config_change(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis._config, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post(
+                '/channels/test-channel', {'config': {'name': 'bar'}})
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            'config': {'name': 'bar'},
+            })
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', expected)
 
     @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
