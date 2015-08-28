@@ -173,7 +173,8 @@ class TestCommandLine(TestCase):
     def test_start_server(self):
         '''Starting the server should listen on the specified interface and
         port'''
-        port = start_server('localhost', 0, {}, {})
+        service = start_server('localhost', 0, {}, {})
+        port = service._port
         host = port.getHost()
         self.assertEqual(host.host, '127.0.0.1')
         self.assertEqual(host.type, 'TCP')

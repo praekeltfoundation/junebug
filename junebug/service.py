@@ -25,7 +25,6 @@ class JunebugService(MultiService, object):
             self.port, Site(self.api.app.resource()),
             interface=self.interface)
         log.msg('Junebug is listening on %s:%s' % (self.interface, self.port))
-        return self._port
 
     def stopService(self):
         '''Stops the HTTP server.'''

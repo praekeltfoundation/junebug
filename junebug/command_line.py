@@ -91,7 +91,8 @@ def start_server(interface, port, redis_config, amqp_config):
     '''Starts a new Junebug HTTP API server on the specified resource and
     port'''
     service = JunebugService(interface, port, redis_config, amqp_config)
-    return service.startService()
+    service.startService()
+    return service
 
 
 def main():
