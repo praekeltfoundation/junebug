@@ -68,7 +68,8 @@ class JunebugTestBase(TestCase):
         the url at "self.url"'''
         redis = yield self.get_redis()
         self.service = JunebugService('localhost', 0, redis._config, {})
-        server = yield self.service.startService()
+        yield self.service.startService()
+        server = self.service._port
         addr = server.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
         self.addCleanup(self.service.stopService)

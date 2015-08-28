@@ -16,7 +16,8 @@ class TestJunebugService(TestCase):
     def test_start_service(self):
         service = JunebugService('localhost', 0, self.redis._config, {})
 
-        server = yield service.startService()
+        yield service.startService()
+        server = service._port
         self.assertTrue(server.connected)
 
         yield service.stopService()
