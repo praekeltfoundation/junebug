@@ -160,12 +160,14 @@ class TestCommandLine(TestCase):
 
         filename = self.mktemp()
         logging_setup(filename)
-        [handler1, handler2] = sorted(logging.getLogger().handlers)
+        [handler1, handler2] = sorted(
+            logging.getLogger().handlers,
+            key=lambda h: hasattr(h, 'baseFilename'))
 
         self.assertEqual(
-            os.path.abspath(handler1.baseFilename),
+            os.path.abspath(handler2.baseFilename),
             os.path.abspath(filename))
-        self.assertEqual(handler2.stream.name, '<stdout>')
+        self.assertEqual(handler1.stream.name, '<stdout>')
 
         logging.getLogger().removeHandler(handler1)
         logging.getLogger().removeHandler(handler2)
