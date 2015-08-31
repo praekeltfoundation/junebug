@@ -13,49 +13,45 @@ class TestChannel(JunebugTestBase):
     def setUp(self):
         self.patch_logger()
 
-        redis = yield self.get_redis()
+        self.redis = yield self.get_redis()
         self.service = JunebugService(
-            'localhost', 0, redis._config, {})
+            'localhost', 0, self.redis._config, {})
         yield self.service.startService()
         self.addCleanup(self.service.stopService)
 
     @inlineCallbacks
     def test_save_channel(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
-        properties = yield redis.get('%s:properties' % channel.id)
+            self.service, self.redis, TelnetServerTransport)
+        properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
         expected['config']['worker_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
     @inlineCallbacks
     def test_delete_channel(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
-        properties = yield redis.get('%s:properties' % channel.id)
+            self.service, self.redis, TelnetServerTransport)
+        properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
         expected['config']['worker_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
         yield channel.delete()
-        properties = yield redis.get('%s:properties' % channel.id)
+        properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(properties, None)
 
     @inlineCallbacks
     def test_start_channel(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport)
         self.assertEqual(
             self.service.namedServices[channel.id], channel.transport_worker)
 
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport)
         channel._properties['type'] = 'foo'
         err = yield self.assertFailure(channel.start(None), InvalidChannelType)
         self.assertTrue(all(
@@ -63,10 +59,8 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_update_channel(self):
-        self.maxDiff = None
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport)
         self.assertEqual(
             self.service.namedServices[channel.id], channel.transport_worker)
 
@@ -82,9 +76,8 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_stop_channel(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport)
         self.assertEqual(
             self.service.namedServices[channel.id], channel.transport_worker)
 
@@ -93,27 +86,24 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel_from_id(self):
-        redis = yield self.get_redis()
         channel1 = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport)
 
         channel2 = yield self.create_channel_from_id(
-            self.service, redis, channel1.id)
+            self.service, self.redis, channel1.id)
         self.assertEqual((yield channel1.status()), (yield channel2.status()))
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):
-        redis = yield self.get_redis()
         yield self.assertFailure(
             self.create_channel_from_id(
-                self.service, redis, 'unknown-id'),
+                self.service, self.redis, 'unknown-id'),
             ChannelNotFound)
 
     @inlineCallbacks
     def test_channel_status(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
         expected = deepcopy(self.default_channel_config)
         expected.update({
             'id': 'channel-id',
@@ -124,25 +114,23 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_all_channels(self):
-        redis = yield self.get_redis()
-        channels = yield Channel.get_all(redis._config)
+        channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set())
 
         channel1 = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
-        channels = yield Channel.get_all(redis._config)
+            self.service, self.redis, TelnetServerTransport)
+        channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set([channel1.id]))
 
         channel2 = yield self.create_channel(
-            self.service, redis, TelnetServerTransport)
-        channels = yield Channel.get_all(redis._config)
+            self.service, self.redis, TelnetServerTransport)
+        channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set([channel1.id, channel2.id]))
 
     @inlineCallbacks
     def test_convert_unicode(self):
-        redis = yield self.get_redis()
         channel = yield self.create_channel(
-            self.service, redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
         resp = channel._convert_unicode({
             u'both': u'unicode',
             u'key': 'unicode',

@@ -39,7 +39,7 @@ class JunebugTestBase(TestCase):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         config = deepcopy(config)
-        channel = Channel(redis._config, {}, config, id=id)
+        channel = Channel(redis, {}, config, id=id)
         config['config']['worker_name'] = channel.id
         transport_worker = yield WorkerHelper().get_worker(
             transport_class, config['config'])
@@ -50,7 +50,7 @@ class JunebugTestBase(TestCase):
 
     def create_channel_from_id(self, service, redis, id):
         '''Creates an existing channel given the channel id'''
-        return Channel.from_id(redis._config, {}, id, service)
+        return Channel.from_id(redis, {}, id, service)
 
     @inlineCallbacks
     def get_redis(self):
@@ -60,6 +60,7 @@ class JunebugTestBase(TestCase):
         persistencehelper = PersistenceHelper()
         yield persistencehelper.setup()
         self.redis = yield persistencehelper.get_redis_manager()
+        self.addCleanup(persistencehelper.cleanup)
         returnValue(self.redis)
 
     @inlineCallbacks

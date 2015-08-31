@@ -129,10 +129,9 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel(self):
-        self.maxDiff = None
         redis = yield self.get_redis()
         channel = Channel(
-            redis._config, {}, self.default_channel_config, u'test-channel')
+            redis, {}, self.default_channel_config, u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
@@ -159,7 +158,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_modify_channel_no_config_change(self):
         redis = yield self.get_redis()
         channel = Channel(
-            redis._config, {}, self.default_channel_config, 'test-channel')
+            redis, {}, self.default_channel_config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post(
@@ -177,7 +176,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_modify_channel_config_change(self):
         redis = yield self.get_redis()
         channel = Channel(
-            redis._config, {}, self.default_channel_config, 'test-channel')
+            redis, {}, self.default_channel_config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post(

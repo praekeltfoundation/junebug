@@ -3,6 +3,7 @@ import logging
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel
 from junebug.error import JunebugError
@@ -61,6 +62,11 @@ class JunebugApi(object):
         '''List all channels'''
         raise NotImplementedError()
 
+    def _get_redis_manager(self):
+        if hasattr(self, 'redis'):
+            return self.redis
+        return TxRedisManager.from_config(self.redis_config)
+
     @app.route('/channels', methods=['POST'])
     @json_body
     @validate(
@@ -91,10 +97,12 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
+        redis = yield self._get_redis_manager()
         channel = Channel(
-            self.redis_config, self.amqp_config, body)
+            redis, self.amqp_config, body)
         yield channel.save()
         yield channel.start(self.service)
+        yield redis.close_manager()
         returnValue(response(
             request, 'channel created', (yield channel.status())))
 
@@ -102,10 +110,13 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
+        redis = yield self._get_redis_manager()
         channel = yield Channel.from_id(
-            self.redis_config, self.amqp_config, channel_id, self.service)
+            redis, self.amqp_config, channel_id, self.service)
+        resp = yield channel.status()
+        yield redis.close_manager()
         returnValue(response(
-            request, 'channel found', (yield channel.status())))
+            request, 'channel found', resp))
 
     @app.route('/channels/<string:channel_id>', methods=['POST'])
     @json_body
@@ -136,10 +147,13 @@ class JunebugApi(object):
     @inlineCallbacks
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
+        redis = yield self._get_redis_manager()
         channel = yield Channel.from_id(
-            self.redis_config, self.amqp_config, channel_id, self.service)
+            redis, self.amqp_config, channel_id, self.service)
+        resp = yield channel.update(body)
+        yield redis.close_manager()
         returnValue(response(
-            request, 'channel updated', (yield channel.update(body))))
+            request, 'channel updated', resp))
 
     @app.route('/channels/<string:channel_id>', methods=['DELETE'])
     def delete_channel(self, request, channel_id):

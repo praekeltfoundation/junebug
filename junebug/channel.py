@@ -6,7 +6,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
-from vumi.persist.redis_manager import RedisManager
 
 from junebug.error import JunebugError
 
@@ -33,16 +32,15 @@ transports = {
 
 class Channel(object):
     def __init__(
-            self, redis_config, amqp_config, properties, id=None):
-        '''Creates a new channel. ``redis_config`` is the redis config, from
+            self, redis_manager, amqp_config, properties, id=None):
+        '''Creates a new channel. ``redis_manager`` is the redis manager, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
         channel data. It can be started using the ``start`` function.'''
-        self._properties, self.id = properties, id
+        self._properties, self.id, self.redis = (
+            properties, id, redis_manager)
         if self.id is None:
             self.id = str(uuid.uuid4())
-        self._redis_base = RedisManager.from_config(redis_config)
-        self._redis = self._redis_base.sub_manager(self.id)
 
         self.options = deepcopy(VumiOptions.default_vumi_options)
         self.options.update(amqp_config)
@@ -93,8 +91,10 @@ class Channel(object):
     def save(self):
         '''Saves the channel data into redis.'''
         properties = json.dumps(self._properties)
-        yield self._redis.set('properties', properties)
-        yield self._redis_base.sadd('channels', self.id)
+        channel_redis = yield self.redis.sub_manager(self.id)
+        yield channel_redis.set('properties', properties)
+        yield self.redis.sadd('channels', self.id)
+        yield channel_redis.close_manager()
 
     @inlineCallbacks
     def update(self, properties):
@@ -115,28 +115,32 @@ class Channel(object):
     @inlineCallbacks
     def delete(self):
         '''Removes the channel data from redis'''
-        yield self._redis.delete('properties')
+        channel_redis = yield self.redis.sub_manager(self.id)
+        yield channel_redis.delete('properties')
+        yield channel_redis.close_manager()
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis_config, amqp_config, id, parent):
+    def from_id(cls, redis, amqp_config, id, parent):
         '''Creates a channel by loading the data from redis, given the
         channel's id, and the parent service of the channel'''
-        redis_base = RedisManager.from_config(redis_config)
-        redis = redis_base.sub_manager(id)
-        properties = yield redis.get('properties')
+        channel_redis = yield redis.sub_manager(id)
+        properties = yield channel_redis.get('properties')
         if properties is None:
+            yield channel_redis.close_manager()
             raise ChannelNotFound()
         properties = json.loads(properties)
-        obj = cls(redis_config, amqp_config, properties, id)
+        obj = cls(redis, amqp_config, properties, id)
         obj.transport_worker = parent.getServiceNamed(id)
+        yield channel_redis.close_manager()
         returnValue(obj)
 
     @classmethod
-    def get_all(cls, redis_config):
+    @inlineCallbacks
+    def get_all(cls, redis):
         '''Returns a set of keys of all of the channels'''
-        redis = RedisManager.from_config(redis_config)
-        return redis.smembers('channels')
+        channels = yield redis.smembers('channels')
+        returnValue(channels)
 
     def status(self):
         '''Returns a dict with the configuration and status of the channel'''
