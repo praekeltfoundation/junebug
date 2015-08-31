@@ -127,12 +127,10 @@ class Channel(object):
         channel_redis = yield redis.sub_manager(id)
         properties = yield channel_redis.get('properties')
         if properties is None:
-            yield channel_redis.close_manager()
             raise ChannelNotFound()
         properties = json.loads(properties)
         obj = cls(redis, amqp_config, properties, id)
         obj.transport_worker = parent.getServiceNamed(id)
-        yield channel_redis.close_manager()
         returnValue(obj)
 
     @classmethod
