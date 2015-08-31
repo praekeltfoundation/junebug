@@ -94,7 +94,6 @@ class Channel(object):
         channel_redis = yield self.redis.sub_manager(self.id)
         yield channel_redis.set('properties', properties)
         yield self.redis.sadd('channels', self.id)
-        yield channel_redis.close_manager()
 
     @inlineCallbacks
     def update(self, properties):
@@ -117,7 +116,6 @@ class Channel(object):
         '''Removes the channel data from redis'''
         channel_redis = yield self.redis.sub_manager(self.id)
         yield channel_redis.delete('properties')
-        yield channel_redis.close_manager()
 
     @classmethod
     @inlineCallbacks

@@ -4,6 +4,7 @@ import logging.handlers
 import sys
 
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
 
 from junebug.service import JunebugService
@@ -87,12 +88,13 @@ def logging_setup(filename):
         logging.getLogger().addHandler(handler)
 
 
+@inlineCallbacks
 def start_server(interface, port, redis_config, amqp_config):
     '''Starts a new Junebug HTTP API server on the specified resource and
     port'''
     service = JunebugService(interface, port, redis_config, amqp_config)
-    service.startService()
-    return service
+    yield service.startService()
+    returnValue(service)
 
 
 def main():

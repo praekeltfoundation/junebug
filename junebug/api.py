@@ -29,6 +29,14 @@ class JunebugApi(object):
         self.redis_config = redis_config
         self.amqp_config = amqp_config
 
+    @inlineCallbacks
+    def setup(self):
+        self.redis = yield TxRedisManager.from_config(self.redis_config)
+
+    @inlineCallbacks
+    def teardown(self):
+        yield self.redis.close_manager()
+
     @app.handle_errors(JunebugError)
     def generic_junebug_error(self, request, failure):
         return response(request, failure.value.description, {
@@ -62,11 +70,6 @@ class JunebugApi(object):
         '''List all channels'''
         raise NotImplementedError()
 
-    def _get_redis_manager(self):
-        if hasattr(self, 'redis'):
-            return self.redis
-        return TxRedisManager.from_config(self.redis_config)
-
     @app.route('/channels', methods=['POST'])
     @json_body
     @validate(
@@ -97,12 +100,10 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
-        redis = yield self._get_redis_manager()
         channel = Channel(
-            redis, self.amqp_config, body)
+            self.redis, self.amqp_config, body)
         yield channel.save()
         yield channel.start(self.service)
-        yield redis.close_manager()
         returnValue(response(
             request, 'channel created', (yield channel.status())))
 
@@ -110,11 +111,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
-        redis = yield self._get_redis_manager()
         channel = yield Channel.from_id(
-            redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.amqp_config, channel_id, self.service)
         resp = yield channel.status()
-        yield redis.close_manager()
         returnValue(response(
             request, 'channel found', resp))
 
@@ -147,11 +146,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
-        redis = yield self._get_redis_manager()
         channel = yield Channel.from_id(
-            redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.amqp_config, channel_id, self.service)
         resp = yield channel.update(body)
-        yield redis.close_manager()
         returnValue(response(
             request, 'channel updated', resp))
 

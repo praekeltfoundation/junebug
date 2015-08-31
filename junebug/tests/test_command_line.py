@@ -1,5 +1,6 @@
 import logging
 import os.path
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
 from junebug.command_line import parse_arguments, logging_setup, start_server
@@ -172,13 +173,14 @@ class TestCommandLine(TestCase):
         logging.getLogger().removeHandler(handler1)
         logging.getLogger().removeHandler(handler2)
 
+    @inlineCallbacks
     def test_start_server(self):
         '''Starting the server should listen on the specified interface and
         port'''
-        service = start_server('localhost', 0, {}, {})
+        service = yield start_server('localhost', 0, {}, {})
         port = service._port
         host = port.getHost()
         self.assertEqual(host.host, '127.0.0.1')
         self.assertEqual(host.type, 'TCP')
         self.assertTrue(host.port > 0)
-        port.stopListening()
+        yield service.stopService()
