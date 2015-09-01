@@ -3,7 +3,6 @@
 Installation via pip
 ====================
 
-
 Prerequisites
 -------------
 Junebug requires `Python`_ (version 2.6 or 2.7) to be installed. This installation
@@ -13,20 +12,17 @@ installation steps below.
 .. _Python: https://www.python.org/
 .. _pip: https://pip.pypa.io/en/latest/index.html
 
+
 Installation
 ------------
 Installation is performed by the following command:
 
 ``pip install junebug``
 
-.. warning::
-
-    The PyPI package for Junebug does not yet exist. Use
-    ``git+git://github.com/praekelt/junebug.git@develop`` to install the
-    latest code, instead of ``junebug``.
 
 pip dependancies
 ----------------
+
 pip will install the following requirements automatically:
 
 * `klein`_
