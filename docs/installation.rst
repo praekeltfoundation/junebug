@@ -20,7 +20,7 @@ Installation is performed by the following command:
 ``pip install junebug``
 
 
-pip dependancies
+pip dependencies
 ----------------
 
 pip will install the following requirements automatically:
