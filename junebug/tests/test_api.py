@@ -57,14 +57,26 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel_list(self):
+        redis = yield self.get_redis()
+        config = self.default_channel_config
+
         resp = yield self.get('/channels')
-        yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
-                'errors': [{
-                    'message': '',
-                    'type': 'NotImplementedError',
-                    }]
-                })
+        yield self.assert_response(resp, http.OK, 'channels listed', [])
+
+        yield Channel(redis, {}, config, u'test-channel-1').save()
+
+        resp = yield self.get('/channels')
+        yield self.assert_response(resp, http.OK, 'channels listed', [
+            u'test-channel-1',
+        ])
+
+        yield Channel(redis, {}, config, u'test-channel-2').save()
+
+        resp = yield self.get('/channels')
+        yield self.assert_response(resp, http.OK, 'channels listed', [
+            u'test-channel-1',
+            u'test-channel-2',
+        ])
 
     @inlineCallbacks
     def test_create_channel(self):

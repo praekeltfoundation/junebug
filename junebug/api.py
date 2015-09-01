@@ -66,9 +66,11 @@ class JunebugApi(object):
             }, code=http.INTERNAL_SERVER_ERROR)
 
     @app.route('/channels', methods=['GET'])
+    @inlineCallbacks
     def get_channel_list(self, request):
         '''List all channels'''
-        raise NotImplementedError()
+        ids = yield Channel.get_all(self.redis)
+        returnValue(response(request, 'channels listed', sorted(ids)))
 
     @app.route('/channels', methods=['POST'])
     @json_body
