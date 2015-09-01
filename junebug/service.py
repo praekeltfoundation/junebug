@@ -21,6 +21,7 @@ class JunebugService(MultiService, object):
     def startService(self):
         '''Starts the HTTP server, and returns the port object that the server
         is listening on'''
+        super(JunebugService, self).startService()
         self.api = JunebugApi(
             self, self.redis_config, self.amqp_config)
         yield self.api.setup()
@@ -34,3 +35,4 @@ class JunebugService(MultiService, object):
         '''Stops the HTTP server.'''
         yield self.api.teardown()
         yield self._port.stopListening()
+        super(JunebugService, self).stopService()
