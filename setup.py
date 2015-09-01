@@ -23,6 +23,7 @@ setup(
         'klein',
         'jsonschema',
         'treq',
+        'vumi',
     ],
     entry_points='''
     [console_scripts]

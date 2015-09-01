@@ -1,38 +1,20 @@
+from copy import deepcopy
 import json
-import logging
 import treq
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
-from twisted.trial.unittest import TestCase
 from twisted.web import http
-from twisted.web.server import Site
+from vumi.transports.telnet import TelnetServerTransport
 
-from junebug.api import JunebugApi
+from junebug.channel import Channel
+from junebug.tests.helpers import JunebugTestBase
 
 
-class TestJunebugApi(TestCase):
+class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
-        self.logging_handler = logging.handlers.MemoryHandler(100)
-        logging.getLogger().addHandler(self.logging_handler)
+        self.patch_logger()
         yield self.start_server()
-
-    @inlineCallbacks
-    def tearDown(self):
-        self.logging_handler.close()
-        logging.getLogger().removeHandler(self.logging_handler)
-        yield self.stop_server()
-
-    @inlineCallbacks
-    def start_server(self):
-        self.app = JunebugApi()
-        self.server = yield reactor.listenTCP(0, Site(self.app.app.resource()))
-        addr = self.server.getHost()
-        self.url = "http://%s:%s" % (addr.host, addr.port)
-
-    @inlineCallbacks
-    def stop_server(self):
-        yield self.server.loseConnection()
+        yield self.patch_worker_creation(TelnetServerTransport)
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
@@ -48,9 +30,11 @@ class TestJunebugApi(TestCase):
         return treq.delete("%s%s" % (self.url, url), persistent=False)
 
     @inlineCallbacks
-    def assert_response(self, response, code, description, result):
+    def assert_response(self, response, code, description, result, ignore=[]):
         data = yield response.json()
         self.assertEqual(response.code, code)
+        for field in ignore:
+            data['result'].pop(field)
         self.assertEqual(data, {
             'status': code,
             'code': http.RESPONSES[code],
@@ -85,19 +69,26 @@ class TestJunebugApi(TestCase):
     @inlineCallbacks
     def test_create_channel(self):
         resp = yield self.post('/channels', {
-            'type': 'dummy_transport',
-            'config': {
-                'transport_name': 'dummy_transport1'
-            },
+            'type': 'telnet',
+            'config': self.default_channel_config,
             'mo_url': 'http://foo.bar',
         })
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
-                'errors': [{
-                    'message': '',
-                    'type': 'NotImplementedError',
-                }]
+            resp, http.OK, 'channel created', {
+                'config': self.default_channel_config,
+                'mo_url': 'http://foo.bar',
+                'status': {},
+                'type': 'telnet',
+            }, ignore=['id'])
+        # Check that the transport is created with the correct config
+        [transport] = self.service.services
+        self.assertEqual(transport.parent, self.service)
+        self.assertEqual(transport.config, {
+            'transport_name': 'dummy_transport1',
+            'twisted_endpoint': 'tcp:0',
+            'worker_name': 'unnamed',
             })
+        self.assertTrue(transport.running)
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
@@ -126,26 +117,78 @@ class TestJunebugApi(TestCase):
             })
 
     @inlineCallbacks
-    def test_get_channel(self):
+    def test_get_missing_channel(self):
         resp = yield self.get('/channels/foo-bar')
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
+                    'type': 'ChannelNotFound',
                 }]
             })
 
     @inlineCallbacks
-    def test_modify_channel(self):
+    def test_get_channel(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis, {}, self.default_channel_config, u'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.get('/channels/test-channel')
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            })
+        yield self.assert_response(
+            resp, http.OK, 'channel found', expected)
+
+    @inlineCallbacks
+    def test_modify_unknown_channel(self):
         resp = yield self.post('/channels/foo-bar', {})
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
+                    'type': 'ChannelNotFound',
                 }]
             })
+
+    @inlineCallbacks
+    def test_modify_channel_no_config_change(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post(
+            '/channels/test-channel', {'metadata': {'foo': 'bar'}})
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            'metadata': {'foo': 'bar'},
+            })
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', expected)
+
+    @inlineCallbacks
+    def test_modify_channel_config_change(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post(
+            '/channels/test-channel', {'config': {'name': 'bar'}})
+        expected = deepcopy(self.default_channel_config)
+        expected.update({
+            'status': {},
+            'id': 'test-channel',
+            'config': {'name': 'bar'},
+            })
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', expected)
 
     @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
