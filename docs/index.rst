@@ -20,7 +20,7 @@ Contents:
    :maxdepth: 2
 
    installation
-   running
+   cli-reference
    design
    http_api
 
@@ -31,4 +31,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

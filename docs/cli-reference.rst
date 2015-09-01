@@ -1,7 +1,7 @@
 .. Junebug command line
 
-Running Junebug
-===============
+Command-line Reference
+======================
 
 Running junebug is done through the ``jb`` command.
 
