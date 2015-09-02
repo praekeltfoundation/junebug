@@ -20,6 +20,7 @@ Contents:
    :maxdepth: 2
 
    installation
+   getting-started
    cli-reference
    design
    http_api
