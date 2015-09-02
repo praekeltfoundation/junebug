@@ -118,7 +118,7 @@ Channels
 Messages
 ^^^^^^^^
 
-.. http:post:: /channels/(channel_id:str)/messages
+.. http:post:: /channels/(channel_id:str)/messages/
 
    Send an outbound (mobile terminated) message.
 

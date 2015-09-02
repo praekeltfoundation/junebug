@@ -235,7 +235,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message(self):
-        resp = yield self.post('/channels/foo-bar/messages', {
+        resp = yield self.post('/channels/foo-bar/messages/', {
             'to': '+1234'})
         yield self.assert_response(
             resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
@@ -247,7 +247,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages', {})
+        resp = yield self.post('/channels/foo-bar/messages/', {})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -258,7 +258,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages', {
+        resp = yield self.post('/channels/foo-bar/messages/', {
             'to': '+1234',
             'reply_to': '2e8u9ua8',
         })

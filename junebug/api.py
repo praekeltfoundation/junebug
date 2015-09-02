@@ -159,7 +159,7 @@ class JunebugApi(object):
         '''Delete the channel'''
         raise NotImplementedError()
 
-    @app.route('/channels/<string:channel_id>/messages', methods=['POST'])
+    @app.route('/channels/<string:channel_id>/messages/', methods=['POST'])
     @json_body
     @validate(
         body_schema({
