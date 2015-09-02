@@ -18,12 +18,12 @@ HTTP API endpoints
 Channels
 ^^^^^^^^
 
-.. http:get:: /channels
+.. http:get:: /channels/
 
    List all channels
 
 
-.. http:post:: /channels
+.. http:post:: /channels/
 
    Create a channel.
 
