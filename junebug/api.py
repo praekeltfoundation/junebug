@@ -1,10 +1,13 @@
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
+from twisted.application.internet import TCPClient
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
 
+from junebug.amqp import AmqpFactory
 from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
@@ -32,6 +35,10 @@ class JunebugApi(object):
     @inlineCallbacks
     def setup(self):
         self.redis = yield TxRedisManager.from_config(self.redis_config)
+        self.amqp_factory = AmqpFactory('amqp-spec-0-8.xml', self.amqp_config)
+        service = TCPClient(
+            self.amqp_config['hostname'], self.amqp_config['port'], self.amqp_factory)
+        service.setServiceParent(self.service)
 
     @inlineCallbacks
     def teardown(self):
@@ -171,6 +178,7 @@ class JunebugApi(object):
                 'channel_data': {'type': 'object'},
             }
         }))
+    @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
         to_addr = body.get('to')
@@ -182,7 +190,10 @@ class JunebugApi(object):
             raise ApiUsageError(
                 'Only one of "to" and "reply_to" may be specified')
 
-        raise NotImplementedError()
+        channel = yield Channel.from_id(
+            self.redis, self.amqp_config, channel_id, self.service)
+        amqp_client = yield self.amqp_factory.get_client()
+        msg = yield channel.send_message(amqp_client, channel_id, to_addr, '')
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
@@ -193,4 +204,4 @@ class JunebugApi(object):
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
-        return response(request, 'health ok', {})
+        returnValue(response(request, 'health ok', {}))
