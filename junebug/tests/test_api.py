@@ -60,19 +60,19 @@ class TestJunebugApi(JunebugTestBase):
         redis = yield self.get_redis()
         config = self.default_channel_config
 
-        resp = yield self.get('/channels')
+        resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [])
 
         yield Channel(redis, {}, config, u'test-channel-1').save()
 
-        resp = yield self.get('/channels')
+        resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
             u'test-channel-1',
         ])
 
         yield Channel(redis, {}, config, u'test-channel-2').save()
 
-        resp = yield self.get('/channels')
+        resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
             u'test-channel-1',
             u'test-channel-2',
@@ -80,7 +80,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel(self):
-        resp = yield self.post('/channels', {
+        resp = yield self.post('/channels/', {
             'type': 'telnet',
             'config': self.default_channel_config,
             'mo_url': 'http://foo.bar',
@@ -104,7 +104,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
-        resp = yield self.post('/channels', {
+        resp = yield self.post('/channels/', {
             'type': 'smpp',
             'config': {},
             'rate_limit_count': -3,
@@ -235,7 +235,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message(self):
-        resp = yield self.post('/channels/foo-bar/messages', {
+        resp = yield self.post('/channels/foo-bar/messages/', {
             'to': '+1234'})
         yield self.assert_response(
             resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
@@ -247,7 +247,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages', {})
+        resp = yield self.post('/channels/foo-bar/messages/', {})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -258,7 +258,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages', {
+        resp = yield self.post('/channels/foo-bar/messages/', {
             'to': '+1234',
             'reply_to': '2e8u9ua8',
         })

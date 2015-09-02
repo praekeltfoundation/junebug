@@ -18,12 +18,12 @@ HTTP API endpoints
 Channels
 ^^^^^^^^
 
-.. http:get:: /channels
+.. http:get:: /channels/
 
    List all channels
 
 
-.. http:post:: /channels
+.. http:post:: /channels/
 
    Create a channel.
 
@@ -118,7 +118,7 @@ Channels
 Messages
 ^^^^^^^^
 
-.. http:post:: /channels/(channel_id:str)/messages
+.. http:post:: /channels/(channel_id:str)/messages/
 
    Send an outbound (mobile terminated) message.
 
