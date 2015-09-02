@@ -224,14 +224,34 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_channel(self):
-        resp = yield self.delete('/channels/foo-bar')
+        channel = Channel(
+            self.redis, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        self.assertTrue('test-channel' in self.service.namedServices)
+        properties = yield self.redis.get('test-channel:properties')
+        self.assertNotEqual(properties, None)
+
+        resp = yield self.delete('/channels/test-channel')
+        yield self.assert_response(resp, http.OK, 'channel deleted', {})
+
+        self.assertFalse('test-channel' in self.service.namedServices)
+        properties = yield self.redis.get('test-channel:properties')
+        self.assertEqual(properties, None)
+
+        resp = yield self.delete('/channels/test-channel')
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
+                    'type': 'ChannelNotFound',
                 }]
             })
+
+        self.assertFalse('test-channel' in self.service.namedServices)
+        properties = yield self.redis.get('test-channel:properties')
+        self.assertEqual(properties, None)
 
     @inlineCallbacks
     def test_send_message(self):
