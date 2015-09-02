@@ -145,3 +145,8 @@ class Channel(object):
         # TODO: Implement channel status
         status['status'] = {}
         return status
+
+    def send_message(self, amq_client, id, to_addr, content, **kw):
+        message = TransportUserMessage(to_addr, content, **kw)
+        queue = '%s.outbound' % id
+        return amq_client.publish_message(message, routing_key=queue)
