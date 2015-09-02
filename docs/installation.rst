@@ -15,9 +15,15 @@ installation steps below.
 
 Installation
 ------------
-Installation is performed by the following command:
+
+Junebug can be installed using:
 
 ``pip install junebug``
+
+You'll also need Redis and RabbitMQ. On Debian based systems one can install
+these using:
+
+``apt-get install redis-server rabbitmq-server``
 
 
 pip dependencies
