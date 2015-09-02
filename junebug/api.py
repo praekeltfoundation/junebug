@@ -204,4 +204,4 @@ class JunebugApi(object):
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
-        returnValue(response(request, 'health ok', {}))
+        return response(request, 'health ok', {})
