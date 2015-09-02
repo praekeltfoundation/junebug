@@ -228,7 +228,10 @@ class TestJunebugApi(JunebugTestBase):
             self.redis, {}, self.default_channel_config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
+
         self.assertTrue('test-channel' in self.service.namedServices)
+        properties = yield self.redis.get('test-channel:properties')
+        self.assertNotEqual(properties, None)
 
         resp = yield self.delete('/channels/test-channel')
         yield self.assert_response(resp, http.OK, 'channel deleted', {})
