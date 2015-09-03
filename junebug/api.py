@@ -73,12 +73,14 @@ class JunebugApi(object):
                 }]
             }, code=http.INTERNAL_SERVER_ERROR)
 
-    @app.route('/channels', methods=['GET'])
+    @app.route('/channels/', methods=['GET'])
+    @inlineCallbacks
     def get_channel_list(self, request):
         '''List all channels'''
-        raise NotImplementedError()
+        ids = yield Channel.get_all(self.redis)
+        returnValue(response(request, 'channels listed', sorted(ids)))
 
-    @app.route('/channels', methods=['POST'])
+    @app.route('/channels/', methods=['POST'])
     @json_body
     @validate(
         body_schema({
@@ -161,11 +163,17 @@ class JunebugApi(object):
             request, 'channel updated', resp))
 
     @app.route('/channels/<string:channel_id>', methods=['DELETE'])
+    @inlineCallbacks
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''
-        raise NotImplementedError()
+        channel = yield Channel.from_id(
+            self.redis, self.amqp_config, channel_id, self.service)
+        yield channel.stop()
+        yield channel.delete()
+        returnValue(response(
+            request, 'channel deleted', {}))
 
-    @app.route('/channels/<string:channel_id>/messages', methods=['POST'])
+    @app.route('/channels/<string:channel_id>/messages/', methods=['POST'])
     @json_body
     @validate(
         body_schema({

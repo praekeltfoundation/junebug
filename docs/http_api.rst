@@ -18,12 +18,12 @@ HTTP API endpoints
 Channels
 ^^^^^^^^
 
-.. http:get:: /channels
+.. http:get:: /channels/
 
    List all channels
 
 
-.. http:post:: /channels
+.. http:post:: /channels/
 
    Create a channel.
 
@@ -105,7 +105,7 @@ Channels
 
    Modify a channel's configuration.
 
-   Accepts the same parameters as :http:post:`/channels`. Only the
+   Accepts the same parameters as :http:post:`/channels/`. Only the
    parameters provided are updated. Others retain their original
    values.
 
@@ -118,7 +118,7 @@ Channels
 Messages
 ^^^^^^^^
 
-.. http:post:: /channels/(channel_id:str)/messages
+.. http:post:: /channels/(channel_id:str)/messages/
 
    Send an outbound (mobile terminated) message.
 
@@ -200,7 +200,7 @@ Events
 ------
 
 Events POSTed to the ``event_url`` specified in
-:http:post:`/channels/(channel_id:str)/messages` have the following
+:http:post:`/channels/(channel_id:str)/messages/` have the following
 format:
 
 .. http:post:: /event/url
