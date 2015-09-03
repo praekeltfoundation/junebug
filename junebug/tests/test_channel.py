@@ -14,10 +14,7 @@ class TestChannel(JunebugTestBase):
         self.patch_logger()
 
         self.redis = yield self.get_redis()
-        self.service = JunebugService(
-            'localhost', 0, self.redis._config, {})
-        yield self.service.startService()
-        self.addCleanup(self.service.stopService)
+        yield self.start_server()
 
     @inlineCallbacks
     def test_save_channel(self):
@@ -148,3 +145,8 @@ class TestChannel(JunebugTestBase):
             self.assertTrue(isinstance(value, str))
 
         self.assertTrue(isinstance(channel._convert_unicode(1), int))
+
+    @inlineCallbacks
+    def test_send_message(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')

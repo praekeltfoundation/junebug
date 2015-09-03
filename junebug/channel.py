@@ -4,6 +4,7 @@ import json
 import uuid
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
@@ -28,6 +29,14 @@ transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
 }
+
+allowed_message_fields = [
+    'transport_name', 'timestamp', 'in_reply_to', 'to_addr', 'from_addr',
+    'content', 'session_event', 'transport_type', 'helper_metadata',
+    'message_id']
+# excluded fields: from_addr_type, group, provider, routing_metadata,
+# to_addr_type, from_addr_type, message_version, transport_metadata,
+# message_type
 
 
 class Channel(object):
@@ -146,7 +155,15 @@ class Channel(object):
         status['status'] = {}
         return status
 
+    @inlineCallbacks
     def send_message(self, amq_client, id, to_addr, content, **kw):
-        message = TransportUserMessage(to_addr, content, **kw)
+        message = TransportUserMessage.send(
+            to_addr=to_addr, content=content, 
+            transport_name=self.id, transport_type=self._properties['type'])
         queue = '%s.outbound' % id
-        return amq_client.publish_message(message, routing_key=queue)
+        msg = yield amq_client.publish_message(message, routing_key=queue)
+        ret = {}
+        for key, val in msg.payload.iteritems():
+            if key in allowed_message_fields:
+                ret[key] = val
+        returnValue(ret)
