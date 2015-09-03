@@ -1,3 +1,4 @@
+import json
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
@@ -36,9 +37,9 @@ class JunebugApi(object):
     def setup(self):
         self.redis = yield TxRedisManager.from_config(self.redis_config)
         self.amqp_factory = AmqpFactory('amqp-spec-0-8.xml', self.amqp_config)
-        service = TCPClient(
+        amqp_service = TCPClient(
             self.amqp_config['hostname'], self.amqp_config['port'], self.amqp_factory)
-        service.setServiceParent(self.service)
+        amqp_service.setServiceParent(self.service)
 
     @inlineCallbacks
     def teardown(self):
@@ -171,12 +172,14 @@ class JunebugApi(object):
             'type': 'object',
             'properties': {
                 'to': {'type': 'string'},
-                'from': {'type': 'string'},
+                'from': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
+                'content': {'type': 'string'},
                 'event_url': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
-            }
+            },
+            'required': ['from'],
         }))
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
@@ -193,7 +196,9 @@ class JunebugApi(object):
         channel = yield Channel.from_id(
             self.redis, self.amqp_config, channel_id, self.service)
         amqp_client = yield self.amqp_factory.get_client()
-        msg = yield channel.send_message(amqp_client, channel_id, to_addr, '')
+        content = body.get('content')
+        msg = yield channel.send_message(amqp_client, channel_id, to_addr, content)
+        returnValue(response(request, 'message sent', msg))
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',

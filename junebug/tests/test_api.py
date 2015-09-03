@@ -222,20 +222,47 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
-    def test_send_message(self):
+    def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages', {
-            'to': '+1234'})
+            'to': '+1234', 'from': ''})
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
-                }]
-            })
+                    'type': 'ChannelNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_send_message(self):
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages', {
+            'to': '+1234', 'content': 'foo', 'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to_addr': '+1234',
+                'transport_name': 'test-channel',
+                'from_addr': None,
+                'in_reply_to': None,
+                'helper_metadata': {},
+                'content': 'foo',
+                'transport_type': 'telnet',
+                'session_event': None,
+            }, ignore=['timestamp', 'message_id']) 
+
+        amqp_client = self.api.amqp_factory.get_client()
+        [message] = yield amqp_client.broker.get_messages(
+            'vumi', 'test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages', {})
+        resp = yield self.post('/channels/foo-bar/messages', {'from': None})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -247,6 +274,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
         resp = yield self.post('/channels/foo-bar/messages', {
+            'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
         })
