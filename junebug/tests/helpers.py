@@ -1,11 +1,46 @@
 from copy import deepcopy
 import logging
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
+from twisted.web.server import Site
+from txamqp.client import TwistedDelegate
+from vumi.utils import vumi_resource_path
+from vumi.service import get_spec
+from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQClient, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper, WorkerHelper
 
+from junebug import JunebugApi
+from junebug.amqp import JunebugAMQClient
 from junebug.channel import Channel
 from junebug.service import JunebugService
+
+
+class FakeAmqpFactory(object):
+    def __init__(self, amqp_client):
+        self.amqp_client = amqp_client
+
+    def get_client(self):
+        return self.amqp_client
+
+
+class FakeAmqpClient(JunebugAMQClient):
+    def __init__(self, spec):
+        super(FakeAmqpClient, self).__init__(TwistedDelegate(), '', spec)
+        self.broker = FakeAMQPBroker()
+
+    @inlineCallbacks
+    def channel(self, id):
+        yield self.channelLock.acquire()
+        try:
+            try:
+                ch = self.channels[id]
+            except KeyError:
+                ch = FakeAMQPChannel(id, self)
+                self.channels[id] = ch
+        finally:
+            self.channelLock.release()
+        returnValue(ch)
 
 
 class JunebugTestBase(TestCase):
@@ -68,12 +103,23 @@ class JunebugTestBase(TestCase):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         redis = yield self.get_redis()
-        self.service = JunebugService('localhost', 0, redis._config, {})
-        yield self.service.startService()
-        server = self.service._port
-        addr = server.getHost()
+        self.addCleanup(redis.close_manager)
+
+        self.service = JunebugService('127.0.0.1', 0, redis._config, {})
+        self.api = JunebugApi(
+            self.service, redis._config, {'hostname': '', 'port': ''})
+        self.api.redis = redis
+
+        spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
+        client = FakeAmqpClient(spec)
+        self.api.amqp_factory = FakeAmqpFactory(client)
+
+        port = reactor.listenTCP(
+            0, Site(self.api.app.resource()),
+            interface='127.0.0.1')
+        self.addCleanup(port.stopListening)
+        addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
-        self.addCleanup(self.service.stopService)
 
     @inlineCallbacks
     def patch_worker_creation(

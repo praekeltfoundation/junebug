@@ -1,20 +1,28 @@
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
-from vumi.tests.helpers import PersistenceHelper
 
+from junebug import JunebugApi
 from junebug.service import JunebugService
 
 
 class TestJunebugService(TestCase):
-    @inlineCallbacks
     def setUp(self):
-        self.persistencehelper = PersistenceHelper()
-        yield self.persistencehelper.setup()
-        self.redis = yield self.persistencehelper.get_redis_manager()
+        self.old_setup = JunebugApi.setup
+        self.old_teardown = JunebugApi.teardown
+
+        def do_nothing(self):
+            pass
+
+        JunebugApi.setup = do_nothing
+        JunebugApi.teardown = do_nothing
+
+    def tearDown(self):
+        JunebugApi.setup = self.old_setup
+        JunebugApi.teardown = self.old_teardown
 
     @inlineCallbacks
     def test_start_service(self):
-        service = JunebugService('localhost', 0, self.redis._config, {})
+        service = JunebugService('localhost', 0, {}, {})
 
         yield service.startService()
         server = service._port
