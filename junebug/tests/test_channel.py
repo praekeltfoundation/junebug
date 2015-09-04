@@ -22,7 +22,6 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
         properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
-        expected['config']['worker_name'] = channel.id
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
@@ -32,7 +31,6 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
         properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
-        expected['config']['worker_name'] = channel.id
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
@@ -70,7 +68,6 @@ class TestChannel(JunebugTestBase):
             'status': {},
             'id': channel.id,
             })
-        expected['config']['worker_name'] = channel.id
         expected['config']['transport_name'] = channel.id
         self.assertEqual(update, expected)
 
@@ -109,7 +106,6 @@ class TestChannel(JunebugTestBase):
             'id': 'channel-id',
             'status': {},
             })
-        expected['config']['worker_name'] = channel.id
         expected['config']['transport_name'] = channel.id
         self.assertEqual((yield channel.status()), expected)
 
@@ -154,3 +150,11 @@ class TestChannel(JunebugTestBase):
     def test_send_message(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
+        amq_client = self.api.amqp_factory.get_client()
+        msg = yield channel.send_message(amq_client, '+1234', 'testcontent')
+        self.assertEqual(msg['transport_name'], 'channel-id')
+        self.assertEqual(msg['to_addr'], '+1234')
+        self.assertEqual(msg['content'], 'testcontent')
+
+        [dispatched_message] = self.get_dispatched_messages('channel-id.outbound')
+        self.assertEqual(msg['message_id'], dispatched_message['message_id'])
