@@ -75,10 +75,11 @@ class JunebugTestBase(TestCase):
         TelnetServerTransport transport'''
         config = deepcopy(config)
         channel = Channel(redis, {}, config, id=id)
-        config['config']['worker_name'] = channel.id
         config['config']['transport_name'] = channel.id
-        transport_worker = yield WorkerHelper().get_worker(
+        wh = WorkerHelper()
+        transport_worker = yield wh.get_worker(
             transport_class, config['config'])
+        self.addCleanup(wh.cleanup)
         yield channel.start(self.service, transport_worker)
         yield channel.save()
         self.addCleanup(channel.stop)
@@ -109,7 +110,7 @@ class JunebugTestBase(TestCase):
             self.service, redis._config, {'hostname': '', 'port': ''})
         self.api.redis = redis
 
-        self.api.amqp_factory = self._get_amqp_factory()
+        self.api.amqp_factory = self.get_amqp_factory()
 
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),
@@ -118,7 +119,7 @@ class JunebugTestBase(TestCase):
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
-    def _get_amqp_factory(self):
+    def get_amqp_factory(self):
         spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
         client = FakeAmqpClient(spec)
         return FakeAmqpFactory(client)

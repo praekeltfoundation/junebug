@@ -32,11 +32,10 @@ transports = {
 
 allowed_message_fields = [
     'transport_name', 'timestamp', 'in_reply_to', 'to_addr', 'from_addr',
-    'content', 'session_event', 'transport_type', 'helper_metadata',
-    'message_id']
+    'content', 'session_event', 'helper_metadata', 'message_id']
 # excluded fields: from_addr_type, group, provider, routing_metadata,
 # to_addr_type, from_addr_type, message_version, transport_metadata,
-# message_type
+# message_type, transport_type
 
 
 class Channel(object):
@@ -79,9 +78,9 @@ class Channel(object):
         # create the transport worker
         if transport_worker is None:
             workercreator = WorkerCreator(self.options)
-            config = self._convert_unicode(self._properties['config'])
+            config = self._properties['config']
+            config = self._convert_unicode(config)
             config['transport_name'] = self.id
-            config['worker_name'] = self.id
             transport_worker = workercreator.create_worker(
                 class_name, config)
         transport_worker.setName(self.id)
@@ -155,11 +154,11 @@ class Channel(object):
         return status
 
     @inlineCallbacks
-    def send_message(self, amq_client, id, to_addr, content, **kw):
+    def send_message(self, amq_client, to_addr, content, **kw):
         message = TransportUserMessage.send(
             to_addr=to_addr, content=content, 
-            transport_name=self.id, transport_type=self._properties['type'])
-        queue = '%s.outbound' % id
+            transport_name=self.id) 
+        queue = '%s.outbound' % self.id
         msg = yield amq_client.publish_message(message, routing_key=queue)
         ret = {}
         for key, val in msg.payload.iteritems():

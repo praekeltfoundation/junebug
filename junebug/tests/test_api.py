@@ -282,7 +282,6 @@ class TestJunebugApi(JunebugTestBase):
                 'in_reply_to': None,
                 'helper_metadata': {},
                 'content': 'foo',
-                'transport_type': 'telnet',
                 'session_event': None,
             }, ignore=['timestamp', 'message_id']) 
 

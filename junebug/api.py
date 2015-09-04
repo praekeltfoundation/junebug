@@ -205,7 +205,7 @@ class JunebugApi(object):
             self.redis, self.amqp_config, channel_id, self.service)
         amqp_client = yield self.amqp_factory.get_client()
         content = body.get('content')
-        msg = yield channel.send_message(amqp_client, channel_id, to_addr, content)
+        msg = yield channel.send_message(amqp_client, to_addr, content)
         returnValue(response(request, 'message sent', msg))
 
     @app.route(
