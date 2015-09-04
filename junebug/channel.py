@@ -81,6 +81,7 @@ class Channel(object):
         if transport_worker is None:
             workercreator = WorkerCreator(self.options)
             config = self._convert_unicode(self._properties['config'])
+            config['transport_name'] = self.id
             transport_worker = workercreator.create_worker(
                 class_name, config)
         transport_worker.setName(self.id)

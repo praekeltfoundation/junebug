@@ -272,7 +272,7 @@ class TestJunebugApi(JunebugTestBase):
             redis, {}, self.default_channel_config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
-        resp = yield self.post('/channels/test-channel/messages', {
+        resp = yield self.post('/channels/test-channel/messages/', {
             'to': '+1234', 'content': 'foo', 'from': None})
         yield self.assert_response(
             resp, http.OK, 'message sent', {
@@ -286,9 +286,7 @@ class TestJunebugApi(JunebugTestBase):
                 'session_event': None,
             }, ignore=['timestamp', 'message_id']) 
 
-        amqp_client = self.api.amqp_factory.get_client()
-        [message] = yield amqp_client.broker.get_messages(
-            'vumi', 'test-channel.outbound')
+        [message] = self.get_dispatched_messages('test-channel.outbound')
         message_id = (yield resp.json())['result']['message_id']
         self.assertEqual(message['message_id'], message_id)
 

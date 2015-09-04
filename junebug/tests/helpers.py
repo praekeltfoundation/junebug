@@ -142,3 +142,8 @@ class JunebugTestBase(TestCase):
 
     def _unpatch_worker_creation(self):
         Channel.start = self._original_channel_start
+
+    def get_dispatched_messages(self, queue):
+        amqp_client = self.api.amqp_factory.get_client()
+        return amqp_client.broker.get_messages(
+            'vumi', queue)
