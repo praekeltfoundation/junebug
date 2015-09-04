@@ -52,7 +52,7 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
         channel._properties['type'] = 'foo'
-        err = yield self.assertFailure(channel.start(None), InvalidChannelType)
+        err = self.assertRaises(InvalidChannelType, channel.start, None)
         self.assertTrue(all(
             s in err.message for s in ('xmpp', 'telnet', 'foo')))
 

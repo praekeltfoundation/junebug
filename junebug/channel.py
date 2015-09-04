@@ -65,7 +65,6 @@ class Channel(object):
         else:
             return data
 
-    @inlineCallbacks
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
@@ -87,14 +86,12 @@ class Channel(object):
                 class_name, config)
         transport_worker.setName(self.id)
         transport_worker.setServiceParent(service)
-        yield transport_worker.startService()
         self.transport_worker = transport_worker
 
     @inlineCallbacks
     def stop(self):
         '''Stops the relevant workers for the channel'''
         if hasattr(self, 'transport_worker'):
-            yield self.transport_worker.stopService()
             yield self.transport_worker.disownServiceParent()
             del self.transport_worker
 
