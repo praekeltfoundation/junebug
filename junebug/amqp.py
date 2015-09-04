@@ -70,15 +70,15 @@ class JunebugAMQClient(AMQClient, object):
         self.factory.amqp_client_d.callback(None)
 
     @inlineCallbacks
-    def get_channel(self, channel_id=None):
-        """If channel_id is None a new channel is created"""
-        if channel_id:
-            channel = self.channels[channel_id]
-        else:
+    def get_channel(self):
+        """If channel is None a new channel is created"""
+        if not hasattr(self, 'cached_channel'):
             channel_id = self.get_new_channel_id()
             channel = yield self.channel(channel_id)
             yield channel.channel_open()
-            self.channels[channel_id] = channel
+            self.cached_channel = channel
+        else:
+            channel = self.cached_channel
         returnValue(channel)
 
     def get_new_channel_id(self):
