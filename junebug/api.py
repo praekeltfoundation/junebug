@@ -181,7 +181,7 @@ class JunebugApi(object):
                 'to': {'type': 'string'},
                 'from': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
-                'content': {'type': 'string'},
+                'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
