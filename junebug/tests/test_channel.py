@@ -23,6 +23,7 @@ class TestChannel(JunebugTestBase):
         properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
         expected['config']['worker_name'] = channel.id
+        expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
     @inlineCallbacks
@@ -32,6 +33,7 @@ class TestChannel(JunebugTestBase):
         properties = yield self.redis.get('%s:properties' % channel.id)
         expected = deepcopy(self.default_channel_config)
         expected['config']['worker_name'] = channel.id
+        expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
 
         yield channel.delete()
@@ -69,6 +71,7 @@ class TestChannel(JunebugTestBase):
             'id': channel.id,
             })
         expected['config']['worker_name'] = channel.id
+        expected['config']['transport_name'] = channel.id
         self.assertEqual(update, expected)
 
     @inlineCallbacks
@@ -107,6 +110,7 @@ class TestChannel(JunebugTestBase):
             'status': {},
             })
         expected['config']['worker_name'] = channel.id
+        expected['config']['transport_name'] = channel.id
         self.assertEqual((yield channel.status()), expected)
 
     @inlineCallbacks

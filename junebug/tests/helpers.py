@@ -76,6 +76,7 @@ class JunebugTestBase(TestCase):
         config = deepcopy(config)
         channel = Channel(redis, {}, config, id=id)
         config['config']['worker_name'] = channel.id
+        config['config']['transport_name'] = channel.id
         transport_worker = yield WorkerHelper().get_worker(
             transport_class, config['config'])
         yield channel.start(self.service, transport_worker)
@@ -103,16 +104,12 @@ class JunebugTestBase(TestCase):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         redis = yield self.get_redis()
-        self.addCleanup(redis.close_manager)
-
         self.service = JunebugService('127.0.0.1', 0, redis._config, {})
         self.api = JunebugApi(
             self.service, redis._config, {'hostname': '', 'port': ''})
         self.api.redis = redis
 
-        spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
-        client = FakeAmqpClient(spec)
-        self.api.amqp_factory = FakeAmqpFactory(client)
+        self.api.amqp_factory = self._get_amqp_factory()
 
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),
@@ -120,6 +117,11 @@ class JunebugTestBase(TestCase):
         self.addCleanup(port.stopListening)
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
+
+    def _get_amqp_factory(self):
+        spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
+        client = FakeAmqpClient(spec)
+        return FakeAmqpFactory(client)
 
     @inlineCallbacks
     def patch_worker_creation(
