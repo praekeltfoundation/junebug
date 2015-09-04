@@ -4,7 +4,6 @@ from twisted.internet.defer import inlineCallbacks
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
-from junebug.service import JunebugService
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -156,5 +155,6 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(msg['to_addr'], '+1234')
         self.assertEqual(msg['content'], 'testcontent')
 
-        [dispatched_message] = self.get_dispatched_messages('channel-id.outbound')
+        [dispatched_message] = self.get_dispatched_messages(
+            'channel-id.outbound')
         self.assertEqual(msg['message_id'], dispatched_message['message_id'])

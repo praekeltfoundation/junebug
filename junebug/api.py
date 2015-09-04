@@ -1,9 +1,7 @@
-import json
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
 from twisted.application.internet import TCPClient
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
@@ -38,7 +36,8 @@ class JunebugApi(object):
         self.redis = yield TxRedisManager.from_config(self.redis_config)
         self.amqp_factory = AmqpFactory('amqp-spec-0-8.xml', self.amqp_config)
         amqp_service = TCPClient(
-            self.amqp_config['hostname'], self.amqp_config['port'], self.amqp_factory)
+            self.amqp_config['hostname'], self.amqp_config['port'],
+            self.amqp_factory)
         amqp_service.setServiceParent(self.service)
 
     @inlineCallbacks

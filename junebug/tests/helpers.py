@@ -7,7 +7,7 @@ from twisted.web.server import Site
 from txamqp.client import TwistedDelegate
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
-from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQClient, FakeAMQPChannel
+from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper, WorkerHelper
 
 from junebug import JunebugApi

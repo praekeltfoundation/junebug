@@ -283,7 +283,7 @@ class TestJunebugApi(JunebugTestBase):
                 'helper_metadata': {},
                 'content': 'foo',
                 'session_event': None,
-            }, ignore=['timestamp', 'message_id']) 
+            }, ignore=['timestamp', 'message_id'])
 
         [message] = self.get_dispatched_messages('test-channel.outbound')
         message_id = (yield resp.json())['result']['message_id']

@@ -156,8 +156,7 @@ class Channel(object):
     @inlineCallbacks
     def send_message(self, amq_client, to_addr, content, **kw):
         message = TransportUserMessage.send(
-            to_addr=to_addr, content=content, 
-            transport_name=self.id) 
+            to_addr=to_addr, content=content, transport_name=self.id)
         queue = '%s.outbound' % self.id
         msg = yield amq_client.publish_message(message, routing_key=queue)
         ret = {}
