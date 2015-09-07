@@ -8,6 +8,14 @@ Junebug
     :scale: 100%
     :target: http://junebug.readthedocs.org/
 
+Junebug is an open-source server application providing SMS and USSD
+gateway connectivity for integrators, operators and application
+developers.
+
+Junebug enables integrators to automate the setup, monitoring,
+logging, and health checking of population scale messaging
+integrations.
+
 Junebug is a system for managing text messaging transports via a
 RESTful HTTP interface that supports:
 
