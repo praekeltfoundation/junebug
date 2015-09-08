@@ -1,6 +1,6 @@
 from twisted.application.internet import TCPClient
 from twisted.application.service import MultiService
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python import log
 from twisted.web import http

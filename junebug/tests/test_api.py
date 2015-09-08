@@ -308,7 +308,7 @@ class TestJunebugApi(JunebugTestBase):
         '''Additional properties should result in an error being returned.'''
         resp = yield self.post(
             '/channels/foo-bar/messages/', {
-                'from': None, 'content': None, 'to': '', 'foo':'bar'})
+                'from': None, 'content': None, 'to': '', 'foo': 'bar'})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{

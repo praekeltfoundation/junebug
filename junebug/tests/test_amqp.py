@@ -3,7 +3,7 @@ from vumi.message import TransportUserMessage
 
 from junebug.amqp import (
     AmqpConnectionError, AmqpFactory, JunebugAMQClient, RoutingKeyError)
-from junebug.tests.helpers import FakeAmqpClient, JunebugTestBase
+from junebug.tests.helpers import JunebugTestBase
 
 
 class TestJunebugApi(JunebugTestBase):

@@ -1,7 +1,6 @@
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
-from twisted.application.internet import TCPClient
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager

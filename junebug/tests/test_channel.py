@@ -207,4 +207,3 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(msg.get('helper_metadata'), {'voice': {}})
         self.assertEqual(msg.get('from_addr'), '+1234')
         self.assertEqual(msg.get('content'), None)
-
