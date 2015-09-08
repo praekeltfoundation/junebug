@@ -154,11 +154,13 @@ class Channel(object):
         return status
 
     @inlineCallbacks
-    def send_message(self, amq_client, to_addr, content, **kw):
+    def send_message(self, message_sender, to_addr, content, **kw):
+        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
+        send a message.'''
         message = TransportUserMessage.send(
             to_addr=to_addr, content=content, transport_name=self.id)
         queue = '%s.outbound' % self.id
-        msg = yield amq_client.publish_message(message, routing_key=queue)
+        msg = yield message_sender.send_message(message, routing_key=queue)
         ret = {}
         for key, val in msg.payload.iteritems():
             if key in allowed_message_fields:

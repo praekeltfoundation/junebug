@@ -1,23 +1,69 @@
+from twisted.application.internet import TCPClient
+from twisted.application.service import MultiService
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python import log
+from twisted.web import http
 from txamqp.client import TwistedDelegate
 from txamqp.content import Content
 from txamqp.protocol import AMQClient
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 
+from junebug.error import JunebugError
+
+
+class AmqpConnectionError(JunebugError):
+    '''Exception that is raised whenever a message is attempted to be send,
+    but no amqp connection is available to send it on'''
+    name = 'AmqpConnectionError'
+    description = 'amqp connection error'
+    code = http.INTERNAL_SERVER_ERROR
+
+
+class MessageSender(MultiService):
+    '''Keeps track of the amqp connection and can send messages. Raises an
+    exception if a message is sent when there is no amqp connection'''
+    def __init__(self, specfile, amqp_config):
+        super(MessageSender, self).__init__()
+        self.amqp_config = amqp_config
+        self.factory = AmqpFactory(
+            specfile, amqp_config, self._connected_callback,
+            self._disconnected_callback)
+
+    def startService(self):
+        super(MessageSender, self).startService()
+        self.amqp_service = TCPClient(
+            self.amqp_config['hostname'], self.amqp_config['port'],
+            self.factory)
+        self.amqp_service.setServiceParent(self)
+
+    def _connected_callback(self, client):
+        self.client = client
+
+    def _disconnected_callback(self):
+        self.client = None
+
+    def send_message(self, message, **kwargs):
+        if not hasattr(self, 'client') or self.client is None:
+            raise AmqpConnectionError(
+                'Message not sent, AMQP connection error.')
+        return self.client.publish_message(message, **kwargs)
+
 
 class AmqpFactory(ReconnectingClientFactory, object):
-    def __init__(self, specfile, amqp_config):
+    def __init__(
+            self, specfile, amqp_config, connected_callback,
+            disconnected_callback):
         '''Factory that creates JunebugAMQClients.
         specfile - string of specfile name
         amqp_config - connection details for amqp server
         '''
+        self.connected_callback, self.disconnected_callback = (
+            connected_callback, disconnected_callback)
         self.amqp_config = amqp_config
         self.spec = get_spec(vumi_resource_path(specfile))
         self.delegate = TwistedDelegate()
-        self.amqp_client_d = Deferred()
 
     def buildProtocol(self, addr):
         amqp_client = JunebugAMQClient(
@@ -35,15 +81,8 @@ class AmqpFactory(ReconnectingClientFactory, object):
     def clientConnectionLost(self, connector, reason):
         log.err("AmqpFactory client connection lost (%s)" % (
             reason.getErrorMessage(),))
-        self.amqp_client_d = Deferred()
+        self.disconnected_callback()
         super(AmqpFactory, self).clientConnectionLost(connector, reason)
-
-    @inlineCallbacks
-    def get_client(self):
-        '''Returns a deferred that fires with a connected client'''
-        if not self.amqp_client_d.called:
-            yield self.amqp_client_d
-        returnValue(self.amqp_client)
 
 
 class RoutingKeyError(Exception):
@@ -66,8 +105,7 @@ class JunebugAMQClient(AMQClient, object):
                                 self.factory.amqp_config['password'])
         # authentication was successful
         log.msg("Got an authenticated AMQP connection")
-        self.factory.amqp_client = self
-        self.factory.amqp_client_d.callback(None)
+        self.factory.connected_callback(self)
 
     @inlineCallbacks
     def get_channel(self):

@@ -11,17 +11,9 @@ from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper, WorkerHelper
 
 from junebug import JunebugApi
-from junebug.amqp import JunebugAMQClient
+from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.service import JunebugService
-
-
-class FakeAmqpFactory(object):
-    def __init__(self, amqp_client):
-        self.amqp_client = amqp_client
-
-    def get_client(self):
-        return self.amqp_client
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -110,7 +102,7 @@ class JunebugTestBase(TestCase):
             self.service, redis._config, {'hostname': '', 'port': ''})
         self.api.redis = redis
 
-        self.api.amqp_factory = self.get_amqp_factory()
+        self.api.message_sender = self.get_message_sender()
 
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),
@@ -119,10 +111,12 @@ class JunebugTestBase(TestCase):
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
-    def get_amqp_factory(self):
+    def get_message_sender(self):
+        message_sender = MessageSender('amqp-spec-0-8.xml', None)
         spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
         client = FakeAmqpClient(spec)
-        return FakeAmqpFactory(client)
+        message_sender.client = client
+        return message_sender
 
     @inlineCallbacks
     def patch_worker_creation(
@@ -147,6 +141,6 @@ class JunebugTestBase(TestCase):
         Channel.start = self._original_channel_start
 
     def get_dispatched_messages(self, queue):
-        amqp_client = self.api.amqp_factory.get_client()
+        amqp_client = self.api.message_sender.client
         return amqp_client.broker.get_messages(
             'vumi', queue)

@@ -6,7 +6,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
 
-from junebug.amqp import AmqpFactory
+from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
@@ -34,11 +34,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def setup(self):
         self.redis = yield TxRedisManager.from_config(self.redis_config)
-        self.amqp_factory = AmqpFactory('amqp-spec-0-8.xml', self.amqp_config)
-        amqp_service = TCPClient(
-            self.amqp_config['hostname'], self.amqp_config['port'],
-            self.amqp_factory)
-        amqp_service.setServiceParent(self.service)
+        self.message_sender = MessageSender(
+            'amqp-spec-0-8.xml', self.amqp_config)
+        self.message_sender.setServiceParent(self.service)
 
     @inlineCallbacks
     def teardown(self):
@@ -202,9 +200,8 @@ class JunebugApi(object):
 
         channel = yield Channel.from_id(
             self.redis, self.amqp_config, channel_id, self.service)
-        amqp_client = yield self.amqp_factory.get_client()
         content = body.get('content')
-        msg = yield channel.send_message(amqp_client, to_addr, content)
+        msg = yield channel.send_message(self.message_sender, to_addr, content)
         returnValue(response(request, 'message sent', msg))
 
     @app.route(

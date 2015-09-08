@@ -149,8 +149,8 @@ class TestChannel(JunebugTestBase):
     def test_send_message(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        amq_client = self.api.amqp_factory.get_client()
-        msg = yield channel.send_message(amq_client, '+1234', 'testcontent')
+        msg = yield channel.send_message(
+            self.api.message_sender, '+1234', 'testcontent')
         self.assertEqual(msg['transport_name'], 'channel-id')
         self.assertEqual(msg['to_addr'], '+1234')
         self.assertEqual(msg['content'], 'testcontent')
