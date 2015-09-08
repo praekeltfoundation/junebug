@@ -267,6 +267,8 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message(self):
+        '''Sending a message should place the message on the queue for the
+        channel'''
         redis = yield self.get_redis()
         channel = Channel(
             redis, {}, self.default_channel_config, 'test-channel')

@@ -17,6 +17,8 @@ from junebug.service import JunebugService
 
 
 class FakeAmqpClient(JunebugAMQClient):
+    '''Amqp client, base upon the real JunebugAMQClient, that uses a
+    FakeAMQPBroker instead of a real broker'''
     def __init__(self, spec):
         super(FakeAmqpClient, self).__init__(TwistedDelegate(), '', spec)
         self.broker = FakeAMQPBroker()
@@ -112,6 +114,7 @@ class JunebugTestBase(TestCase):
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
     def get_message_sender(self):
+        '''Creates a new MessageSender object, with a fake amqp client'''
         message_sender = MessageSender('amqp-spec-0-8.xml', None)
         spec = get_spec(vumi_resource_path('amqp-spec-0-8.xml'))
         client = FakeAmqpClient(spec)
@@ -141,6 +144,9 @@ class JunebugTestBase(TestCase):
         Channel.start = self._original_channel_start
 
     def get_dispatched_messages(self, queue):
+        '''Gets all messages that have been dispatched to the amqp broker.
+        Should only be called after start_server, as it looks in the api for
+        the amqp client'''
         amqp_client = self.api.message_sender.client
         return amqp_client.broker.get_messages(
             'vumi', queue)
