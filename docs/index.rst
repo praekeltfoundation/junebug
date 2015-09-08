@@ -6,13 +6,11 @@
 Welcome to Junebug's documentation!
 ===================================
 
-Junebug is a system for managing text messaging transports via a
-RESTful HTTP interface.
+Junebug is a messaging gateway which is intended to provide the means to connect to mobile network infrastructure to enable the managing of text messages via a RESTful HTTP interface.
 
 .. warning::
 
-   Junebug doesn't exist yet. These notes are a description of its
-   intended goals.
+   Junebug is in active development. These notes are a description of its intended goals.
 
 Contents:
 
