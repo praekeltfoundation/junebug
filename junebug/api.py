@@ -184,7 +184,7 @@ class JunebugApi(object):
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
             },
-            'required': ['from'],
+            'required': ['from', 'content'],
         }))
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
@@ -200,8 +200,7 @@ class JunebugApi(object):
 
         channel = yield Channel.from_id(
             self.redis, self.amqp_config, channel_id, self.service)
-        content = body.get('content')
-        msg = yield channel.send_message(self.message_sender, to_addr, content)
+        msg = yield channel.send_message(self.message_sender, body)
         returnValue(response(request, 'message sent', msg))
 
     @app.route(

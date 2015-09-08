@@ -1,6 +1,7 @@
 from copy import deepcopy
 import json
 from twisted.internet.defer import inlineCallbacks
+from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
@@ -152,11 +153,58 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield channel.send_message(
-            self.api.message_sender, '+1234', 'testcontent')
-        self.assertEqual(msg['transport_name'], 'channel-id')
-        self.assertEqual(msg['to_addr'], '+1234')
+            self.api.message_sender, {
+                'from': '+1234',
+                'content': 'testcontent',
+            })
+        self.assertEqual(msg['channel_id'], 'channel-id')
+        self.assertEqual(msg['from'], '+1234')
         self.assertEqual(msg['content'], 'testcontent')
 
         [dispatched_message] = self.get_dispatched_messages(
             'channel-id.outbound')
         self.assertEqual(msg['message_id'], dispatched_message['message_id'])
+
+    @inlineCallbacks
+    def test_api_from_message(self):
+        '''The api from message function should take a vumi message, and
+        return a dict with the appropriate values'''
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+        message = TransportUserMessage.send(
+            content=None, from_addr='+1234', to_addr='+5432',
+            transport_name='testtransport', continue_session=True,
+            helper_metadata={'voice': {}})
+        dct = channel._api_from_message(message)
+        [dct.pop(f) for f in ['timestamp', 'message_id']]
+        self.assertEqual(dct, {
+            'channel_data': {
+                'continue_session': True,
+                'voice': {},
+                },
+            'from': '+1234',
+            'to': '+5432',
+            'channel_id': 'testtransport',
+            'content': None,
+            'reply_to': None,
+            'session_event': None,
+            })
+
+    @inlineCallbacks
+    def test_message_from_api(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+        msg = channel._message_from_api({
+            'from': '+1234',
+            'content': None,
+            'channel_data': {
+                'continue_session': True,
+                'voice': {},
+                },
+            })
+        msg = TransportUserMessage.send(**msg)
+        self.assertEqual(msg.get('continue_session'), True)
+        self.assertEqual(msg.get('helper_metadata'), {'voice': {}})
+        self.assertEqual(msg.get('from_addr'), '+1234')
+        self.assertEqual(msg.get('content'), None)
+

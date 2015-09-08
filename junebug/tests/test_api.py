@@ -256,7 +256,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
-            'to': '+1234', 'from': ''})
+            'to': '+1234', 'from': '', 'content': None})
         yield self.assert_response(
             resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
@@ -278,11 +278,11 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'foo', 'from': None})
         yield self.assert_response(
             resp, http.OK, 'message sent', {
-                'to_addr': '+1234',
-                'transport_name': 'test-channel',
-                'from_addr': None,
-                'in_reply_to': None,
-                'helper_metadata': {},
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
                 'content': 'foo',
                 'session_event': None,
             }, ignore=['timestamp', 'message_id'])
@@ -293,7 +293,8 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {'from': None})
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {'from': None, 'content': None})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -308,6 +309,7 @@ class TestJunebugApi(JunebugTestBase):
             'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
+            'content': None,
         })
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {

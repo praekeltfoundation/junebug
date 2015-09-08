@@ -153,16 +153,41 @@ class Channel(object):
         status['status'] = {}
         return status
 
+    def _api_from_message(self, msg):
+        ret = {}
+        ret['to'] = msg['to_addr']
+        ret['from'] = msg['from_addr']
+        ret['message_id'] = msg['message_id']
+        ret['channel_id'] = msg['transport_name']
+        ret['timestamp'] = msg['timestamp']
+        ret['reply_to'] = msg['in_reply_to']
+        ret['content'] = msg['content']
+        ret['session_event'] = msg['session_event']
+        ret['channel_data'] = msg['helper_metadata']
+        if not ret['channel_data']:
+            ret['channel_data'] = {}
+        if msg.get('continue_session'):
+            ret['channel_data']['continue_session'] = msg['continue_session']
+        return ret
+
+    def _message_from_api(self, msg):
+        ret = {}
+        ret['to_addr'] = msg.get('to')
+        ret['from_addr'] = msg['from']
+        ret['content'] = msg['content']
+        ret['transport_name'] = self.id
+        channel_data = msg.get('channel_data', {})
+        if channel_data.get('continue_session'):
+            ret['continue_session'] = channel_data.pop('continue_session')
+        ret['helper_metadata'] = channel_data
+        return ret
+
     @inlineCallbacks
-    def send_message(self, message_sender, to_addr, content, **kw):
+    def send_message(self, message_sender, msg):
         '''Sends a message. Takes a junebug.amqp.MessageSender instance to
         send a message.'''
         message = TransportUserMessage.send(
-            to_addr=to_addr, content=content, transport_name=self.id)
+            **self._message_from_api(msg))
         queue = '%s.outbound' % self.id
         msg = yield message_sender.send_message(message, routing_key=queue)
-        ret = {}
-        for key, val in msg.payload.iteritems():
-            if key in allowed_message_fields:
-                ret[key] = val
-        returnValue(ret)
+        returnValue(self._api_from_message(msg))
