@@ -304,6 +304,21 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_send_message_additional_properties(self):
+        '''Additional properties should result in an error being returned.'''
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {
+                'from': None, 'content': None, 'to': '', 'foo':'bar'})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': "Additional properties are not allowed (u'foo' "
+                    "was unexpected)",
+                    'type': 'invalid_body',
+                }]
+            })
+
+    @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
             'from': None,

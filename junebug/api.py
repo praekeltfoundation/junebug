@@ -185,6 +185,7 @@ class JunebugApi(object):
                 'channel_data': {'type': 'object'},
             },
             'required': ['from', 'content'],
+            'additionalProperties': False,
         }))
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
