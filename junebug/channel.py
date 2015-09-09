@@ -175,7 +175,7 @@ class Channel(object):
         ret['content'] = msg['content']
         ret['transport_name'] = self.id
         channel_data = msg.get('channel_data', {})
-        if channel_data.get('continue_session'):
+        if channel_data.get('continue_session') is not None:
             ret['continue_session'] = channel_data.pop('continue_session')
         ret['helper_metadata'] = channel_data
         return ret
