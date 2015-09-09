@@ -3,6 +3,7 @@ import argparse
 import logging
 import logging.handlers
 import sys
+import yaml
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -28,7 +29,7 @@ def parse_arguments(args):
         '--interface', '-i', dest='interface', type=str,
         help='The interface to expose the API on. Defaults to "localhost"')
     parser.add_argument(
-        '--port', '-p', dest='port', default=8080, type=int,
+        '--port', '-p', dest='port', type=int,
         help='The port to expose the API on, defaults to "8080"')
     parser.add_argument(
         '--log-file', '-l', dest='logfile', type=str,
@@ -103,10 +104,10 @@ def main():
 
 def config_from_args(args):
     args = omit_nones(args)
-    config = {}
+    config = load_config(args.pop('config_filename', None))
     config['redis_config'] = parse_redis(config.get('redis_config', {}), args)
     config['amqp_config'] = parse_amqp(config.get('amqp_config', {}), args)
-    return JunebugConfig(conjoin(args, config))
+    return JunebugConfig(conjoin(config, args))
 
 
 def parse_redis(config, args):
@@ -151,6 +152,10 @@ def overrides(target, source, mappings):
     for to_key, from_key in mappings.iteritems():
         if from_key in source:
             target[to_key] = source[from_key]
+
+
+def load_config(filename):
+    return yaml.safe_load(filename) if filename is not None else {}
 
 
 if __name__ == '__main__':

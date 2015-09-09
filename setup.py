@@ -25,6 +25,7 @@ setup(
         'treq',
         'vumi',
         'confmodel',
+        'PyYAML',
     ],
     entry_points='''
     [console_scripts]

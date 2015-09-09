@@ -1,3 +1,4 @@
+import yaml
 import logging
 import os.path
 from twisted.internet.defer import inlineCallbacks
@@ -22,6 +23,9 @@ class TestCommandLine(JunebugTestBase):
     def tearDown(self):
         JunebugApi.setup = self.old_setup
         JunebugApi.teardown = self.old_teardown
+
+    def patch_yaml_load(self, mappings):
+        self.patch(yaml, 'safe_load', mappings.get)
 
     def test_parse_arguments_interface(self):
         '''The interface command line argument can be specified by
@@ -166,6 +170,61 @@ class TestCommandLine(JunebugTestBase):
 
         config = parse_arguments(['-amqpv', 'foo.bar'])
         self.assertEqual(config.amqp_config['vhost'], 'foo.bar')
+
+    def test_config_file(self):
+        '''The config file command line argument can be specified by
+        "--config" or "-c"'''
+        self.patch_yaml_load({
+            '/foo/bar.yaml': {
+                'interface': 'lolcathost',
+                'port': 1337,
+                'logfile': 'stuff.log',
+                'redis_config': {'host': 'rawrcathost'},
+                'amqp_config': {'hostname': 'xorcathost'},
+            }
+        })
+
+        config = parse_arguments(['--config', '/foo/bar.yaml'])
+        self.assertEqual(config.interface, 'lolcathost')
+        self.assertEqual(config.port, 1337)
+        self.assertEqual(config.logfile, 'stuff.log')
+        self.assertEqual(config.redis_config['host'], 'rawrcathost')
+        self.assertEqual(config.amqp_config['hostname'], 'xorcathost')
+
+        config = parse_arguments(['-c', '/foo/bar.yaml'])
+        self.assertEqual(config.interface, 'lolcathost')
+        self.assertEqual(config.port, 1337)
+        self.assertEqual(config.logfile, 'stuff.log')
+        self.assertEqual(config.redis_config['host'], 'rawrcathost')
+        self.assertEqual(config.amqp_config['hostname'], 'xorcathost')
+
+    def test_config_file_overriding(self):
+        '''Config file options are overriden by their corresponding command
+        line arguments'''
+        self.patch_yaml_load({
+            '/foo/bar.yaml': {
+                'interface': 'lolcathost',
+                'port': 1337,
+                'logfile': 'stuff.log',
+                'redis_config': {'host': 'rawrcathost'},
+                'amqp_config': {'hostname': 'xorcathost'},
+            }
+        })
+
+        config = parse_arguments([
+            '-c', '/foo/bar.yaml',
+            '-i', 'zuulcathost',
+            '-p', '1620',
+            '-l', 'logs.log',
+            '-redish', 'bluish',
+            '-amqph', 'hpqma',
+        ])
+
+        self.assertEqual(config.interface, 'zuulcathost')
+        self.assertEqual(config.port, 1620)
+        self.assertEqual(config.logfile, 'logs.log')
+        self.assertEqual(config.redis_config['host'], 'bluish')
+        self.assertEqual(config.amqp_config['hostname'], 'hpqma')
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
