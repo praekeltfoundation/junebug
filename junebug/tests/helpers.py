@@ -103,8 +103,8 @@ class JunebugTestBase(TestCase):
         self.service = JunebugService(JunebugConfig({
             'host': '127.0.0.1',
             'port': 0,
-            'redis_config': redis._config,
-            'amqp_config': {
+            'redis': redis._config,
+            'amqp': {
                 'hostname': '',
                 'port': ''
             }

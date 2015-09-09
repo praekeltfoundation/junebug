@@ -67,109 +67,109 @@ class TestCommandLine(JunebugTestBase):
         '''The redis host command line argument can be specified by
         "--redis-host" or "-redish" and has a default value of "localhost"'''
         config = parse_arguments([])
-        self.assertEqual(config.redis_config['host'], 'localhost')
+        self.assertEqual(config.redis['host'], 'localhost')
 
         config = parse_arguments(['--redis-host', 'foo.bar'])
-        self.assertEqual(config.redis_config['host'], 'foo.bar')
+        self.assertEqual(config.redis['host'], 'foo.bar')
 
         config = parse_arguments(['-redish', 'foo.bar'])
-        self.assertEqual(config.redis_config['host'], 'foo.bar')
+        self.assertEqual(config.redis['host'], 'foo.bar')
 
     def test_parse_arguments_redis_config_port(self):
         '''The redis port command line argument can be specified by
         "--redis-port" or "-redisp" and has a default value of 6379'''
         config = parse_arguments([])
-        self.assertEqual(config.redis_config['port'], 6379)
+        self.assertEqual(config.redis['port'], 6379)
 
         config = parse_arguments(['--redis-port', '80'])
-        self.assertEqual(config.redis_config['port'], 80)
+        self.assertEqual(config.redis['port'], 80)
 
         config = parse_arguments(['-redisp', '80'])
-        self.assertEqual(config.redis_config['port'], 80)
+        self.assertEqual(config.redis['port'], 80)
 
     def test_parse_arguments_redis_database(self):
         '''The redis database command line argument can be specified by
         "--redis-db" or "-redisdb" and has a default value of 0'''
         config = parse_arguments([])
-        self.assertEqual(config.redis_config['db'], 0)
+        self.assertEqual(config.redis['db'], 0)
 
         config = parse_arguments(['--redis-db', '80'])
-        self.assertEqual(config.redis_config['db'], 80)
+        self.assertEqual(config.redis['db'], 80)
 
         config = parse_arguments(['-redisdb', '80'])
-        self.assertEqual(config.redis_config['db'], 80)
+        self.assertEqual(config.redis['db'], 80)
 
     def test_parse_arguments_redis_password(self):
         '''The redis password command line argument can be specified by
         "--redis-password" or "-redispass" and has a default value of None'''
         config = parse_arguments([])
-        self.assertEqual(config.redis_config['password'], None)
+        self.assertEqual(config.redis['password'], None)
 
         config = parse_arguments(['--redis-password', 'foo.bar'])
-        self.assertEqual(config.redis_config['password'], 'foo.bar')
+        self.assertEqual(config.redis['password'], 'foo.bar')
 
         config = parse_arguments(['-redispass', 'foo.bar'])
-        self.assertEqual(config.redis_config['password'], 'foo.bar')
+        self.assertEqual(config.redis['password'], 'foo.bar')
 
     def test_parse_arguments_amqp_host(self):
         '''The amqp host command line argument can be specified by
         "--amqp-host" or "-amqph" and has a default value of "127.0.0.1"'''
         config = parse_arguments([])
-        self.assertEqual(config.amqp_config['hostname'], '127.0.0.1')
+        self.assertEqual(config.amqp['hostname'], '127.0.0.1')
 
         config = parse_arguments(['--amqp-host', 'foo.bar'])
-        self.assertEqual(config.amqp_config['hostname'], 'foo.bar')
+        self.assertEqual(config.amqp['hostname'], 'foo.bar')
 
         config = parse_arguments(['-amqph', 'foo.bar'])
-        self.assertEqual(config.amqp_config['hostname'], 'foo.bar')
+        self.assertEqual(config.amqp['hostname'], 'foo.bar')
 
     def test_parse_arguments_amqp_port(self):
         '''The amqp port command line argument can be specified by
         "--amqp-port" or "-amqpp" and has a default value of 5672'''
         config = parse_arguments([])
-        self.assertEqual(config.amqp_config['port'], 5672)
+        self.assertEqual(config.amqp['port'], 5672)
 
         config = parse_arguments(['--amqp-port', '80'])
-        self.assertEqual(config.amqp_config['port'], 80)
+        self.assertEqual(config.amqp['port'], 80)
 
         config = parse_arguments(['-amqpp', '80'])
-        self.assertEqual(config.amqp_config['port'], 80)
+        self.assertEqual(config.amqp['port'], 80)
 
     def test_parse_arguments_amqp_username(self):
         '''The amqp username command line argument can be specified by
         "--amqp-user" or "-amqpu" and has a default value of "guest"'''
         config = parse_arguments([])
-        self.assertEqual(config.amqp_config['username'], 'guest')
+        self.assertEqual(config.amqp['username'], 'guest')
 
         config = parse_arguments(['--amqp-user', 'test'])
-        self.assertEqual(config.amqp_config['username'], 'test')
+        self.assertEqual(config.amqp['username'], 'test')
 
         config = parse_arguments(['-amqpu', 'test'])
-        self.assertEqual(config.amqp_config['username'], 'test')
+        self.assertEqual(config.amqp['username'], 'test')
 
     def test_parse_arguments_amqp_password(self):
         '''The amqp password command line argument can be specified by
         "--amqp-password" or "-amqppass" and has a default value of "guest"'''
         config = parse_arguments([])
-        self.assertEqual(config.amqp_config['password'], 'guest')
+        self.assertEqual(config.amqp['password'], 'guest')
 
         config = parse_arguments(['--amqp-password', 'foo.bar'])
-        self.assertEqual(config.amqp_config['password'], 'foo.bar')
+        self.assertEqual(config.amqp['password'], 'foo.bar')
 
         config = parse_arguments(['-amqppass', 'foo.bar'])
-        self.assertEqual(config.amqp_config['password'], 'foo.bar')
+        self.assertEqual(config.amqp['password'], 'foo.bar')
 
     def test_parse_arguments_amqp_vhost(self):
         '''The amqp vhost command line argument can be specified by
         "--amqp-vhost" or "-amqpv" and has a default value of "/"'''
         config = parse_arguments([])
-        self.assertEqual(config.amqp_config['vhost'], '/')
+        self.assertEqual(config.amqp['vhost'], '/')
 
         config = parse_arguments(['--amqp-vhost', 'foo.bar'])
-        self.assertEqual(config.amqp_config['vhost'], 'foo.bar')
+        self.assertEqual(config.amqp['vhost'], 'foo.bar')
 
         config = parse_arguments(['-amqpv', 'foo.bar'])
-        self.assertEqual(config.amqp_config['vhost'], 'foo.bar')
+        self.assertEqual(config.amqp['vhost'], 'foo.bar')
 
     def test_config_file(self):
         '''The config file command line argument can be specified by
@@ -179,8 +179,8 @@ class TestCommandLine(JunebugTestBase):
                 'interface': 'lolcathost',
                 'port': 1337,
                 'logfile': 'stuff.log',
-                'redis_config': {'host': 'rawrcathost'},
-                'amqp_config': {'hostname': 'xorcathost'},
+                'redis': {'host': 'rawrcathost'},
+                'amqp': {'hostname': 'xorcathost'},
             }
         })
 
@@ -188,15 +188,15 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.interface, 'lolcathost')
         self.assertEqual(config.port, 1337)
         self.assertEqual(config.logfile, 'stuff.log')
-        self.assertEqual(config.redis_config['host'], 'rawrcathost')
-        self.assertEqual(config.amqp_config['hostname'], 'xorcathost')
+        self.assertEqual(config.redis['host'], 'rawrcathost')
+        self.assertEqual(config.amqp['hostname'], 'xorcathost')
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
         self.assertEqual(config.port, 1337)
         self.assertEqual(config.logfile, 'stuff.log')
-        self.assertEqual(config.redis_config['host'], 'rawrcathost')
-        self.assertEqual(config.amqp_config['hostname'], 'xorcathost')
+        self.assertEqual(config.redis['host'], 'rawrcathost')
+        self.assertEqual(config.amqp['hostname'], 'xorcathost')
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -206,8 +206,8 @@ class TestCommandLine(JunebugTestBase):
                 'interface': 'lolcathost',
                 'port': 1337,
                 'logfile': 'stuff.log',
-                'redis_config': {'host': 'rawrcathost'},
-                'amqp_config': {'hostname': 'xorcathost'},
+                'redis': {'host': 'rawrcathost'},
+                'amqp': {'hostname': 'xorcathost'},
             }
         })
 
@@ -223,8 +223,8 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.interface, 'zuulcathost')
         self.assertEqual(config.port, 1620)
         self.assertEqual(config.logfile, 'logs.log')
-        self.assertEqual(config.redis_config['host'], 'bluish')
-        self.assertEqual(config.amqp_config['hostname'], 'hpqma')
+        self.assertEqual(config.redis['host'], 'bluish')
+        self.assertEqual(config.amqp['hostname'], 'hpqma')
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
@@ -257,7 +257,7 @@ class TestCommandLine(JunebugTestBase):
         config = JunebugConfig({
             'port': 0,
             'interface': 'localhost',
-            'redis_config': redis._config,
+            'redis': redis._config,
         })
 
         service = yield start_server(config)

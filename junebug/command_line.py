@@ -105,13 +105,13 @@ def main():
 def config_from_args(args):
     args = omit_nones(args)
     config = load_config(args.pop('config_filename', None))
-    config['redis_config'] = parse_redis(config.get('redis_config', {}), args)
-    config['amqp_config'] = parse_amqp(config.get('amqp_config', {}), args)
+    config['redis'] = parse_redis(config.get('redis', {}), args)
+    config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     return JunebugConfig(conjoin(config, args))
 
 
 def parse_redis(config, args):
-    config = conjoin(deepcopy(JunebugConfig.redis_config.default), config)
+    config = conjoin(deepcopy(JunebugConfig.redis.default), config)
 
     overrides(config, args, {
         'host': 'redis_host',
@@ -124,7 +124,7 @@ def parse_redis(config, args):
 
 
 def parse_amqp(config, args):
-    config = conjoin(deepcopy(JunebugConfig.amqp_config.default), config)
+    config = conjoin(deepcopy(JunebugConfig.amqp.default), config)
 
     overrides(config, args, {
         'hostname': 'amqp_host',

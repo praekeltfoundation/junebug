@@ -15,7 +15,7 @@ class JunebugConfig(Config):
         "File to log to or `None` for no logging",
         default=None)
 
-    redis_config = ConfigDict(
+    redis = ConfigDict(
         "Config to use for redis connection",
         default={
             'host': 'localhost',
@@ -24,7 +24,7 @@ class JunebugConfig(Config):
             'password': None
         })
 
-    amqp_config = ConfigDict(
+    amqp = ConfigDict(
         "Config to use for amqp connection",
         default={
             'hostname': '127.0.0.1',
