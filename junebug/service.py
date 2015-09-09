@@ -10,12 +10,9 @@ from junebug import JunebugApi
 class JunebugService(MultiService, object):
     '''Base service that runs the HTTP API, and contains transports as child
     services'''
-    def __init__(self, interface, port, redis_config, amqp_config):
+    def __init__(self, config):
         super(JunebugService, self).__init__()
-        self.interface = interface
-        self.port = port
-        self.redis_config = redis_config
-        self.amqp_config = amqp_config
+        self.config = config
 
     @inlineCallbacks
     def startService(self):
@@ -23,12 +20,14 @@ class JunebugService(MultiService, object):
         is listening on'''
         super(JunebugService, self).startService()
         self.api = JunebugApi(
-            self, self.redis_config, self.amqp_config)
+            self, self.config.redis_config, self.config.amqp_config)
         yield self.api.setup()
         self._port = reactor.listenTCP(
-            self.port, Site(self.api.app.resource()),
-            interface=self.interface)
-        log.msg('Junebug is listening on %s:%s' % (self.interface, self.port))
+            self.config.port, Site(self.api.app.resource()),
+            interface=self.config.interface)
+        log.msg(
+            'Junebug is listening on %s:%s' %
+            (self.config.interface, self.config.port))
 
     @inlineCallbacks
     def stopService(self):
