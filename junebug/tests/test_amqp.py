@@ -1,9 +1,18 @@
+import json
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage
 
 from junebug.amqp import (
     AmqpConnectionError, AmqpFactory, JunebugAMQClient, RoutingKeyError)
 from junebug.tests.helpers import JunebugTestBase
+
+
+class FakeChannel(object):
+    def __init__(self):
+        self.messages = []
+
+    def basic_publish(self, **kwargs):
+        self.messages.append(kwargs)
 
 
 class TestMessageSender(JunebugTestBase):
@@ -20,6 +29,45 @@ class TestMessageSender(JunebugTestBase):
         client = factory.buildProtocol('localhost')
         self.assertTrue(isinstance(client, JunebugAMQClient))
         self.assertEqual(client.vhost, '/')
+
+    def test_amqp_client_publish_message_defaults(self):
+        '''The amqp client should call basic_publish on the channel with
+        the proper message details'''
+        factory = AmqpFactory('amqp-spec-0-8.xml', {
+            'vhost': '/'}, None, None)
+        client = factory.buildProtocol('localhost')
+        client.cached_channel = FakeChannel()
+        msg = TransportUserMessage.send(
+            to_addr='+1234', content='test', transport_name='testtransport')
+        client.publish_message(msg)
+
+        [amq_msg] = client.cached_channel.messages
+        self.assertEqual(amq_msg['content']['delivery mode'], 2)
+        self.assertEqual(amq_msg['exchange'], 'vumi')
+        self.assertEqual(amq_msg['routing_key'], 'routing_key')
+
+        vumi_msg = json.loads(amq_msg['content'].body)
+        self.assertEqual(vumi_msg['message_id'], msg['message_id'])
+
+    def test_amqp_client_publish_message(self):
+        '''The amqp client should call basic_publish on the channel with
+        the specified message details'''
+        factory = AmqpFactory('amqp-spec-0-8.xml', {
+            'vhost': '/'}, None, None)
+        client = factory.buildProtocol('localhost')
+        client.cached_channel = FakeChannel()
+        msg = TransportUserMessage.send(
+            to_addr='+1234', content='test', transport_name='testtransport')
+        client.publish_message(
+            msg, delivery_mode=1, exchange_name='foo', routing_key='bar')
+
+        [amq_msg] = client.cached_channel.messages
+        self.assertEqual(amq_msg['content']['delivery mode'], 1)
+        self.assertEqual(amq_msg['exchange'], 'foo')
+        self.assertEqual(amq_msg['routing_key'], 'bar')
+
+        vumi_msg = json.loads(amq_msg['content'].body)
+        self.assertEqual(vumi_msg['message_id'], msg['message_id'])
 
     @inlineCallbacks
     def test_message_sender_send_message(self):
