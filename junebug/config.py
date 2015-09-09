@@ -27,7 +27,7 @@ class JunebugConfig(Config):
     amqp_config = ConfigDict(
         "Config to use for amqp connection",
         default={
-            'host': 'localhost',
+            'hostname': '127.0.0.1',
             'vhost': '/',
             'port': 5672,
             'db': 0,
