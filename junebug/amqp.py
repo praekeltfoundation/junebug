@@ -64,6 +64,7 @@ class AmqpFactory(ReconnectingClientFactory, object):
         self.amqp_config = amqp_config
         self.spec = get_spec(vumi_resource_path(specfile))
         self.delegate = TwistedDelegate()
+        super(AmqpFactory, self).__init__()
 
     def buildProtocol(self, addr):
         amqp_client = JunebugAMQClient(
