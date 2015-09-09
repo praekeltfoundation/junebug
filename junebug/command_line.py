@@ -83,7 +83,7 @@ def logging_setup(filename):
     # Set up file logger
     if filename:
         handler = logging.handlers.RotatingFileHandler(
-            filename, maxBytes=1024*1024, backupCount=5)
+            filename, maxBytes=1024 * 1024, backupCount=5)
         handler.setFormatter(logging.Formatter(LOGGING_FORMAT))
         logging.getLogger().addHandler(handler)
 
