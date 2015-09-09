@@ -6,7 +6,7 @@ from junebug.amqp import (
 from junebug.tests.helpers import JunebugTestBase
 
 
-class TestJunebugApi(JunebugTestBase):
+class TestMessageSender(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         yield self.start_server()
