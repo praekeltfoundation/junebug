@@ -2,6 +2,7 @@ import json
 
 from twisted.web import http
 from functools import wraps
+from vumi.message import JSONMessageEncoder
 
 
 def response(req, description, data, code=http.OK):
@@ -13,7 +14,7 @@ def response(req, description, data, code=http.OK):
         'code': http.RESPONSES[code],
         'description': description,
         'result': data,
-    })
+    }, cls=JSONMessageEncoder)
 
 
 def json_body(fn):

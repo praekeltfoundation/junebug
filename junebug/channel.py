@@ -4,6 +4,7 @@ import json
 import uuid
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
@@ -28,6 +29,13 @@ transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
 }
+
+allowed_message_fields = [
+    'transport_name', 'timestamp', 'in_reply_to', 'to_addr', 'from_addr',
+    'content', 'session_event', 'helper_metadata', 'message_id']
+# excluded fields: from_addr_type, group, provider, routing_metadata,
+# to_addr_type, from_addr_type, message_version, transport_metadata,
+# message_type, transport_type
 
 
 class Channel(object):
@@ -70,7 +78,9 @@ class Channel(object):
         # create the transport worker
         if transport_worker is None:
             workercreator = WorkerCreator(self.options)
-            config = self._convert_unicode(self._properties['config'])
+            config = self._properties['config']
+            config = self._convert_unicode(config)
+            config['transport_name'] = self.id
             transport_worker = workercreator.create_worker(
                 class_name, config)
         transport_worker.setName(self.id)
@@ -142,3 +152,43 @@ class Channel(object):
         # TODO: Implement channel status
         status['status'] = {}
         return status
+
+    def _api_from_message(self, msg):
+        ret = {}
+        ret['to'] = msg['to_addr']
+        ret['from'] = msg['from_addr']
+        ret['message_id'] = msg['message_id']
+        ret['channel_id'] = msg['transport_name']
+        ret['timestamp'] = msg['timestamp']
+        ret['reply_to'] = msg['in_reply_to']
+        ret['content'] = msg['content']
+        ret['channel_data'] = msg['helper_metadata']
+        if msg.get('continue_session') is not None:
+            ret['channel_data']['continue_session'] = msg['continue_session']
+        if msg.get('session_event') is not None:
+            ret['channel_data']['session_event'] = msg['session_event']
+        return ret
+
+    def _message_from_api(self, msg):
+        ret = {}
+        ret['to_addr'] = msg.get('to')
+        ret['from_addr'] = msg['from']
+        ret['content'] = msg['content']
+        ret['transport_name'] = self.id
+        channel_data = msg.get('channel_data', {})
+        if channel_data.get('continue_session') is not None:
+            ret['continue_session'] = channel_data.pop('continue_session')
+        if channel_data.get('session_event') is not None:
+            ret['session_event'] = channel_data.pop('session_event')
+        ret['helper_metadata'] = channel_data
+        return ret
+
+    @inlineCallbacks
+    def send_message(self, message_sender, msg):
+        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
+        send a message.'''
+        message = TransportUserMessage.send(
+            **self._message_from_api(msg))
+        queue = '%s.outbound' % self.id
+        msg = yield message_sender.send_message(message, routing_key=queue)
+        returnValue(self._api_from_message(msg))

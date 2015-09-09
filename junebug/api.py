@@ -5,6 +5,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
 
+from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
@@ -32,6 +33,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def setup(self):
         self.redis = yield TxRedisManager.from_config(self.redis_config)
+        self.message_sender = MessageSender(
+            'amqp-spec-0-8.xml', self.amqp_config)
+        self.message_sender.setServiceParent(self.service)
 
     @inlineCallbacks
     def teardown(self):
@@ -172,13 +176,17 @@ class JunebugApi(object):
             'type': 'object',
             'properties': {
                 'to': {'type': 'string'},
-                'from': {'type': 'string'},
+                'from': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
+                'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
-            }
+            },
+            'required': ['from', 'content'],
+            'additionalProperties': False,
         }))
+    @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
         to_addr = body.get('to')
@@ -190,7 +198,10 @@ class JunebugApi(object):
             raise ApiUsageError(
                 'Only one of "to" and "reply_to" may be specified')
 
-        raise NotImplementedError()
+        channel = yield Channel.from_id(
+            self.redis, self.amqp_config, channel_id, self.service)
+        msg = yield channel.send_message(self.message_sender, body)
+        returnValue(response(request, 'message sent', msg))
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',

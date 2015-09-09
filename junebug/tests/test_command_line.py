@@ -1,13 +1,27 @@
 import logging
 import os.path
 from twisted.internet.defer import inlineCallbacks
-from twisted.trial.unittest import TestCase
 
+from junebug import JunebugApi
 from junebug.command_line import parse_arguments, logging_setup, start_server
 from junebug.tests.helpers import JunebugTestBase
 
 
 class TestCommandLine(JunebugTestBase):
+    def setUp(self):
+        self.old_setup = JunebugApi.setup
+        self.old_teardown = JunebugApi.teardown
+
+        def do_nothing(self):
+            pass
+
+        JunebugApi.setup = do_nothing
+        JunebugApi.teardown = do_nothing
+
+    def tearDown(self):
+        JunebugApi.setup = self.old_setup
+        JunebugApi.teardown = self.old_teardown
+
     def test_parse_arguments_interface(self):
         '''The interface command line argument can be specified by
         "--interface" and "-i" and has a default value of "localhost"'''
@@ -179,7 +193,10 @@ class TestCommandLine(JunebugTestBase):
         '''Starting the server should listen on the specified interface and
         port'''
         redis = yield self.get_redis()
-        service = yield start_server('localhost', 0, redis._config, {})
+        service = yield start_server('localhost', 0, redis._config, {
+            'hostname': 'localhost',
+            'port': 0,
+            })
         port = service._port
         host = port.getHost()
         self.assertEqual(host.host, '127.0.0.1')

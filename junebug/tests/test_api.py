@@ -254,20 +254,46 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(properties, None)
 
     @inlineCallbacks
-    def test_send_message(self):
+    def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
-            'to': '+1234'})
+            'to': '+1234', 'from': '', 'content': None})
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
-                }]
-            })
+                    'type': 'ChannelNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_send_message(self):
+        '''Sending a message should place the message on the queue for the
+        channel'''
+        redis = yield self.get_redis()
+        channel = Channel(
+            redis, {}, self.default_channel_config, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {})
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {'from': None, 'content': None})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -277,10 +303,27 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_send_message_additional_properties(self):
+        '''Additional properties should result in an error being returned.'''
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {
+                'from': None, 'content': None, 'to': '', 'foo': 'bar'})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': "Additional properties are not allowed (u'foo' "
+                    "was unexpected)",
+                    'type': 'invalid_body',
+                }]
+            })
+
+    @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
+            'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
+            'content': None,
         })
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
