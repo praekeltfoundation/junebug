@@ -164,8 +164,6 @@ class Channel(object):
         ret['content'] = msg['content']
         ret['session_event'] = msg['session_event']
         ret['channel_data'] = msg['helper_metadata']
-        if not ret['channel_data']:
-            ret['channel_data'] = {}
         if msg.get('continue_session'):
             ret['channel_data']['continue_session'] = msg['continue_session']
         return ret
