@@ -187,7 +187,6 @@ class TestChannel(JunebugTestBase):
             'channel_id': 'testtransport',
             'content': None,
             'reply_to': None,
-            'session_event': None,
             })
 
     @inlineCallbacks

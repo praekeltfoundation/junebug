@@ -284,7 +284,6 @@ class TestJunebugApi(JunebugTestBase):
                 'reply_to': None,
                 'channel_data': {},
                 'content': 'foo',
-                'session_event': None,
             }, ignore=['timestamp', 'message_id'])
 
         [message] = self.get_dispatched_messages('test-channel.outbound')

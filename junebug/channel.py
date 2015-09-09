@@ -162,10 +162,11 @@ class Channel(object):
         ret['timestamp'] = msg['timestamp']
         ret['reply_to'] = msg['in_reply_to']
         ret['content'] = msg['content']
-        ret['session_event'] = msg['session_event']
         ret['channel_data'] = msg['helper_metadata']
         if msg.get('continue_session') is not None:
             ret['channel_data']['continue_session'] = msg['continue_session']
+        if msg.get('session_event') is not None:
+            ret['channel_data']['session_event'] = msg['session_event']
         return ret
 
     def _message_from_api(self, msg):
@@ -177,6 +178,8 @@ class Channel(object):
         channel_data = msg.get('channel_data', {})
         if channel_data.get('continue_session') is not None:
             ret['continue_session'] = channel_data.pop('continue_session')
+        if channel_data.get('session_event') is not None:
+            ret['session_event'] = channel_data.pop('session_event')
         ret['helper_metadata'] = channel_data
         return ret
 
