@@ -179,8 +179,19 @@ class TestCommandLine(JunebugTestBase):
                 'interface': 'lolcathost',
                 'port': 1337,
                 'logfile': 'stuff.log',
-                'redis': {'host': 'rawrcathost'},
-                'amqp': {'hostname': 'xorcathost'},
+                'redis': {
+                    'host': 'rawrcathost',
+                    'port': 3223,
+                    'db': 9000,
+                    'password': 't00r'
+                },
+                'amqp': {
+                    'hostname': 'xorcathost',
+                    'port': 2332,
+                    'vhost': '/root',
+                    'username': 'admin',
+                    'password': 'nimda',
+                },
             }
         })
 
@@ -189,14 +200,28 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.port, 1337)
         self.assertEqual(config.logfile, 'stuff.log')
         self.assertEqual(config.redis['host'], 'rawrcathost')
+        self.assertEqual(config.redis['port'], 3223)
+        self.assertEqual(config.redis['db'], 9000)
+        self.assertEqual(config.redis['password'], 't00r')
         self.assertEqual(config.amqp['hostname'], 'xorcathost')
+        self.assertEqual(config.amqp['vhost'], '/root')
+        self.assertEqual(config.amqp['port'], 2332)
+        self.assertEqual(config.amqp['username'], 'admin')
+        self.assertEqual(config.amqp['password'], 'nimda')
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
         self.assertEqual(config.port, 1337)
         self.assertEqual(config.logfile, 'stuff.log')
         self.assertEqual(config.redis['host'], 'rawrcathost')
+        self.assertEqual(config.redis['port'], 3223)
+        self.assertEqual(config.redis['db'], 9000)
+        self.assertEqual(config.redis['password'], 't00r')
         self.assertEqual(config.amqp['hostname'], 'xorcathost')
+        self.assertEqual(config.amqp['vhost'], '/root')
+        self.assertEqual(config.amqp['port'], 2332)
+        self.assertEqual(config.amqp['username'], 'admin')
+        self.assertEqual(config.amqp['password'], 'nimda')
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -206,8 +231,19 @@ class TestCommandLine(JunebugTestBase):
                 'interface': 'lolcathost',
                 'port': 1337,
                 'logfile': 'stuff.log',
-                'redis': {'host': 'rawrcathost'},
-                'amqp': {'hostname': 'xorcathost'},
+                'redis': {
+                    'host': 'rawrcathost',
+                    'port': 3223,
+                    'db': 9000,
+                    'password': 't00r'
+                },
+                'amqp': {
+                    'hostname': 'xorcathost',
+                    'port': 2332,
+                    'vhost': '/root',
+                    'username': 'admin',
+                    'password': 'nimda',
+                },
             }
         })
 
@@ -217,14 +253,28 @@ class TestCommandLine(JunebugTestBase):
             '-p', '1620',
             '-l', 'logs.log',
             '-redish', 'bluish',
-            '-amqph', 'hpqma',
+            '-redisp', '2112',
+            '-redisdb', '23',
+            '-redispass', 'cat',
+            '-amqph', 'soup',
+            '-amqpp', '2112',
+            '-amqpvh', '/soho',
+            '-amqpu', 'koenji',
+            '-amqppass', 'kodama',
         ])
 
         self.assertEqual(config.interface, 'zuulcathost')
         self.assertEqual(config.port, 1620)
         self.assertEqual(config.logfile, 'logs.log')
         self.assertEqual(config.redis['host'], 'bluish')
-        self.assertEqual(config.amqp['hostname'], 'hpqma')
+        self.assertEqual(config.redis['port'], 2112)
+        self.assertEqual(config.redis['db'], 23)
+        self.assertEqual(config.redis['password'], 'cat')
+        self.assertEqual(config.amqp['hostname'], 'soup')
+        self.assertEqual(config.amqp['vhost'], '/soho')
+        self.assertEqual(config.amqp['port'], 2112)
+        self.assertEqual(config.amqp['username'], 'koenji')
+        self.assertEqual(config.amqp['password'], 'kodama')
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
