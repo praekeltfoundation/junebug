@@ -152,8 +152,8 @@ class TestChannel(JunebugTestBase):
         queue'''
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        msg = yield channel.send_message(
-            self.api.message_sender, {
+        msg = yield Channel.send_message(
+            'channel-id', self.api.message_sender, {
                 'from': '+1234',
                 'content': 'testcontent',
             })
@@ -193,14 +193,15 @@ class TestChannel(JunebugTestBase):
     def test_message_from_api(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        msg = channel._message_from_api({
-            'from': '+1234',
-            'content': None,
-            'channel_data': {
-                'continue_session': True,
-                'voice': {},
-                },
-            })
+        msg = Channel._message_from_api(
+            'channel-id', {
+                'from': '+1234',
+                'content': None,
+                'channel_data': {
+                    'continue_session': True,
+                    'voice': {},
+                    },
+                })
         msg = TransportUserMessage.send(**msg)
         self.assertEqual(msg.get('continue_session'), True)
         self.assertEqual(msg.get('helper_metadata'), {'voice': {}})

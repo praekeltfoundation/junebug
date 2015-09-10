@@ -153,7 +153,8 @@ class Channel(object):
         status['status'] = {}
         return status
 
-    def _api_from_message(self, msg):
+    @classmethod
+    def _api_from_message(cls, msg):
         ret = {}
         ret['to'] = msg['to_addr']
         ret['from'] = msg['from_addr']
@@ -169,12 +170,13 @@ class Channel(object):
             ret['channel_data']['session_event'] = msg['session_event']
         return ret
 
-    def _message_from_api(self, msg):
+    @classmethod
+    def _message_from_api(cls, id, msg):
         ret = {}
         ret['to_addr'] = msg.get('to')
         ret['from_addr'] = msg['from']
         ret['content'] = msg['content']
-        ret['transport_name'] = self.id
+        ret['transport_name'] = id
         channel_data = msg.get('channel_data', {})
         if channel_data.get('continue_session') is not None:
             ret['continue_session'] = channel_data.pop('continue_session')
@@ -183,12 +185,13 @@ class Channel(object):
         ret['helper_metadata'] = channel_data
         return ret
 
+    @classmethod
     @inlineCallbacks
-    def send_message(self, message_sender, msg):
+    def send_message(cls, id, message_sender, msg):
         '''Sends a message. Takes a junebug.amqp.MessageSender instance to
         send a message.'''
         message = TransportUserMessage.send(
-            **self._message_from_api(msg))
-        queue = '%s.outbound' % self.id
+            **cls._message_from_api(id, msg))
+        queue = '%s.outbound' % id
         msg = yield message_sender.send_message(message, routing_key=queue)
-        returnValue(self._api_from_message(msg))
+        returnValue(cls._api_from_message(msg))
