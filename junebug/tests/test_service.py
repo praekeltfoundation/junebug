@@ -3,6 +3,7 @@ from twisted.trial.unittest import TestCase
 
 from junebug import JunebugApi
 from junebug.service import JunebugService
+from junebug.config import JunebugConfig
 
 
 class TestJunebugService(TestCase):
@@ -22,7 +23,10 @@ class TestJunebugService(TestCase):
 
     @inlineCallbacks
     def test_start_service(self):
-        service = JunebugService('localhost', 0, {}, {})
+        service = JunebugService(JunebugConfig({
+            'host': '127.0.0.1',
+            'port': 0,
+        }))
 
         yield service.startService()
         server = service._port

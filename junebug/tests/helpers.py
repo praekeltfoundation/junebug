@@ -14,6 +14,7 @@ from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.service import JunebugService
+from junebug.config import JunebugConfig
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -99,7 +100,15 @@ class JunebugTestBase(TestCase):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         redis = yield self.get_redis()
-        self.service = JunebugService('127.0.0.1', 0, redis._config, {})
+        self.service = JunebugService(JunebugConfig({
+            'host': '127.0.0.1',
+            'port': 0,
+            'redis': redis._config,
+            'amqp': {
+                'hostname': '',
+                'port': ''
+            }
+        }))
         self.api = JunebugApi(
             self.service, redis._config, {'hostname': '', 'port': ''})
         self.api.redis = redis

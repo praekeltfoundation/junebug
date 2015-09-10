@@ -24,6 +24,8 @@ setup(
         'jsonschema',
         'treq',
         'vumi',
+        'confmodel',
+        'PyYAML',
     ],
     entry_points='''
     [console_scripts]
