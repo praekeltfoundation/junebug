@@ -53,17 +53,6 @@ class Channel(object):
         self.options = deepcopy(VumiOptions.default_vumi_options)
         self.options.update(amqp_config)
 
-    def _convert_unicode(self, data):
-        # Twisted doesn't like it when we give unicode in for config things
-        if isinstance(data, basestring):
-            return str(data)
-        elif isinstance(data, collections.Mapping):
-            return dict(map(self._convert_unicode, data.iteritems()))
-        elif isinstance(data, collections.Iterable):
-            return type(data)(map(self._convert_unicode, data))
-        else:
-            return data
-
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
@@ -124,6 +113,14 @@ class Channel(object):
         channel_redis = yield self.redis.sub_manager(self.id)
         yield channel_redis.delete('properties')
 
+    def status(self):
+        '''Returns a dict with the configuration and status of the channel'''
+        status = deepcopy(self._properties)
+        status['id'] = self.id
+        # TODO: Implement channel status
+        status['status'] = {}
+        return status
+
     @classmethod
     @inlineCallbacks
     def from_id(cls, redis, amqp_config, id, parent):
@@ -145,13 +142,16 @@ class Channel(object):
         channels = yield redis.smembers('channels')
         returnValue(channels)
 
-    def status(self):
-        '''Returns a dict with the configuration and status of the channel'''
-        status = deepcopy(self._properties)
-        status['id'] = self.id
-        # TODO: Implement channel status
-        status['status'] = {}
-        return status
+    @classmethod
+    @inlineCallbacks
+    def send_message(cls, id, message_sender, msg):
+        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
+        send a message.'''
+        message = TransportUserMessage.send(
+            **cls._message_from_api(id, msg))
+        queue = '%s.outbound' % id
+        msg = yield message_sender.send_message(message, routing_key=queue)
+        returnValue(cls._api_from_message(msg))
 
     @classmethod
     def _api_from_message(cls, msg):
@@ -185,13 +185,13 @@ class Channel(object):
         ret['helper_metadata'] = channel_data
         return ret
 
-    @classmethod
-    @inlineCallbacks
-    def send_message(cls, id, message_sender, msg):
-        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
-        send a message.'''
-        message = TransportUserMessage.send(
-            **cls._message_from_api(id, msg))
-        queue = '%s.outbound' % id
-        msg = yield message_sender.send_message(message, routing_key=queue)
-        returnValue(cls._api_from_message(msg))
+    def _convert_unicode(self, data):
+        # Twisted doesn't like it when we give unicode in for config things
+        if isinstance(data, basestring):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(map(self._convert_unicode, data.iteritems()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(self._convert_unicode, data))
+        else:
+            return data
