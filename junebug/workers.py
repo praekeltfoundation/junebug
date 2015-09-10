@@ -32,7 +32,7 @@ class MessageForwardingWorker(ApplicationWorker):
             'Content-Type': 'application/json',
         }
         msg = json.dumps(
-            Channel._api_from_message(message), cls=JSONMessageEncoder)
+            Channel.api_from_message(message), cls=JSONMessageEncoder)
         resp = yield treq.post(url, data=msg, headers=headers)
         if resp.code < 200 or resp.code >= 300:
             logging.exception(

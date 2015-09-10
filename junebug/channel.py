@@ -154,7 +154,7 @@ class Channel(object):
         return status
 
     @classmethod
-    def _api_from_message(cls, msg):
+    def api_from_message(cls, msg):
         ret = {}
         ret['to'] = msg['to_addr']
         ret['from'] = msg['from_addr']
@@ -171,7 +171,7 @@ class Channel(object):
         return ret
 
     @classmethod
-    def _message_from_api(cls, id, msg):
+    def message_from_api(cls, id, msg):
         ret = {}
         ret['to_addr'] = msg.get('to')
         ret['from_addr'] = msg['from']
@@ -191,7 +191,7 @@ class Channel(object):
         '''Sends a message. Takes a junebug.amqp.MessageSender instance to
         send a message.'''
         message = TransportUserMessage.send(
-            **cls._message_from_api(id, msg))
+            **cls.message_from_api(id, msg))
         queue = '%s.outbound' % id
         msg = yield message_sender.send_message(message, routing_key=queue)
-        returnValue(cls._api_from_message(msg))
+        returnValue(cls.api_from_message(msg))
