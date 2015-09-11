@@ -40,6 +40,7 @@ allowed_message_fields = [
 
 class Channel(object):
     APPLICATION_ID = 'application:%s'
+    APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
 
     def __init__(
             self, redis_manager, amqp_config, properties, id=None):
@@ -204,10 +205,6 @@ class Channel(object):
 
         return cls_name
 
-    @property
-    def _application_cls_name(self):
-        return 'junebug.workers.MessageForwardingWorker'
-
     def _start_transport(self, service, transport_worker):
         # transport_worker parameter is for testing, if it is None,
         # create the transport worker
@@ -231,7 +228,7 @@ class Channel(object):
 
     def _create_application(self):
         return self._create_worker(
-            self._application_cls_name,
+            self.APPLICATION_CLS_NAME,
             self._application_config)
 
     def _create_worker(self, cls_name, config):
