@@ -7,6 +7,7 @@ from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.channel import Channel
 from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.utils import conjoin
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -14,7 +15,6 @@ class TestJunebugApi(JunebugTestBase):
     def setUp(self):
         self.patch_logger()
         yield self.start_server()
-        yield self.patch_worker_creation(TelnetServerTransport)
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
@@ -82,59 +82,40 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel(self):
-        resp = yield self.post('/channels/', {
-            'type': 'telnet',
-            'config': self.default_channel_config,
-            'mo_url': 'http://foo.bar',
-        })
+        config = self.create_channel_config()
+        resp = yield self.post('/channels/', config)
 
         yield self.assert_response(
-            resp, http.OK, 'channel created', {
-                'config': self.default_channel_config,
-                'mo_url': 'http://foo.bar',
-                'status': {},
-                'type': 'telnet',
-            }, ignore=['id'])
+            resp, http.OK, 'channel created',
+            conjoin(config, {'status': {}}),
+            ignore=['id'])
 
     @inlineCallbacks
     def test_create_channel_transport(self):
-        resp = yield self.post('/channels/', {
-            'type': 'telnet',
-            'config': self.default_channel_config,
-            'mo_url': 'http://foo.bar',
-        })
+        config = self.create_channel_config()
+        resp = yield self.post('/channels/', config)
 
         # Check that the transport is created with the correct config
         id = (yield resp.json())['result']['id']
         transport = self.service.namedServices[id]
 
         self.assertEqual(transport.parent, self.service)
-        self.assertEqual(transport.config, {
-            'transport_name': 'dummy_transport1',
-            'twisted_endpoint': 'tcp:0',
-            'worker_name': 'unnamed',
-        })
-
-        self.assertTrue(transport.running)
+        self.assertEqual(transport.config['transport_name'], id)
+        self.assertEqual(transport.config['twisted_endpoint'], 'tcp:0')
+        self.assertEqual(transport.config['worker_name'], 'unnamed')
 
     @inlineCallbacks
     def test_create_channel_application(self):
-        resp = yield self.post('/channels/', {
-            'type': 'telnet',
-            'config': self.default_channel_config,
-            'mo_url': 'http://foo.bar',
-        })
+        config = self.create_channel_config()
+        resp = yield self.post('/channels/', config)
 
         channel_id = (yield resp.json())['result']['id']
         id = Channel.APPLICATION_ID % (channel_id,)
         worker = self.service.namedServices[id]
 
         self.assertEqual(worker.parent, self.service)
-
-        self.assertEqual(worker.config, {
-            'transport_name': channel_id,
-            'mo_message_url': 'http://foo.bar'
-        })
+        self.assertEqual(worker.config['transport_name'], channel_id)
+        self.assertEqual(worker.config['mo_message_url'], 'http://foo.bar')
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
