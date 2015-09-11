@@ -33,8 +33,10 @@ class TestJunebugApi(JunebugTestBase):
     def assert_response(self, response, code, description, result, ignore=[]):
         data = yield response.json()
         self.assertEqual(response.code, code)
+
         for field in ignore:
             data['result'].pop(field)
+
         self.assertEqual(data, {
             'status': code,
             'code': http.RESPONSES[code],
@@ -85,6 +87,7 @@ class TestJunebugApi(JunebugTestBase):
             'config': self.default_channel_config,
             'mo_url': 'http://foo.bar',
         })
+
         yield self.assert_response(
             resp, http.OK, 'channel created', {
                 'config': self.default_channel_config,
@@ -92,14 +95,26 @@ class TestJunebugApi(JunebugTestBase):
                 'status': {},
                 'type': 'telnet',
             }, ignore=['id'])
+
+    @inlineCallbacks
+    def test_create_channel_transport(self):
+        resp = yield self.post('/channels/', {
+            'type': 'telnet',
+            'config': self.default_channel_config,
+            'mo_url': 'http://foo.bar',
+        })
+
         # Check that the transport is created with the correct config
-        [transport] = self.service.services
+        id = (yield resp.json())['result']['id']
+        transport = self.service.namedServices[id]
+
         self.assertEqual(transport.parent, self.service)
         self.assertEqual(transport.config, {
             'transport_name': 'dummy_transport1',
             'twisted_endpoint': 'tcp:0',
             'worker_name': 'unnamed',
-            })
+        })
+
         self.assertTrue(transport.running)
 
     @inlineCallbacks

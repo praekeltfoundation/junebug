@@ -3,6 +3,7 @@ import json
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
+from vumi.application.base import ApplicationWorker
 
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
 from junebug.tests.helpers import JunebugTestBase
@@ -42,8 +43,23 @@ class TestChannel(JunebugTestBase):
     def test_start_channel(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
+
         self.assertEqual(
-            self.service.namedServices[channel.id], channel.transport_worker)
+            self.service.namedServices[channel.id],
+            channel.transport_worker)
+
+    @inlineCallbacks
+    def test_start_channel_application(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+
+        self.assertEqual(
+            channel.application_worker,
+            self.service.namedServices['application:%s' % (channel.id,)])
+
+        self.assertTrue(isinstance(
+            channel.application_worker,
+            ApplicationWorker))
 
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
@@ -55,11 +71,9 @@ class TestChannel(JunebugTestBase):
             s in err.message for s in ('xmpp', 'telnet', 'foo')))
 
     @inlineCallbacks
-    def test_update_channel(self):
+    def test_update_channel_config(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
-        self.assertEqual(
-            self.service.namedServices[channel.id], channel.transport_worker)
 
         update = yield channel.update({'foo': 'bar'})
         expected = deepcopy(self.default_channel_config)
@@ -70,6 +84,43 @@ class TestChannel(JunebugTestBase):
             })
         expected['config']['transport_name'] = channel.id
         self.assertEqual(update, expected)
+
+    @inlineCallbacks
+    def test_update_channel_restart_transport_on_config_change(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        worker1 = channel.transport_worker
+
+        self.assertEqual(self.service.namedServices[channel.id], worker1)
+        yield channel.update({'foo': 'bar'})
+        self.assertEqual(self.service.namedServices[channel.id], worker1)
+
+        config = self.create_channel_config()
+        config['config']['foo'] = ['bar']
+        yield channel.update(config)
+
+        worker2 = channel.transport_worker
+        self.assertEqual(self.service.namedServices[channel.id], worker2)
+        self.assertNotEqual(worker1, worker2)
+
+    @inlineCallbacks
+    def test_update_channel_restart_application_on_config_change(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        worker1 = channel.application_worker
+        id = 'application:%s' % (channel.id,)
+
+        self.assertEqual(self.service.namedServices[id], worker1)
+        yield channel.update({'foo': 'bar'})
+        self.assertEqual(self.service.namedServices[id], worker1)
+
+        config = self.create_channel_config()
+        config['config']['foo'] = ['bar']
+        yield channel.update(config)
+
+        worker2 = channel.application_worker
+        self.assertEqual(self.service.namedServices[id], worker2)
+        self.assertNotEqual(worker1, worker2)
 
     @inlineCallbacks
     def test_stop_channel(self):
@@ -88,7 +139,16 @@ class TestChannel(JunebugTestBase):
 
         channel2 = yield self.create_channel_from_id(
             self.service, self.redis, channel1.id)
+
         self.assertEqual((yield channel1.status()), (yield channel2.status()))
+
+        self.assertEqual(
+            channel1.transport_worker,
+            channel2.transport_worker)
+
+        self.assertEqual(
+            channel1.application_worker,
+            channel2.application_worker)
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):

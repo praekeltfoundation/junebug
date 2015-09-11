@@ -7,6 +7,7 @@ from twisted.web import http
 from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
+from vumi.application.base import ApplicationWorker
 
 from junebug.error import JunebugError
 
@@ -53,35 +54,20 @@ class Channel(object):
         self.options = deepcopy(VumiOptions.default_vumi_options)
         self.options.update(amqp_config)
 
+        self.transport_worker = None
+        self.application_worker = None
+
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
-        class_name = transports.get(self._properties.get('type'))
-        if class_name is None:
-            raise InvalidChannelType(
-                'Invalid channel type %r, must be one of: %s' % (
-                    self._properties.get('type'),
-                    ', '.join(transports.keys())))
-
-        # transport_worker parameter is for testing, if it isn't specified,
-        # create the transport worker
-        if transport_worker is None:
-            workercreator = WorkerCreator(self.options)
-            config = self._properties['config']
-            config = self._convert_unicode(config)
-            config['transport_name'] = self.id
-            transport_worker = workercreator.create_worker(
-                class_name, config)
-        transport_worker.setName(self.id)
-        transport_worker.setServiceParent(service)
-        self.transport_worker = transport_worker
+        self._start_transport(service, transport_worker)
+        self._start_application(service)
 
     @inlineCallbacks
     def stop(self):
         '''Stops the relevant workers for the channel'''
-        if hasattr(self, 'transport_worker'):
-            yield self.transport_worker.disownServiceParent()
-            del self.transport_worker
+        yield self._stop_application()
+        yield self._stop_transport()
 
     @inlineCallbacks
     def save(self):
@@ -131,8 +117,10 @@ class Channel(object):
         if properties is None:
             raise ChannelNotFound()
         properties = json.loads(properties)
+
         obj = cls(redis, amqp_config, properties, id)
-        obj.transport_worker = parent.getServiceNamed(id)
+        obj._restore(parent)
+
         returnValue(obj)
 
     @classmethod
@@ -152,6 +140,66 @@ class Channel(object):
         queue = '%s.outbound' % id
         msg = yield message_sender.send_message(message, routing_key=queue)
         returnValue(cls._api_from_message(msg))
+
+    def _start_transport(self, service, transport_worker):
+        class_name = transports.get(self._properties.get('type'))
+        if class_name is None:
+            raise InvalidChannelType(
+                'Invalid channel type %r, must be one of: %s' % (
+                    self._properties.get('type'),
+                    ', '.join(transports.keys())))
+
+        # transport_worker parameter is for testing, if it is None,
+        # create the transport worker
+        if transport_worker is None:
+            workercreator = WorkerCreator(self.options)
+            config = self._properties['config']
+            config = self._convert_unicode(config)
+            config['transport_name'] = self.id
+            transport_worker = workercreator.create_worker(
+                class_name, config)
+        transport_worker.setName(self.id)
+        transport_worker.setServiceParent(service)
+
+        self.transport_worker = transport_worker
+
+    @property
+    def _application_id(self):
+        return 'application:%s' % (self.id,)
+
+    def _start_application(self, service):
+        worker = self._create_application()
+        worker.setName(self._application_id)
+        worker.setServiceParent(service)
+        self.application_worker = worker
+
+    def _create_application(self):
+        creator = WorkerCreator(self.options)
+
+        # TODO use junebug application worker
+        return creator.create_worker_by_class(
+            ApplicationWorker,
+            self._application_config())
+
+    def _application_config(self):
+        # TODO set mo_url here
+        return {'transport_name': self.id}
+
+    @inlineCallbacks
+    def _stop_transport(self):
+        if self.transport_worker is not None:
+            yield self.transport_worker.disownServiceParent()
+            self.transport_worker = None
+
+    @inlineCallbacks
+    def _stop_application(self):
+        if self.application_worker is not None:
+            yield self.application_worker.disownServiceParent()
+            self.application_worker = None
+
+    def _restore(self, service):
+        self.transport_worker = service.getServiceNamed(self.id)
+        self.application_worker = service.getServiceNamed(self._application_id)
 
     @classmethod
     def _api_from_message(cls, msg):
