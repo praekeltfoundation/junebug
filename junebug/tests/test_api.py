@@ -118,6 +118,25 @@ class TestJunebugApi(JunebugTestBase):
         self.assertTrue(transport.running)
 
     @inlineCallbacks
+    def test_create_channel_application(self):
+        resp = yield self.post('/channels/', {
+            'type': 'telnet',
+            'config': self.default_channel_config,
+            'mo_url': 'http://foo.bar',
+        })
+
+        channel_id = (yield resp.json())['result']['id']
+        id = Channel.APPLICATION_ID % (channel_id,)
+        worker = self.service.namedServices[id]
+
+        self.assertEqual(worker.parent, self.service)
+
+        self.assertEqual(worker.config, {
+            'transport_name': channel_id,
+            'mo_message_url': 'http://foo.bar'
+        })
+
+    @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
         resp = yield self.post('/channels/', {
             'type': 'smpp',
