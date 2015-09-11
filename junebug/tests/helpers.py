@@ -1,5 +1,6 @@
 from copy import deepcopy
 import logging
+import logging.handlers
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
