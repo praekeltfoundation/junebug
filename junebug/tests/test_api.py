@@ -221,17 +221,18 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_modify_channel_config_change(self):
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 'test-channel')
+        config = self.create_channel_config()
+
+        channel = Channel(redis, {}, config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
-        resp = yield self.post(
-            '/channels/test-channel', {'config': {'name': 'bar'}})
-        expected = deepcopy(self.default_channel_config)
+
+        config['config']['name'] = 'bar'
+        resp = yield self.post('/channels/test-channel', config)
+        expected = deepcopy(config)
         expected.update({
             'status': {},
             'id': 'test-channel',
-            'config': {'name': 'bar'},
             })
         yield self.assert_response(
             resp, http.OK, 'channel updated', expected)

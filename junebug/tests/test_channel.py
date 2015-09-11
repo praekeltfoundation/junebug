@@ -119,8 +119,7 @@ class TestChannel(JunebugTestBase):
         yield channel.update({'foo': 'bar'})
         self.assertEqual(self.service.namedServices[id], worker1)
 
-        config = self.create_channel_config()
-        config['config']['foo'] = ['bar']
+        config = self.create_channel_config(mo_url='http://baz.org')
         yield channel.update(config)
 
         worker2 = channel.application_worker

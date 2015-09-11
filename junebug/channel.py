@@ -90,12 +90,16 @@ class Channel(object):
         Returns the updated configuration and status.'''
         self._properties.update(properties)
         yield self.save()
+        service = self.transport_worker.parent
 
         # Only restart if the channel config has changed
-        if properties.get('config') is not None:
-            service = self.transport_worker.parent
-            yield self.stop()
-            yield self.start(service)
+        if 'config' in properties:
+            yield self._stop_transport()
+            yield self._start_transport(service)
+
+        if 'mo_url' in properties:
+            yield self._stop_application()
+            yield self._start_application(service)
 
         returnValue((yield self.status()))
 
@@ -205,7 +209,7 @@ class Channel(object):
 
         return cls_name
 
-    def _start_transport(self, service, transport_worker):
+    def _start_transport(self, service, transport_worker=None):
         # transport_worker parameter is for testing, if it is None,
         # create the transport worker
         if transport_worker is None:
