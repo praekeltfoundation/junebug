@@ -27,7 +27,7 @@ class MessageForwardingWorker(ApplicationWorker):
     def consume_user_message(self, message):
         '''Sends the vumi message as an HTTP request to the configured URL'''
         config = yield self.get_config(message)
-        url = config.mo_message_url
+        url = str(config.mo_message_url)
         headers = {
             'Content-Type': 'application/json',
         }

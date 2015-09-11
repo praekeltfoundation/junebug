@@ -49,7 +49,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         app_config = {
             'transport_name': 'testtransport',
-            'mo_message_url': self.url,
+            'mo_message_url': unicode(self.url),
         }
         self.worker = yield self.get_worker(app_config)
 
