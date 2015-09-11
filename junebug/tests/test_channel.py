@@ -56,9 +56,8 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, config)
 
-        id = 'application:%s' % (channel.id,)
         worker = channel.application_worker
-
+        id = channel.application_id
         self.assertTrue(isinstance(worker, MessageForwardingWorker))
         self.assertEqual(self.service.namedServices[id], worker)
 
@@ -114,7 +113,7 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
         worker1 = channel.application_worker
-        id = 'application:%s' % (channel.id,)
+        id = channel.application_id
 
         self.assertEqual(self.service.namedServices[id], worker1)
         yield channel.update({'foo': 'bar'})
@@ -138,7 +137,7 @@ class TestChannel(JunebugTestBase):
         yield channel.stop()
         self.assertEqual(self.service.namedServices.get(channel.id), None)
 
-        application_id = channel._application_id
+        application_id = channel.application_id
         self.assertEqual(self.service.namedServices.get(application_id), None)
 
     @inlineCallbacks

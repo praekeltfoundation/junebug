@@ -39,6 +39,8 @@ allowed_message_fields = [
 
 
 class Channel(object):
+    APPLICATION_ID = 'application:%s'
+
     def __init__(
             self, redis_manager, amqp_config, properties, id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
@@ -55,6 +57,10 @@ class Channel(object):
 
         self.transport_worker = None
         self.application_worker = None
+
+    @property
+    def application_id(self):
+        return self.APPLICATION_ID % (self.id,)
 
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
@@ -173,10 +179,6 @@ class Channel(object):
         return ret
 
     @property
-    def _application_id(self):
-        return 'application:%s' % (self.id,)
-
-    @property
     def _transport_config(self):
         config = self._properties['config']
         config = self._convert_unicode(config)
@@ -218,7 +220,7 @@ class Channel(object):
 
     def _start_application(self, service):
         worker = self._create_application()
-        worker.setName(self._application_id)
+        worker.setName(self.application_id)
         worker.setServiceParent(service)
         self.application_worker = worker
 
@@ -251,7 +253,7 @@ class Channel(object):
 
     def _restore(self, service):
         self.transport_worker = service.getServiceNamed(self.id)
-        self.application_worker = service.getServiceNamed(self._application_id)
+        self.application_worker = service.getServiceNamed(self.application_id)
 
     def _convert_unicode(self, data):
         # Twisted doesn't like it when we give unicode in for config things
