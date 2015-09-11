@@ -7,7 +7,6 @@ from twisted.web import http
 from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
-from vumi.application.base import ApplicationWorker
 
 from junebug.error import JunebugError
 
@@ -173,31 +172,49 @@ class Channel(object):
         ret['helper_metadata'] = channel_data
         return ret
 
-    def _start_transport(self, service, transport_worker):
-        class_name = transports.get(self._properties.get('type'))
-        if class_name is None:
+    @property
+    def _application_id(self):
+        return 'application:%s' % (self.id,)
+
+    @property
+    def _transport_config(self):
+        config = self._properties['config']
+        config = self._convert_unicode(config)
+        config['transport_name'] = self.id
+        return config
+
+    @property
+    def _application_config(self):
+        return {
+            'transport_name': self.id,
+            'mo_message_url': self._properties['mo_url'],
+        }
+
+    @property
+    def _transport_cls_name(self):
+        cls_name = transports.get(self._properties.get('type'))
+
+        if cls_name is None:
             raise InvalidChannelType(
                 'Invalid channel type %r, must be one of: %s' % (
                     self._properties.get('type'),
                     ', '.join(transports.keys())))
 
+        return cls_name
+
+    @property
+    def _application_cls_name(self):
+        return 'junebug.workers.MessageForwardingWorker'
+
+    def _start_transport(self, service, transport_worker):
         # transport_worker parameter is for testing, if it is None,
         # create the transport worker
         if transport_worker is None:
-            workercreator = WorkerCreator(self.options)
-            config = self._properties['config']
-            config = self._convert_unicode(config)
-            config['transport_name'] = self.id
-            transport_worker = workercreator.create_worker(
-                class_name, config)
+            transport_worker = self._create_transport()
+
         transport_worker.setName(self.id)
         transport_worker.setServiceParent(service)
-
         self.transport_worker = transport_worker
-
-    @property
-    def _application_id(self):
-        return 'application:%s' % (self.id,)
 
     def _start_application(self, service):
         worker = self._create_application()
@@ -205,17 +222,20 @@ class Channel(object):
         worker.setServiceParent(service)
         self.application_worker = worker
 
+    def _create_transport(self):
+        return self._create_worker(
+            self._transport_cls_name,
+            self._transport_config)
+
     def _create_application(self):
+        return self._create_worker(
+            self._application_cls_name,
+            self._application_config)
+
+    def _create_worker(self, cls_name, config):
         creator = WorkerCreator(self.options)
-
-        # TODO use junebug application worker
-        return creator.create_worker_by_class(
-            ApplicationWorker,
-            self._application_config())
-
-    def _application_config(self):
-        # TODO set mo_url here
-        return {'transport_name': self.id}
+        worker = creator.create_worker(cls_name, config)
+        return worker
 
     @inlineCallbacks
     def _stop_transport(self):

@@ -5,6 +5,7 @@ from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
 from vumi.application.base import ApplicationWorker
 
+from junebug.workers import MessageForwardingWorker
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -50,16 +51,18 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_start_channel_application(self):
+        config = self.create_channel_config(mo_url='http://foo.org')
+
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis, TelnetServerTransport, config)
 
-        self.assertEqual(
-            channel.application_worker,
-            self.service.namedServices['application:%s' % (channel.id,)])
+        id = 'application:%s' % (channel.id,)
+        worker = channel.application_worker
 
-        self.assertTrue(isinstance(
-            channel.application_worker,
-            ApplicationWorker))
+        self.assertTrue(isinstance(worker, MessageForwardingWorker))
+        self.assertEqual(self.service.namedServices[id], worker)
+        self.assertEqual(worker.config['transport_name'], channel.id)
+        self.assertEqual(worker.config['mo_message_url'], 'http://foo.org')
 
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
