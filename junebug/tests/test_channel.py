@@ -175,7 +175,7 @@ class TestChannel(JunebugTestBase):
             content=None, from_addr='+1234', to_addr='+5432',
             transport_name='testtransport', continue_session=True,
             helper_metadata={'voice': {}})
-        dct = channel._api_from_message(message)
+        dct = channel.api_from_message(message)
         [dct.pop(f) for f in ['timestamp', 'message_id']]
         self.assertEqual(dct, {
             'channel_data': {
@@ -193,7 +193,7 @@ class TestChannel(JunebugTestBase):
     def test_message_from_api(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        msg = Channel._message_from_api(
+        msg = Channel.message_from_api(
             'channel-id', {
                 'from': '+1234',
                 'content': None,
