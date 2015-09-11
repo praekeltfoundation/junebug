@@ -9,7 +9,7 @@ from txamqp.client import TwistedDelegate
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
-from vumi.tests.helpers import PersistenceHelper, WorkerHelper
+from vumi.tests.helpers import PersistenceHelper
 
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
@@ -77,11 +77,7 @@ class JunebugTestBase(TestCase):
         config = deepcopy(config)
         channel = Channel(redis, {}, config, id=id)
         config['config']['transport_name'] = channel.id
-        wh = WorkerHelper()
-        transport_worker = yield wh.get_worker(
-            transport_class, config['config'])
-        self.addCleanup(wh.cleanup)
-        yield channel.start(self.service, transport_worker)
+        yield channel.start(self.service)
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)
