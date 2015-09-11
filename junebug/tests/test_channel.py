@@ -106,7 +106,7 @@ class TestChannel(JunebugTestBase):
 
         worker2 = channel.transport_worker
         self.assertEqual(self.service.namedServices[channel.id], worker2)
-        self.assertNotEqual(worker1, worker2)
+        self.assertTrue(worker1 not in self.service.services)
 
     @inlineCallbacks
     def test_update_channel_restart_application_on_config_change(self):
@@ -125,7 +125,7 @@ class TestChannel(JunebugTestBase):
 
         worker2 = channel.application_worker
         self.assertEqual(self.service.namedServices[id], worker2)
-        self.assertNotEqual(worker1, worker2)
+        self.assertTrue(worker1 not in self.service.services)
 
     @inlineCallbacks
     def test_stop_channel(self):
