@@ -61,8 +61,11 @@ class TestChannel(JunebugTestBase):
 
         self.assertTrue(isinstance(worker, MessageForwardingWorker))
         self.assertEqual(self.service.namedServices[id], worker)
-        self.assertEqual(worker.config['transport_name'], channel.id)
-        self.assertEqual(worker.config['mo_message_url'], 'http://foo.org')
+
+        self.assertEqual(worker.config, {
+            'transport_name': channel.id,
+            'mo_message_url': 'http://foo.org'
+        })
 
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
@@ -134,6 +137,9 @@ class TestChannel(JunebugTestBase):
 
         yield channel.stop()
         self.assertEqual(self.service.namedServices.get(channel.id), None)
+
+        application_id = channel._application_id
+        self.assertEqual(self.service.namedServices.get(application_id), None)
 
     @inlineCallbacks
     def test_create_channel_from_id(self):
