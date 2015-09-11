@@ -210,7 +210,7 @@ class TestChannel(JunebugTestBase):
     def test_send_message(self):
         '''The send_message function should place the message on the correct
         queue'''
-        channel = yield self.create_channel(
+        yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield Channel.send_message(
             'channel-id', self.api.message_sender, {
@@ -251,7 +251,7 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_message_from_api(self):
-        channel = yield self.create_channel(
+        yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = Channel._message_from_api(
             'channel-id', {
