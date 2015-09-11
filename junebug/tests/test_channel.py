@@ -41,7 +41,7 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(properties, None)
 
     @inlineCallbacks
-    def test_start_channel(self):
+    def test_start_channel_transport(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
