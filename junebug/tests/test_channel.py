@@ -22,19 +22,14 @@ class TestChannel(JunebugTestBase):
         config = self.create_channel_config()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
-        properties = yield self.redis.get('%s:properties' % channel.id)
-<<<<<<< HEAD
-        expected = deepcopy(self.default_channel_config)
-        expected['config']['transport_name'] = channel.id
-        self.assertEqual(json.loads(properties), expected)
-        channel_list = yield self.redis.get('channels')
-        self.assertEqual(channel_list, set([channel.id]))
-=======
 
+        properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(properties), conjoin(config, {
             'config': conjoin(config['config'], {'transport_name': channel.id})
         }))
->>>>>>> develop
+
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
 
     @inlineCallbacks
     def test_delete_channel(self):
@@ -43,18 +38,12 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
 
         properties = yield self.redis.get('%s:properties' % channel.id)
-<<<<<<< HEAD
-        expected = deepcopy(self.default_channel_config)
-        expected['config']['transport_name'] = channel.id
-        self.assertEqual(json.loads(properties), expected)
-        channel_list = yield self.redis.get('channels')
-        self.assertEqual(channel_list, set([channel.id]))
-=======
-
         self.assertEqual(json.loads(properties), conjoin(config, {
             'config': conjoin(config['config'], {'transport_name': channel.id})
         }))
->>>>>>> develop
+
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
 
         yield channel.delete()
         properties = yield self.redis.get('%s:properties' % channel.id)
