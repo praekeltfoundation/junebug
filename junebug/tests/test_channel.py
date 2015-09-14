@@ -26,6 +26,8 @@ class TestChannel(JunebugTestBase):
         expected = deepcopy(self.default_channel_config)
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
 
     @inlineCallbacks
     def test_delete_channel(self):
@@ -35,10 +37,15 @@ class TestChannel(JunebugTestBase):
         expected = deepcopy(self.default_channel_config)
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
 
         yield channel.delete()
         properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(properties, None)
+
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set())
 
     @inlineCallbacks
     def test_start_channel_transport(self):
