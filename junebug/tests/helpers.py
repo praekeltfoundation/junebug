@@ -63,6 +63,11 @@ class JunebugTestBase(TestCase):
         self.logging_handler.close()
         logging.getLogger().removeHandler(self.logging_handler)
 
+    def create_channel_config(self, **kw):
+        config = deepcopy(self.default_channel_config)
+        config.update(kw)
+        return config
+
     @inlineCallbacks
     def create_channel(
             self, service, redis, transport_class,

@@ -39,6 +39,9 @@ allowed_message_fields = [
 
 
 class Channel(object):
+    APPLICATION_ID = 'application:%s'
+    APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
+
     def __init__(
             self, redis_manager, amqp_config, properties, id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
@@ -53,46 +56,24 @@ class Channel(object):
         self.options = deepcopy(VumiOptions.default_vumi_options)
         self.options.update(amqp_config)
 
-    def _convert_unicode(self, data):
-        # Twisted doesn't like it when we give unicode in for config things
-        if isinstance(data, basestring):
-            return str(data)
-        elif isinstance(data, collections.Mapping):
-            return dict(map(self._convert_unicode, data.iteritems()))
-        elif isinstance(data, collections.Iterable):
-            return type(data)(map(self._convert_unicode, data))
-        else:
-            return data
+        self.transport_worker = None
+        self.application_worker = None
+
+    @property
+    def application_id(self):
+        return self.APPLICATION_ID % (self.id,)
 
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
-        class_name = transports.get(self._properties.get('type'))
-        if class_name is None:
-            raise InvalidChannelType(
-                'Invalid channel type %r, must be one of: %s' % (
-                    self._properties.get('type'),
-                    ', '.join(transports.keys())))
-
-        # transport_worker parameter is for testing, if it isn't specified,
-        # create the transport worker
-        if transport_worker is None:
-            workercreator = WorkerCreator(self.options)
-            config = self._properties['config']
-            config = self._convert_unicode(config)
-            config['transport_name'] = self.id
-            transport_worker = workercreator.create_worker(
-                class_name, config)
-        transport_worker.setName(self.id)
-        transport_worker.setServiceParent(service)
-        self.transport_worker = transport_worker
+        self._start_transport(service, transport_worker)
+        self._start_application(service)
 
     @inlineCallbacks
     def stop(self):
         '''Stops the relevant workers for the channel'''
-        if hasattr(self, 'transport_worker'):
-            yield self.transport_worker.disownServiceParent()
-            del self.transport_worker
+        yield self._stop_application()
+        yield self._stop_transport()
 
     @inlineCallbacks
     def save(self):
@@ -109,12 +90,16 @@ class Channel(object):
         Returns the updated configuration and status.'''
         self._properties.update(properties)
         yield self.save()
+        service = self.transport_worker.parent
 
         # Only restart if the channel config has changed
-        if properties.get('config') is not None:
-            service = self.transport_worker.parent
-            yield self.stop()
-            yield self.start(service)
+        if 'config' in properties:
+            yield self._stop_transport()
+            yield self._start_transport(service)
+
+        if 'mo_url' in properties:
+            yield self._stop_application()
+            yield self._start_application(service)
 
         returnValue((yield self.status()))
 
@@ -123,6 +108,14 @@ class Channel(object):
         '''Removes the channel data from redis'''
         channel_redis = yield self.redis.sub_manager(self.id)
         yield channel_redis.delete('properties')
+
+    def status(self):
+        '''Returns a dict with the configuration and status of the channel'''
+        status = deepcopy(self._properties)
+        status['id'] = self.id
+        # TODO: Implement channel status
+        status['status'] = {}
+        return status
 
     @classmethod
     @inlineCallbacks
@@ -134,8 +127,10 @@ class Channel(object):
         if properties is None:
             raise ChannelNotFound()
         properties = json.loads(properties)
+
         obj = cls(redis, amqp_config, properties, id)
-        obj.transport_worker = parent.getServiceNamed(id)
+        obj._restore(parent)
+
         returnValue(obj)
 
     @classmethod
@@ -145,13 +140,16 @@ class Channel(object):
         channels = yield redis.smembers('channels')
         returnValue(channels)
 
-    def status(self):
-        '''Returns a dict with the configuration and status of the channel'''
-        status = deepcopy(self._properties)
-        status['id'] = self.id
-        # TODO: Implement channel status
-        status['status'] = {}
-        return status
+    @classmethod
+    @inlineCallbacks
+    def send_message(cls, id, message_sender, msg):
+        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
+        send a message.'''
+        message = TransportUserMessage.send(
+            **cls.message_from_api(id, msg))
+        queue = '%s.outbound' % id
+        msg = yield message_sender.send_message(message, routing_key=queue)
+        returnValue(cls.api_from_message(msg))
 
     @classmethod
     def api_from_message(cls, msg):
@@ -185,13 +183,86 @@ class Channel(object):
         ret['helper_metadata'] = channel_data
         return ret
 
-    @classmethod
+    @property
+    def _transport_config(self):
+        config = self._properties['config']
+        config = self._convert_unicode(config)
+        config['transport_name'] = self.id
+        return config
+
+    @property
+    def _application_config(self):
+        return {
+            'transport_name': self.id,
+            'mo_message_url': self._properties['mo_url'],
+        }
+
+    @property
+    def _transport_cls_name(self):
+        cls_name = transports.get(self._properties.get('type'))
+
+        if cls_name is None:
+            raise InvalidChannelType(
+                'Invalid channel type %r, must be one of: %s' % (
+                    self._properties.get('type'),
+                    ', '.join(transports.keys())))
+
+        return cls_name
+
+    def _start_transport(self, service, transport_worker=None):
+        # transport_worker parameter is for testing, if it is None,
+        # create the transport worker
+        if transport_worker is None:
+            transport_worker = self._create_transport()
+
+        transport_worker.setName(self.id)
+        transport_worker.setServiceParent(service)
+        self.transport_worker = transport_worker
+
+    def _start_application(self, service):
+        worker = self._create_application()
+        worker.setName(self.application_id)
+        worker.setServiceParent(service)
+        self.application_worker = worker
+
+    def _create_transport(self):
+        return self._create_worker(
+            self._transport_cls_name,
+            self._transport_config)
+
+    def _create_application(self):
+        return self._create_worker(
+            self.APPLICATION_CLS_NAME,
+            self._application_config)
+
+    def _create_worker(self, cls_name, config):
+        creator = WorkerCreator(self.options)
+        worker = creator.create_worker(cls_name, config)
+        return worker
+
     @inlineCallbacks
-    def send_message(cls, id, message_sender, msg):
-        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
-        send a message.'''
-        message = TransportUserMessage.send(
-            **cls.message_from_api(id, msg))
-        queue = '%s.outbound' % id
-        msg = yield message_sender.send_message(message, routing_key=queue)
-        returnValue(cls.api_from_message(msg))
+    def _stop_transport(self):
+        if self.transport_worker is not None:
+            yield self.transport_worker.disownServiceParent()
+            self.transport_worker = None
+
+    @inlineCallbacks
+    def _stop_application(self):
+        if self.application_worker is not None:
+            yield self.application_worker.disownServiceParent()
+            self.application_worker = None
+
+    def _restore(self, service):
+        self.transport_worker = service.getServiceNamed(self.id)
+        self.application_worker = service.getServiceNamed(self.application_id)
+
+    def _convert_unicode(self, data):
+        # Twisted doesn't like it when we give unicode in for config things
+        if isinstance(data, basestring):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(map(self._convert_unicode, data.iteritems()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(self._convert_unicode, data))
+        else:
+            return data

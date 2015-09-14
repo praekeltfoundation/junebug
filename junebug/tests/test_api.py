@@ -33,8 +33,10 @@ class TestJunebugApi(JunebugTestBase):
     def assert_response(self, response, code, description, result, ignore=[]):
         data = yield response.json()
         self.assertEqual(response.code, code)
+
         for field in ignore:
             data['result'].pop(field)
+
         self.assertEqual(data, {
             'status': code,
             'code': http.RESPONSES[code],
@@ -85,6 +87,7 @@ class TestJunebugApi(JunebugTestBase):
             'config': self.default_channel_config,
             'mo_url': 'http://foo.bar',
         })
+
         yield self.assert_response(
             resp, http.OK, 'channel created', {
                 'config': self.default_channel_config,
@@ -92,15 +95,46 @@ class TestJunebugApi(JunebugTestBase):
                 'status': {},
                 'type': 'telnet',
             }, ignore=['id'])
+
+    @inlineCallbacks
+    def test_create_channel_transport(self):
+        resp = yield self.post('/channels/', {
+            'type': 'telnet',
+            'config': self.default_channel_config,
+            'mo_url': 'http://foo.bar',
+        })
+
         # Check that the transport is created with the correct config
-        [transport] = self.service.services
+        id = (yield resp.json())['result']['id']
+        transport = self.service.namedServices[id]
+
         self.assertEqual(transport.parent, self.service)
         self.assertEqual(transport.config, {
             'transport_name': 'dummy_transport1',
             'twisted_endpoint': 'tcp:0',
             'worker_name': 'unnamed',
-            })
+        })
+
         self.assertTrue(transport.running)
+
+    @inlineCallbacks
+    def test_create_channel_application(self):
+        resp = yield self.post('/channels/', {
+            'type': 'telnet',
+            'config': self.default_channel_config,
+            'mo_url': 'http://foo.bar',
+        })
+
+        channel_id = (yield resp.json())['result']['id']
+        id = Channel.APPLICATION_ID % (channel_id,)
+        worker = self.service.namedServices[id]
+
+        self.assertEqual(worker.parent, self.service)
+
+        self.assertEqual(worker.config, {
+            'transport_name': channel_id,
+            'mo_message_url': 'http://foo.bar'
+        })
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
@@ -187,17 +221,18 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_modify_channel_config_change(self):
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 'test-channel')
+        config = self.create_channel_config()
+
+        channel = Channel(redis, {}, config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
-        resp = yield self.post(
-            '/channels/test-channel', {'config': {'name': 'bar'}})
-        expected = deepcopy(self.default_channel_config)
+
+        config['config']['name'] = 'bar'
+        resp = yield self.post('/channels/test-channel', config)
+        expected = deepcopy(config)
         expected.update({
             'status': {},
             'id': 'test-channel',
-            'config': {'name': 'bar'},
             })
         yield self.assert_response(
             resp, http.OK, 'channel updated', expected)

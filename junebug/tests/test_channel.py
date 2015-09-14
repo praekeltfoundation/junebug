@@ -3,7 +3,9 @@ import json
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
+from vumi.application.base import ApplicationWorker
 
+from junebug.workers import MessageForwardingWorker
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -39,11 +41,30 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(properties, None)
 
     @inlineCallbacks
-    def test_start_channel(self):
+    def test_start_channel_transport(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
+
         self.assertEqual(
-            self.service.namedServices[channel.id], channel.transport_worker)
+            self.service.namedServices[channel.id],
+            channel.transport_worker)
+
+    @inlineCallbacks
+    def test_start_channel_application(self):
+        config = self.create_channel_config(mo_url='http://foo.org')
+
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, config)
+
+        worker = channel.application_worker
+        id = channel.application_id
+        self.assertTrue(isinstance(worker, MessageForwardingWorker))
+        self.assertEqual(self.service.namedServices[id], worker)
+
+        self.assertEqual(worker.config, {
+            'transport_name': channel.id,
+            'mo_message_url': 'http://foo.org'
+        })
 
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
@@ -55,11 +76,9 @@ class TestChannel(JunebugTestBase):
             s in err.message for s in ('xmpp', 'telnet', 'foo')))
 
     @inlineCallbacks
-    def test_update_channel(self):
+    def test_update_channel_config(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
-        self.assertEqual(
-            self.service.namedServices[channel.id], channel.transport_worker)
 
         update = yield channel.update({'foo': 'bar'})
         expected = deepcopy(self.default_channel_config)
@@ -72,6 +91,42 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(update, expected)
 
     @inlineCallbacks
+    def test_update_channel_restart_transport_on_config_change(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        worker1 = channel.transport_worker
+
+        self.assertEqual(self.service.namedServices[channel.id], worker1)
+        yield channel.update({'foo': 'bar'})
+        self.assertEqual(self.service.namedServices[channel.id], worker1)
+
+        config = self.create_channel_config()
+        config['config']['foo'] = ['bar']
+        yield channel.update(config)
+
+        worker2 = channel.transport_worker
+        self.assertEqual(self.service.namedServices[channel.id], worker2)
+        self.assertTrue(worker1 not in self.service.services)
+
+    @inlineCallbacks
+    def test_update_channel_restart_application_on_config_change(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        worker1 = channel.application_worker
+        id = channel.application_id
+
+        self.assertEqual(self.service.namedServices[id], worker1)
+        yield channel.update({'foo': 'bar'})
+        self.assertEqual(self.service.namedServices[id], worker1)
+
+        config = self.create_channel_config(mo_url='http://baz.org')
+        yield channel.update(config)
+
+        worker2 = channel.application_worker
+        self.assertEqual(self.service.namedServices[id], worker2)
+        self.assertTrue(worker1 not in self.service.services)
+
+    @inlineCallbacks
     def test_stop_channel(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
@@ -81,6 +136,9 @@ class TestChannel(JunebugTestBase):
         yield channel.stop()
         self.assertEqual(self.service.namedServices.get(channel.id), None)
 
+        application_id = channel.application_id
+        self.assertEqual(self.service.namedServices.get(application_id), None)
+
     @inlineCallbacks
     def test_create_channel_from_id(self):
         channel1 = yield self.create_channel(
@@ -88,7 +146,16 @@ class TestChannel(JunebugTestBase):
 
         channel2 = yield self.create_channel_from_id(
             self.service, self.redis, channel1.id)
+
         self.assertEqual((yield channel1.status()), (yield channel2.status()))
+
+        self.assertEqual(
+            channel1.transport_worker,
+            channel2.transport_worker)
+
+        self.assertEqual(
+            channel1.application_worker,
+            channel2.application_worker)
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):
@@ -150,7 +217,7 @@ class TestChannel(JunebugTestBase):
     def test_send_message(self):
         '''The send_message function should place the message on the correct
         queue'''
-        channel = yield self.create_channel(
+        yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield Channel.send_message(
             'channel-id', self.api.message_sender, {
@@ -191,7 +258,7 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_message_from_api(self):
-        channel = yield self.create_channel(
+        yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = Channel.message_from_api(
             'channel-id', {
