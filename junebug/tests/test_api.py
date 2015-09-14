@@ -98,9 +98,10 @@ class TestJunebugApi(JunebugTestBase):
         transport = self.service.namedServices[id]
 
         self.assertEqual(transport.parent, self.service)
-        self.assertEqual(transport.config['transport_name'], id)
-        self.assertEqual(transport.config['twisted_endpoint'], 'tcp:0')
-        self.assertEqual(transport.config['worker_name'], 'unnamed')
+
+        self.assertEqual(transport.config, conjoin(config['config'], {
+            'transport_name': id,
+        }))
 
     @inlineCallbacks
     def test_create_channel_application(self):
