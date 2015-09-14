@@ -108,6 +108,7 @@ class Channel(object):
         '''Removes the channel data from redis'''
         channel_redis = yield self.redis.sub_manager(self.id)
         yield channel_redis.delete('properties')
+        yield self.redis.srem('channels', self.id)
 
     def status(self):
         '''Returns a dict with the configuration and status of the channel'''

@@ -22,11 +22,14 @@ class TestChannel(JunebugTestBase):
         config = self.create_channel_config()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
-        properties = yield self.redis.get('%s:properties' % channel.id)
 
+        properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(properties), conjoin(config, {
             'config': conjoin(config['config'], {'transport_name': channel.id})
         }))
+
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
 
     @inlineCallbacks
     def test_delete_channel(self):
@@ -35,14 +38,19 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
 
         properties = yield self.redis.get('%s:properties' % channel.id)
-
         self.assertEqual(json.loads(properties), conjoin(config, {
             'config': conjoin(config['config'], {'transport_name': channel.id})
         }))
 
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set([channel.id]))
+
         yield channel.delete()
         properties = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(properties, None)
+
+        channel_list = yield self.redis.get('channels')
+        self.assertEqual(channel_list, set())
 
     @inlineCallbacks
     def test_start_channel_transport(self):
