@@ -1,9 +1,7 @@
-from copy import deepcopy
 import json
 import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
-from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.channel import Channel
 from junebug.tests.helpers import JunebugTestBase
@@ -156,19 +154,19 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel(self):
+        config = self.create_channel_config()
         redis = yield self.get_redis()
         channel = Channel(
-            redis, {}, self.default_channel_config, u'test-channel')
+            redis, {}, config, u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            })
+
         yield self.assert_response(
-            resp, http.OK, 'channel found', expected)
+            resp, http.OK, 'channel found', conjoin(config, {
+                'status': {},
+                'id': 'test-channel',
+            }))
 
     @inlineCallbacks
     def test_modify_unknown_channel(self):
@@ -183,24 +181,26 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_modify_channel_no_config_change(self):
+        config = self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 'test-channel')
+
+        channel = Channel(redis, {}, config, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
+
         resp = yield self.post(
             '/channels/test-channel', {'metadata': {'foo': 'bar'}})
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            'metadata': {'foo': 'bar'},
-            })
+
         yield self.assert_response(
-            resp, http.OK, 'channel updated', expected)
+            resp, http.OK, 'channel updated', conjoin(config, {
+                'status': {},
+                'id': 'test-channel',
+                'metadata': {'foo': 'bar'},
+            }))
 
     @inlineCallbacks
     def test_modify_channel_config_change(self):
+        config = self.create_channel_config()
         redis = yield self.get_redis()
         config = self.create_channel_config()
 
@@ -210,13 +210,12 @@ class TestJunebugApi(JunebugTestBase):
 
         config['config']['name'] = 'bar'
         resp = yield self.post('/channels/test-channel', config)
-        expected = deepcopy(config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            })
+
         yield self.assert_response(
-            resp, http.OK, 'channel updated', expected)
+            resp, http.OK, 'channel updated', conjoin(config, {
+                'status': {},
+                'id': 'test-channel',
+            }))
 
     @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
