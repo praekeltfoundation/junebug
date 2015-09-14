@@ -9,7 +9,7 @@ from txamqp.client import TwistedDelegate
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
-from vumi.tests.helpers import PersistenceHelper, WorkerHelper
+from vumi.tests.helpers import PersistenceHelper
 
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
@@ -46,8 +46,8 @@ class JunebugTestBase(TestCase):
     default_channel_config = {
         'type': 'telnet',
         'config': {
-            'transport_name': 'dummy_transport1',
             'twisted_endpoint': 'tcp:0',
+            'worker_name': 'unnamed',
         },
         'mo_url': 'http://foo.bar',
     }
@@ -77,11 +77,7 @@ class JunebugTestBase(TestCase):
         config = deepcopy(config)
         channel = Channel(redis, {}, config, id=id)
         config['config']['transport_name'] = channel.id
-        wh = WorkerHelper()
-        transport_worker = yield wh.get_worker(
-            transport_class, config['config'])
-        self.addCleanup(wh.cleanup)
-        yield channel.start(self.service, transport_worker)
+        yield channel.start(self.service)
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)
@@ -135,28 +131,6 @@ class JunebugTestBase(TestCase):
         client = FakeAmqpClient(spec)
         message_sender.client = client
         return message_sender
-
-    @inlineCallbacks
-    def patch_worker_creation(
-            self, transport_class, config=default_channel_config):
-        '''Patches the channel start function to start a worker with the given
-        worker class and config using a worker helper.'''
-        worker_helper = WorkerHelper()
-        transport_worker = yield worker_helper.get_worker(
-            transport_class, config['config'])
-        yield transport_worker.startService()
-        self.addCleanup(transport_worker.stopService)
-        self._original_channel_start = old_start = Channel.start
-
-        def new_start(self, service):
-            return old_start(
-                self, service, transport_worker)
-
-        Channel.start = new_start
-        self.addCleanup(self._unpatch_worker_creation)
-
-    def _unpatch_worker_creation(self):
-        Channel.start = self._original_channel_start
 
     def get_dispatched_messages(self, queue):
         '''Gets all messages that have been dispatched to the amqp broker.

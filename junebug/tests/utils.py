@@ -26,3 +26,10 @@ class ToyServer(object):
         yield server.setup(app)
         test.addCleanup(server.teardown)
         returnValue(server)
+
+
+def conjoin(a, b):
+    result = {}
+    result.update(a)
+    result.update(b)
+    return result

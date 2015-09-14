@@ -1,13 +1,12 @@
-from copy import deepcopy
 import json
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
-from vumi.application.base import ApplicationWorker
 
 from junebug.workers import MessageForwardingWorker
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
 from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.utils import conjoin
 
 
 class TestChannel(JunebugTestBase):
@@ -20,25 +19,42 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_save_channel(self):
+        config = self.create_channel_config()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
         properties = yield self.redis.get('%s:properties' % channel.id)
+<<<<<<< HEAD
         expected = deepcopy(self.default_channel_config)
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
         channel_list = yield self.redis.get('channels')
         self.assertEqual(channel_list, set([channel.id]))
+=======
+
+        self.assertEqual(json.loads(properties), conjoin(config, {
+            'config': conjoin(config['config'], {'transport_name': channel.id})
+        }))
+>>>>>>> develop
 
     @inlineCallbacks
     def test_delete_channel(self):
+        config = self.create_channel_config()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
+
         properties = yield self.redis.get('%s:properties' % channel.id)
+<<<<<<< HEAD
         expected = deepcopy(self.default_channel_config)
         expected['config']['transport_name'] = channel.id
         self.assertEqual(json.loads(properties), expected)
         channel_list = yield self.redis.get('channels')
         self.assertEqual(channel_list, set([channel.id]))
+=======
+
+        self.assertEqual(json.loads(properties), conjoin(config, {
+            'config': conjoin(config['config'], {'transport_name': channel.id})
+        }))
+>>>>>>> develop
 
         yield channel.delete()
         properties = yield self.redis.get('%s:properties' % channel.id)
@@ -84,18 +100,21 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_update_channel_config(self):
+        config = self.create_channel_config()
+
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
         update = yield channel.update({'foo': 'bar'})
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
+
+        self.assertEqual(update, conjoin(config, {
             'foo': 'bar',
             'status': {},
             'id': channel.id,
+            'config': conjoin(config['config'], {
+                'transport_name': channel.id
             })
-        expected['config']['transport_name'] = channel.id
-        self.assertEqual(update, expected)
+        }))
 
     @inlineCallbacks
     def test_update_channel_restart_transport_on_config_change(self):
@@ -173,15 +192,17 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_channel_status(self):
+        config = self.create_channel_config()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'id': 'channel-id',
+
+        self.assertEqual((yield channel.status()), conjoin(config, {
             'status': {},
+            'id': 'channel-id',
+            'config': conjoin(config['config'], {
+                'transport_name': channel.id
             })
-        expected['config']['transport_name'] = channel.id
-        self.assertEqual((yield channel.status()), expected)
+        }))
 
     @inlineCallbacks
     def test_get_all_channels(self):
