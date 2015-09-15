@@ -31,10 +31,9 @@ class BaseStore(object):
     def load_property(self, prop):
         self.properties[prop] = yield self.redis.hget(self.id, prop)
 
-    @inlineCallbacks
     def set_property(self, prop, value):
-        yield self.redis.hset(self.id, prop, value)
         self.properties[prop] = value
+        return succeed(None)
 
     def get_property(self, prop):
         return succeed(self.properties.get(prop))

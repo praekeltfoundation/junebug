@@ -90,10 +90,10 @@ class TestBaseStore(JunebugTestBase):
 
     @inlineCallbacks
     def test_set_property(self):
-        '''Set the property in redis and on the store properties'''
+        '''Set the property on the store properties'''
         store = yield self.create_store()
         yield store.set_property('foo', 'bar')
-        self.assertEqual((yield self.redis.hget('testid', 'foo')), 'bar')
+        self.assertEqual(store.properties['foo'], 'bar')
 
     @inlineCallbacks
     def test_get_property(self):
