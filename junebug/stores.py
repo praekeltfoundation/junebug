@@ -1,4 +1,5 @@
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from vumi.message import TransportUserMessage
 
 
 class BaseStore(object):
@@ -19,8 +20,16 @@ class BaseStore(object):
         yield self.redis.expire(self.id, self.ttl)
 
     @inlineCallbacks
+    def save_property(self, prop):
+        yield self.redis.hset(self.id, prop, self.properties.get(prop))
+
+    @inlineCallbacks
     def load_all(self):
         self.properties = (yield self.redis.hgetall(self.id)) or {}
+
+    @inlineCallbacks
+    def load_property(self, prop):
+        self.properties[prop] = yield self.redis.hget(self.id, prop)
 
     @inlineCallbacks
     def set_property(self, prop, value):
@@ -36,3 +45,18 @@ class BaseStore(object):
         store = cls(id, {}, redis, ttl)
         yield store.load_all()
         returnValue(store)
+
+class InboundMessage(BaseStore):
+    '''Stores the entire inbound message, in order to later construct
+    replies'''
+    @classmethod
+    def from_vumi_message(cls, message, redis, ttl):
+        props = {
+            'message': message.to_json(),
+        }
+        msg = cls(message.get('message_id'), props, redis, ttl)
+        return succeed(msg)
+
+    @property
+    def vumi_message(self):
+        return TransportUserMessage.from_json(self.properties.get('message'))
