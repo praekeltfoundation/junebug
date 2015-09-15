@@ -1,6 +1,8 @@
+from copy import deepcopy
 from twisted.internet.defer import inlineCallbacks, returnValue
+from vumi.message import TransportUserMessage
 
-from junebug.stores import BaseStore
+from junebug.stores import BaseStore, InboundMessage
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -8,7 +10,7 @@ class TestBaseStore(JunebugTestBase):
     @inlineCallbacks
     def create_store(self, id='testid', ttl=60, properties={}):
         redis = yield self.get_redis()
-        store = BaseStore(id, properties, redis, ttl)
+        store = BaseStore(id, deepcopy(properties), redis, ttl)
         returnValue(store)
 
     @inlineCallbacks
@@ -27,6 +29,21 @@ class TestBaseStore(JunebugTestBase):
 
         ttl = yield self.redis.ttl('testid')
         self.assertEqual(ttl, 60)
+
+    @inlineCallbacks
+    def test_save_property(self):
+        '''Saves a single property into redis'''
+        store = yield self.create_store()
+        store.properties['foo'] = 'bar'
+        yield store.save_property('foo')
+        self.assertEqual((yield self.redis.hget('testid', 'foo')), 'bar')
+
+    @inlineCallbacks
+    def test_save_property_empty(self):
+        '''Should save None intp redis if no value for the property exists'''
+        store = yield self.create_store()
+        yield store.save_property('foo')
+        self.assertEqual((yield self.redis.hget('testid', 'foo')), None)
 
     @inlineCallbacks
     def test_load_all_empty(self):
@@ -50,6 +67,26 @@ class TestBaseStore(JunebugTestBase):
 
         yield store.load_all()
         self.assertEqual(store.properties, values)
+
+    @inlineCallbacks
+    def test_load_property(self):
+        '''Loads a single property from redis'''
+        store = yield self.create_store()
+
+        yield self.redis.hset('testid', 'foo', 'bar')
+
+        yield store.load_property('foo')
+
+        self.assertEqual(store.properties['foo'], 'bar')
+
+    @inlineCallbacks
+    def test_load_property_empty(self):
+        '''Loads None if property doesn't exist in redis'''
+        store = yield self.create_store()
+
+        yield store.load_property('foo')
+
+        self.assertEqual(store.properties['foo'], None)
 
     @inlineCallbacks
     def test_set_property(self):
@@ -86,3 +123,25 @@ class TestBaseStore(JunebugTestBase):
             'foo': 'bar',
             'bar': 'foo',
             })
+
+
+class TestInboundMessage(JunebugTestBase):
+    @inlineCallbacks
+    def test_from_vumi_message(self):
+        '''Creates an InboundMessage from a TransportUserMessage'''
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        redis = yield self.get_redis()
+        message = yield InboundMessage.from_vumi_message(vumi_msg, redis, 60)
+        self.assertEqual(vumi_msg.to_json(), message.properties['message'])
+
+    @inlineCallbacks
+    def test_vumi_message_property(self):
+        '''Returns a vumi message from the stored json'''
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        redis = yield self.get_redis()
+        message = yield InboundMessage.from_vumi_message(vumi_msg, redis, 60)
+        yield message.save_all()
+
+        message = yield InboundMessage.from_id(
+            vumi_msg.get('message_id'), redis, 60)
+        self.assertEqual(message.vumi_message, vumi_msg)
