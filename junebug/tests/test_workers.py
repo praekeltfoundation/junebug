@@ -112,3 +112,15 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertTrue(any(
             'test-error-response' in l.getMessage()
             for l in self.logging_handler.buffer))
+
+    @inlineCallbacks
+    def test_send_message_storing(self):
+        '''Inbound messages should be stored in the InboundMessageStore'''
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        redis = self.worker.redis
+        key = '%s:incoming_messages:%s' % (
+            self.worker.config['transport_name'], msg['message_id'])
+        msg_json = yield redis.hget(key, 'message')
+        self.assertEqual(TransportUserMessage.from_json(msg_json), msg)

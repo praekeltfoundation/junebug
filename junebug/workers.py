@@ -45,6 +45,7 @@ class MessageForwardingWorker(ApplicationWorker):
     @inlineCallbacks
     def consume_user_message(self, message):
         '''Sends the vumi message as an HTTP request to the configured URL'''
+        yield self.message_store.store_vumi_message(message)
         config = yield self.get_config(message)
         url = config.mo_message_url.encode('utf-8')
         headers = {
