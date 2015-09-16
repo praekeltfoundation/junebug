@@ -1,7 +1,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportUserMessage
 
-from junebug.stores import BaseStore, InboundMessageStore, MessageNotFound
+from junebug.stores import BaseStore, InboundMessageStore
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -110,8 +110,6 @@ class TestInboundMessageStore(JunebugTestBase):
 
     @inlineCallbacks
     def test_load_vumi_message_not_exist(self):
-        '''An exception should be raised if the message cannot be found'''
+        '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
-        err = yield self.assertFailure(
-            store.load_vumi_message('bad-id'), MessageNotFound)
-        self.assertIn('bad-id', err.message)
+        self.assertEqual((yield store.load_vumi_message('bad-id')), None)
