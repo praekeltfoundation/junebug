@@ -63,7 +63,7 @@ def parse_arguments(args):
         help='The password to use for the amqp auth. Defaults to "guest"')
     parser.add_argument(
         '--message-ttl', '-ttl', dest='ttl', type=int,
-        help='The maximum time allowed to reply to a message. Defaults to i'
+        help='The maximum time allowed to reply to a message. Defaults to '
         '"60" seconds')
 
     return config_from_args(vars(parser.parse_args(args)))
