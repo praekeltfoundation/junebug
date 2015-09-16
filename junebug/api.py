@@ -25,10 +25,11 @@ class ApiUsageError(JunebugError):
 class JunebugApi(object):
     app = Klein()
 
-    def __init__(self, service, redis_config, amqp_config):
+    def __init__(self, service, config):
         self.service = service
-        self.redis_config = redis_config
-        self.amqp_config = amqp_config
+        self.redis_config = config.redis
+        self.amqp_config = config.amqp
+        self.ttl = config.ttl
 
     @inlineCallbacks
     def setup(self):
@@ -107,7 +108,7 @@ class JunebugApi(object):
     def create_channel(self, request, body):
         '''Create a channel'''
         channel = Channel(
-            self.redis, self.amqp_config, body)
+            self.redis, self.amqp_config, body, self.ttl)
         yield channel.save()
         yield channel.start(self.service)
         returnValue(response(
@@ -118,7 +119,7 @@ class JunebugApi(object):
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.amqp_config, channel_id, self.service, self.ttl)
         resp = yield channel.status()
         returnValue(response(
             request, 'channel found', resp))
@@ -153,7 +154,7 @@ class JunebugApi(object):
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.amqp_config, channel_id, self.service, self.ttl)
         resp = yield channel.update(body)
         returnValue(response(
             request, 'channel updated', resp))
@@ -163,7 +164,7 @@ class JunebugApi(object):
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.amqp_config, channel_id, self.service, self.ttl)
         yield channel.stop()
         yield channel.delete()
         returnValue(response(

@@ -171,6 +171,18 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-amqpv', 'foo.bar'])
         self.assertEqual(config.amqp['vhost'], 'foo.bar')
 
+    def test_parse_arguments_ttl(self):
+        '''The amqp vhost command line argument can be specified by
+        "--amqp-vhost" or "-amqpv" and has a default value of "/"'''
+        config = parse_arguments([])
+        self.assertEqual(config.ttl, 60)
+
+        config = parse_arguments(['--message-ttl', '80'])
+        self.assertEqual(config.ttl, 80)
+
+        config = parse_arguments(['-ttl', '80'])
+        self.assertEqual(config.ttl, 80)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -192,6 +204,7 @@ class TestCommandLine(JunebugTestBase):
                     'username': 'admin',
                     'password': 'nimda',
                 },
+                'ttl': 80,
             }
         })
 
@@ -208,6 +221,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['port'], 2332)
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
+        self.assertEqual(config.ttl, 80)
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -222,6 +236,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['port'], 2332)
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
+        self.assertEqual(config.ttl, 80)
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command

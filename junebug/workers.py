@@ -3,11 +3,12 @@ import logging
 from twisted.internet.defer import inlineCallbacks
 import treq
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigDict, ConfigText
+from vumi.config import ConfigDict, ConfigInt, ConfigText
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel
+from junebug.stores import InboundMessageStore
 
 
 class MessageForwardingConfig(ApplicationConfig):
@@ -16,7 +17,10 @@ class MessageForwardingConfig(ApplicationConfig):
     mo_message_url = ConfigText(
         'The URL to send HTTP POST requests to for MO messages',
         required=True, static=True)
-    redis_manager = ConfigDict("Redis config.", required=True, static=True)
+    redis_manager = ConfigDict('Redis config.', required=True, static=True)
+    ttl = ConfigInt(
+        'Time to keep stored messages in redis for reply_to',
+        required=True, static=True)
 
 
 class MessageForwardingWorker(ApplicationWorker):
@@ -29,6 +33,10 @@ class MessageForwardingWorker(ApplicationWorker):
     def setup_application(self):
         self.redis = yield TxRedisManager.from_config(
             self.config['redis_manager'])
+        message_redis = self.redis.sub_manager(
+            '%s:incoming_messages' % self.config['transport_name'])
+        self.message_store = InboundMessageStore(
+            message_redis, self.config['ttl'])
 
     @inlineCallbacks
     def teardown_application(self):

@@ -50,6 +50,7 @@ class JunebugTestBase(TestCase):
             'worker_name': 'unnamed',
         },
         'mo_url': 'http://foo.bar',
+        'ttl': 60,
     }
 
     def patch_logger(self):
@@ -75,16 +76,16 @@ class JunebugTestBase(TestCase):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         config = deepcopy(config)
-        channel = Channel(redis, {}, config, id=id)
+        channel = Channel(redis, {}, config, ttl=60, id=id)
         config['config']['transport_name'] = channel.id
         yield channel.start(self.service)
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)
 
-    def create_channel_from_id(self, service, redis, id):
+    def create_channel_from_id(self, service, redis, id, ttl=60):
         '''Creates an existing channel given the channel id'''
-        return Channel.from_id(redis, {}, id, service)
+        return Channel.from_id(redis, {}, id, service, ttl)
 
     @inlineCallbacks
     def get_redis(self):
@@ -102,7 +103,7 @@ class JunebugTestBase(TestCase):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         redis = yield self.get_redis()
-        self.service = JunebugService(JunebugConfig({
+        config = JunebugConfig({
             'host': '127.0.0.1',
             'port': 0,
             'redis': redis._config,
@@ -110,9 +111,10 @@ class JunebugTestBase(TestCase):
                 'hostname': '',
                 'port': ''
             }
-        }))
+        })
+        self.service = JunebugService(config)
         self.api = JunebugApi(
-            self.service, redis._config, {'hostname': '', 'port': ''})
+            self.service, config)
         self.api.redis = redis
 
         self.api.message_sender = self.get_message_sender()

@@ -77,6 +77,7 @@ class TestChannel(JunebugTestBase):
             'transport_name': channel.id,
             'mo_message_url': 'http://foo.org',
             'redis_manager': self.redis._config,
+            'ttl': 60,
         })
 
     @inlineCallbacks
