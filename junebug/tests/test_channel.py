@@ -75,7 +75,8 @@ class TestChannel(JunebugTestBase):
 
         self.assertEqual(worker.config, {
             'transport_name': channel.id,
-            'mo_message_url': 'http://foo.org'
+            'mo_message_url': 'http://foo.org',
+            'redis_manager': self.redis._config,
         })
 
     @inlineCallbacks

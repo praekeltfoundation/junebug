@@ -7,6 +7,7 @@ from twisted.web.client import HTTPConnectionPool
 from twisted.web.server import Site
 from vumi.application.tests.helpers import ApplicationHelper
 from vumi.message import TransportUserMessage
+from vumi.tests.helpers import PersistenceHelper
 
 from junebug.workers import MessageForwardingWorker
 from junebug.tests.helpers import JunebugTestBase
@@ -47,10 +48,14 @@ class TestMessageForwardingWorker(JunebugTestBase):
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
-        app_config = {
+        persistencehelper = PersistenceHelper()
+        yield persistencehelper.setup()
+        self.addCleanup(persistencehelper.cleanup)
+
+        app_config = persistencehelper.mk_config({
             'transport_name': 'testtransport',
             'mo_message_url': self.url.decode('utf-8'),
-        }
+        })
         self.worker = yield self.get_worker(app_config)
 
         connection_pool = HTTPConnectionPool(reactor, persistent=False)

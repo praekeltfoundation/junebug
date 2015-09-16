@@ -3,8 +3,9 @@ import logging
 from twisted.internet.defer import inlineCallbacks
 import treq
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigText
+from vumi.config import ConfigDict, ConfigText
 from vumi.message import JSONMessageEncoder
+from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel
 
@@ -15,6 +16,7 @@ class MessageForwardingConfig(ApplicationConfig):
     mo_message_url = ConfigText(
         'The URL to send HTTP POST requests to for MO messages',
         required=True, static=True)
+    redis_manager = ConfigDict("Redis config.", required=True, static=True)
 
 
 class MessageForwardingWorker(ApplicationWorker):
@@ -22,6 +24,15 @@ class MessageForwardingWorker(ApplicationWorker):
     amqp queue, and sends them as HTTP requests with a JSON body to a
     configured URL'''
     CONFIG_CLASS = MessageForwardingConfig
+
+    @inlineCallbacks
+    def setup_application(self):
+        self.redis = yield TxRedisManager.from_config(
+            self.config['redis_manager'])
+
+    @inlineCallbacks
+    def teardown_application(self):
+        yield self.redis.close_manager()
 
     @inlineCallbacks
     def consume_user_message(self, message):
