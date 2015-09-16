@@ -15,7 +15,7 @@ class MessageNotFound(JunebugError):
 class BaseStore(object):
     '''Base class for store objects. Stores data in redis in a hash.
     redis: redis manager
-    ttl: expiry for the key
+    ttl: expiry for keys in the store
     '''
 
     def __init__(self, redis, ttl):
