@@ -1,4 +1,4 @@
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportUserMessage
 
 
@@ -6,56 +6,46 @@ class BaseStore(object):
     '''Base class for store objects. Stores data in redis in a hash.
     redis: redis manager
     ttl: expiry for the key
-    id: key to store the hash under
-    properties: the keys and values of the hash
     '''
 
-    def __init__(self, id, properties, redis, ttl):
-        self.id, self.properties, self.redis, self.ttl = (
-            id, properties, redis, ttl)
+    def __init__(self, redis, ttl):
+        self.redis, self.ttl = redis, ttl
 
     @inlineCallbacks
-    def save_all(self):
-        yield self.redis.hmset(self.id, self.properties)
-        yield self.redis.expire(self.id, self.ttl)
+    def _redis_op(self, func, id, *args, **kwargs):
+        val = yield func(id, *args, **kwargs)
+        yield self.redis.expire(id, self.ttl)
+        returnValue(val)
+
+    def store_all(self, id, properties):
+        '''Stores all of the keys and values given in the dict `properties` as
+        a hash at the key `id`'''
+        return self._redis_op(self.redis.hmset, id, properties)
+
+    def store_property(self, id, key, value):
+        '''Stores a single key with a value as a hash at the key `id`'''
+        return self._redis_op(self.redis.hset, id, key, value)
 
     @inlineCallbacks
-    def save_property(self, prop):
-        yield self.redis.hset(self.id, prop, self.properties.get(prop))
+    def load_all(self, id):
+        '''Retrieves all the keys and values stored as a hash at the key
+        `id`'''
+        returnValue((yield self._redis_op(self.redis.hgetall, id)) or {})
 
-    @inlineCallbacks
-    def load_all(self):
-        self.properties = (yield self.redis.hgetall(self.id)) or {}
+    def load_property(self, id, key):
+        return self._redis_op(self.redis.hget, id, key)
 
-    @inlineCallbacks
-    def load_property(self, prop):
-        self.properties[prop] = yield self.redis.hget(self.id, prop)
 
-    def set_property(self, prop, value):
-        self.properties[prop] = value
-        return succeed(None)
-
-    def get_property(self, prop):
-        return succeed(self.properties.get(prop))
-
-    @classmethod
-    @inlineCallbacks
-    def from_id(cls, id, redis, ttl):
-        store = cls(id, {}, redis, ttl)
-        yield store.load_all()
-        returnValue(store)
-
-class InboundMessage(BaseStore):
+class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
     replies'''
-    @classmethod
-    def from_vumi_message(cls, message, redis, ttl):
-        props = {
-            'message': message.to_json(),
-        }
-        msg = cls(message.get('message_id'), props, redis, ttl)
-        return succeed(msg)
+    def store_vumi_message(self, message):
+        '''Stores the given vumi message'''
+        return self.store_property(
+            message.get('message_id'), 'message', message.to_json())
 
-    @property
-    def vumi_message(self):
-        return TransportUserMessage.from_json(self.properties.get('message'))
+    @inlineCallbacks
+    def load_vumi_message(self, message_id):
+        '''Retrieves the stored vumi message, given its unique id'''
+        msg_json = yield self.load_property(message_id, 'message')
+        returnValue(TransportUserMessage.from_json(msg_json))
