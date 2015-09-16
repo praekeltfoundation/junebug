@@ -4,14 +4,12 @@ from vumi.message import TransportUserMessage
 
 class BaseStore(object):
     '''
-    .. class:: junebug.stores.BaseStore(redis, ttl)
+   Base class for store classes. Stores data in redis as a hash.
 
-       Base class for store classes. Stores data in redis as a hash.
-
-       :param redis: Redis manager
-       :type redis: :class:`vumi.persist.redis_manager.RedisManager`
-       :param ttl: Expiry time for keys in the store
-       :type ttl: integer
+   :param redis: Redis manager
+   :type redis: :class:`vumi.persist.redis_manager.RedisManager`
+   :param ttl: Expiry time for keys in the store
+   :type ttl: integer
     '''
     def __init__(self, redis, ttl):
         self.redis = redis
