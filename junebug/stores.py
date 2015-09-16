@@ -1,5 +1,15 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.web import http
 from vumi.message import TransportUserMessage
+
+from junebug.error import JunebugError
+
+
+class MessageNotFound(JunebugError):
+    '''Raised when a message cannot be found.'''
+    name = 'MessageNotFound'
+    description = 'message not found'
+    code = http.NOT_FOUND
 
 
 class BaseStore(object):
@@ -48,4 +58,7 @@ class InboundMessageStore(BaseStore):
     def load_vumi_message(self, message_id):
         '''Retrieves the stored vumi message, given its unique id'''
         msg_json = yield self.load_property(message_id, 'message')
+        if msg_json is None:
+            raise MessageNotFound(
+                'Cannot find message with id %s' % (message_id,))
         returnValue(TransportUserMessage.from_json(msg_json))

@@ -1,7 +1,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportUserMessage
 
-from junebug.stores import BaseStore, InboundMessageStore
+from junebug.stores import BaseStore, InboundMessageStore, MessageNotFound
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -98,7 +98,7 @@ class TestInboundMessageStore(JunebugTestBase):
         self.assertEqual(vumi_msg, TransportUserMessage.from_json(msg))
 
     @inlineCallbacks
-    def test_get(self):
+    def test_load_vumi_message(self):
         '''Returns a vumi message from the stored json'''
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
@@ -107,3 +107,10 @@ class TestInboundMessageStore(JunebugTestBase):
 
         message = yield store.load_vumi_message(vumi_msg.get('message_id'))
         self.assertEqual(message, vumi_msg)
+
+    @inlineCallbacks
+    def test_load_vumi_message_not_exist(self):
+        store = yield self.create_store()
+        err = yield self.assertFailure(
+            store.load_vumi_message('bad-id'), MessageNotFound)
+        self.assertIn('bad-id', err.message)
