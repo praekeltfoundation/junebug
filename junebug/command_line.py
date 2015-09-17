@@ -65,6 +65,10 @@ def parse_arguments(args):
         '--message-ttl', '-ttl', dest='ttl', type=int,
         help='The maximum time allowed to reply to a message. Defaults to '
         '"60" seconds')
+    parser.add_argument(
+        '--inbound-message-prefix', '-imp', dest='inbound_message_prefix',
+        type=str, help='The default redis key prefix to use for storing '
+        'inbound messages. Defaults to "inbound_messages"')
 
     return config_from_args(vars(parser.parse_args(args)))
 

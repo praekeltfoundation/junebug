@@ -172,8 +172,8 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['vhost'], 'foo.bar')
 
     def test_parse_arguments_ttl(self):
-        '''The amqp vhost command line argument can be specified by
-        "--amqp-vhost" or "-amqpv" and has a default value of "/"'''
+        '''The ttl command line argument can be specified by
+        "--message-ttl" or "-ttl" and has a default value of "80"'''
         config = parse_arguments([])
         self.assertEqual(config.ttl, 60)
 
@@ -182,6 +182,19 @@ class TestCommandLine(JunebugTestBase):
 
         config = parse_arguments(['-ttl', '80'])
         self.assertEqual(config.ttl, 80)
+
+    def test_parse_arguments_inbound_message_prefix(self):
+        '''The inbound message prefix command line argument can be specified by
+        "--inbound-message-prefix" or "-imp" and has a default value of
+        "inbound_messages"'''
+        config = parse_arguments([])
+        self.assertEqual(config.inbound_message_prefix, 'inbound_messages')
+
+        config = parse_arguments(['--inbound-message-prefix', 'foo'])
+        self.assertEqual(config.inbound_message_prefix, 'foo')
+
+        config = parse_arguments(['-imp', 'foo'])
+        self.assertEqual(config.inbound_message_prefix, 'foo')
 
     def test_config_file(self):
         '''The config file command line argument can be specified by
@@ -205,6 +218,7 @@ class TestCommandLine(JunebugTestBase):
                     'password': 'nimda',
                 },
                 'ttl': 80,
+                'inbound_message_prefix': 'prefix',
             }
         })
 
@@ -222,6 +236,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
         self.assertEqual(config.ttl, 80)
+        self.assertEqual(config.inbound_message_prefix, 'prefix')
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -237,6 +252,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
         self.assertEqual(config.ttl, 80)
+        self.assertEqual(config.inbound_message_prefix, 'prefix')
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
