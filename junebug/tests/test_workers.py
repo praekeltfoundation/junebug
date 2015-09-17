@@ -56,6 +56,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'transport_name': 'testtransport',
             'mo_message_url': self.url.decode('utf-8'),
             'ttl': 60,
+            'inbound_message_prefix': 'inbound_messages',
         })
         self.worker = yield self.get_worker(app_config)
 
@@ -96,6 +97,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'transport_name': 'testtransport',
             'mo_message_url': self.url + '/bad/',
             'ttl': 60,
+            'inbound_message_prefix': 'inbound_messages',
             })
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)
@@ -120,7 +122,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.consume_user_message(msg)
 
         redis = self.worker.redis
-        key = '%s:incoming_messages:%s' % (
+        key = '%s:inbound_messages:%s' % (
             self.worker.config['transport_name'], msg['message_id'])
         msg_json = yield redis.hget(key, 'message')
         self.assertEqual(TransportUserMessage.from_json(msg_json), msg)

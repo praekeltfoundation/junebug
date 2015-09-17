@@ -58,19 +58,20 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_channel_list(self):
         redis = yield self.get_redis()
-        config = self.default_channel_config
+        properties = self.create_channel_properties()
+        config = self.create_channel_config()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [])
 
-        yield Channel(redis, {}, config, 60, u'test-channel-1').save()
+        yield Channel(redis, config, properties, u'test-channel-1').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
             u'test-channel-1',
         ])
 
-        yield Channel(redis, {}, config, 60, u'test-channel-2').save()
+        yield Channel(redis, config, properties, u'test-channel-2').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
@@ -80,18 +81,18 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel(self):
-        config = self.create_channel_config()
-        resp = yield self.post('/channels/', config)
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
 
         yield self.assert_response(
             resp, http.OK, 'channel created',
-            conjoin(config, {'status': {}}),
+            conjoin(properties, {'status': {}}),
             ignore=['id'])
 
     @inlineCallbacks
     def test_create_channel_transport(self):
-        config = self.create_channel_config()
-        resp = yield self.post('/channels/', config)
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
 
         # Check that the transport is created with the correct config
         id = (yield resp.json())['result']['id']
@@ -99,14 +100,14 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(transport.parent, self.service)
 
-        self.assertEqual(transport.config, conjoin(config['config'], {
+        self.assertEqual(transport.config, conjoin(properties['config'], {
             'transport_name': id,
         }))
 
     @inlineCallbacks
     def test_create_channel_application(self):
-        config = self.create_channel_config()
-        resp = yield self.post('/channels/', config)
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
 
         channel_id = (yield resp.json())['result']['id']
         id = Channel.APPLICATION_ID % (channel_id,)
@@ -155,16 +156,16 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel(self):
+        properties = self.create_channel_properties()
         config = self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, config, 60, u'test-channel')
+        channel = Channel(redis, config, properties, u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
 
         yield self.assert_response(
-            resp, http.OK, 'channel found', conjoin(config, {
+            resp, http.OK, 'channel found', conjoin(properties, {
                 'status': {},
                 'id': 'test-channel',
             }))
@@ -182,10 +183,11 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_modify_channel_no_config_change(self):
+        properties = self.create_channel_properties()
         config = self.create_channel_config()
         redis = yield self.get_redis()
 
-        channel = Channel(redis, {}, config, 60, 'test-channel')
+        channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -193,7 +195,7 @@ class TestJunebugApi(JunebugTestBase):
             '/channels/test-channel', {'metadata': {'foo': 'bar'}})
 
         yield self.assert_response(
-            resp, http.OK, 'channel updated', conjoin(config, {
+            resp, http.OK, 'channel updated', conjoin(properties, {
                 'status': {},
                 'id': 'test-channel',
                 'metadata': {'foo': 'bar'},
@@ -201,19 +203,19 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_modify_channel_config_change(self):
-        config = self.create_channel_config()
         redis = yield self.get_redis()
+        properties = self.create_channel_properties()
         config = self.create_channel_config()
 
-        channel = Channel(redis, {}, config, 60, 'test-channel')
+        channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
-        config['config']['name'] = 'bar'
-        resp = yield self.post('/channels/test-channel', config)
+        properties['config']['name'] = 'bar'
+        resp = yield self.post('/channels/test-channel', properties)
 
         yield self.assert_response(
-            resp, http.OK, 'channel updated', conjoin(config, {
+            resp, http.OK, 'channel updated', conjoin(properties, {
                 'status': {},
                 'id': 'test-channel',
             }))
@@ -240,8 +242,9 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_channel(self):
-        channel = Channel(
-            self.redis, {}, self.default_channel_config, 60, 'test-channel')
+        config = self.create_channel_config()
+        properties = self.create_channel_properties()
+        channel = Channel(self.redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -285,9 +288,10 @@ class TestJunebugApi(JunebugTestBase):
     def test_send_message(self):
         '''Sending a message should place the message on the queue for the
         channel'''
+        properties = self.create_channel_properties()
+        config = self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 60, 'test-channel')
+        channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {

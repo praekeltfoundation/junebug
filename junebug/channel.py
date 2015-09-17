@@ -42,19 +42,20 @@ class Channel(object):
     APPLICATION_ID = 'application:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
 
-    def __init__(
-            self, redis_manager, amqp_config, properties, ttl, id=None):
+    def __init__(self, redis_manager, config, properties, id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
         channel data. It can be started using the ``start`` function.'''
-        self._properties, self.id, self.redis, self.ttl = (
-            properties, id, redis_manager, ttl)
+        self._properties = properties
+        self.redis = redis_manager
+        self.id = id
+        self.config = config
         if self.id is None:
             self.id = str(uuid.uuid4())
 
         self.options = deepcopy(VumiOptions.default_vumi_options)
-        self.options.update(amqp_config)
+        self.options.update(self.config.amqp)
 
         self.transport_worker = None
         self.application_worker = None
@@ -120,7 +121,7 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis, amqp_config, id, parent, ttl):
+    def from_id(cls, redis, config, id, parent):
         '''Creates a channel by loading the data from redis, given the
         channel's id, and the parent service of the channel'''
         channel_redis = yield redis.sub_manager(id)
@@ -129,7 +130,7 @@ class Channel(object):
             raise ChannelNotFound()
         properties = json.loads(properties)
 
-        obj = cls(redis, amqp_config, properties, ttl, id)
+        obj = cls(redis, config, properties, id)
         obj._restore(parent)
 
         returnValue(obj)
@@ -203,7 +204,8 @@ class Channel(object):
             'transport_name': self.id,
             'mo_message_url': self._properties['mo_url'],
             'redis_manager': redis_manager,
-            'ttl': self.ttl,
+            'ttl': self.config.ttl,
+            'inbound_message_prefix': self.config.inbound_message_prefix,
         }
 
     @property

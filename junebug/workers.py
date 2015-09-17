@@ -18,6 +18,9 @@ class MessageForwardingConfig(ApplicationConfig):
         'The URL to send HTTP POST requests to for MO messages',
         required=True, static=True)
     redis_manager = ConfigDict('Redis config.', required=True, static=True)
+    inbound_message_prefix = ConfigText(
+        'Prefix to use for storing inbound messsages.',
+        required=True, static=True)
     ttl = ConfigInt(
         'Time to keep stored messages in redis for reply_to',
         required=True, static=True)
@@ -34,7 +37,9 @@ class MessageForwardingWorker(ApplicationWorker):
         self.redis = yield TxRedisManager.from_config(
             self.config['redis_manager'])
         message_redis = self.redis.sub_manager(
-            '%s:incoming_messages' % self.config['transport_name'])
+            '%s:%s' % (
+                self.config['transport_name'],
+                self.config['inbound_message_prefix']))
         self.message_store = InboundMessageStore(
             message_redis, self.config['ttl'])
 

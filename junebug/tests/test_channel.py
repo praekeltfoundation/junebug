@@ -19,13 +19,14 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_save_channel(self):
-        config = self.create_channel_config()
+        properties = self.create_channel_properties()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
-        properties = yield self.redis.get('%s:properties' % channel.id)
-        self.assertEqual(json.loads(properties), conjoin(config, {
-            'config': conjoin(config['config'], {'transport_name': channel.id})
+        props = yield self.redis.get('%s:properties' % channel.id)
+        self.assertEqual(json.loads(props), conjoin(properties, {
+            'config': conjoin(
+                properties['config'], {'transport_name': channel.id})
         }))
 
         channel_list = yield self.redis.get('channels')
@@ -33,13 +34,14 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_channel(self):
-        config = self.create_channel_config()
+        properties = self.create_channel_properties()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
-        properties = yield self.redis.get('%s:properties' % channel.id)
-        self.assertEqual(json.loads(properties), conjoin(config, {
-            'config': conjoin(config['config'], {'transport_name': channel.id})
+        props = yield self.redis.get('%s:properties' % channel.id)
+        self.assertEqual(json.loads(props), conjoin(properties, {
+            'config': conjoin(
+                properties['config'], {'transport_name': channel.id})
         }))
 
         channel_list = yield self.redis.get('channels')
@@ -63,10 +65,10 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_start_channel_application(self):
-        config = self.create_channel_config(mo_url='http://foo.org')
+        properties = self.create_channel_properties(mo_url='http://foo.org')
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, config)
+            self.service, self.redis, TelnetServerTransport, properties)
 
         worker = channel.application_worker
         id = channel.application_id
@@ -78,6 +80,7 @@ class TestChannel(JunebugTestBase):
             'mo_message_url': 'http://foo.org',
             'redis_manager': self.redis._config,
             'ttl': 60,
+            'inbound_message_prefix': 'inbound_messages'
         })
 
     @inlineCallbacks
@@ -91,18 +94,18 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_update_channel_config(self):
-        config = self.create_channel_config()
+        properties = self.create_channel_properties()
 
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
         update = yield channel.update({'foo': 'bar'})
 
-        self.assertEqual(update, conjoin(config, {
+        self.assertEqual(update, conjoin(properties, {
             'foo': 'bar',
             'status': {},
             'id': channel.id,
-            'config': conjoin(config['config'], {
+            'config': conjoin(properties['config'], {
                 'transport_name': channel.id
             })
         }))
@@ -117,9 +120,9 @@ class TestChannel(JunebugTestBase):
         yield channel.update({'foo': 'bar'})
         self.assertEqual(self.service.namedServices[channel.id], worker1)
 
-        config = self.create_channel_config()
-        config['config']['foo'] = ['bar']
-        yield channel.update(config)
+        properties = self.create_channel_properties()
+        properties['config']['foo'] = ['bar']
+        yield channel.update(properties)
 
         worker2 = channel.transport_worker
         self.assertEqual(self.service.namedServices[channel.id], worker2)
@@ -136,8 +139,8 @@ class TestChannel(JunebugTestBase):
         yield channel.update({'foo': 'bar'})
         self.assertEqual(self.service.namedServices[id], worker1)
 
-        config = self.create_channel_config(mo_url='http://baz.org')
-        yield channel.update(config)
+        properties = self.create_channel_properties(mo_url='http://baz.org')
+        yield channel.update(properties)
 
         worker2 = channel.application_worker
         self.assertEqual(self.service.namedServices[id], worker2)
@@ -162,7 +165,7 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
 
         channel2 = yield self.create_channel_from_id(
-            self.service, self.redis, channel1.id)
+            self.redis, {}, channel1.id, self.service)
 
         self.assertEqual((yield channel1.status()), (yield channel2.status()))
 
@@ -178,19 +181,19 @@ class TestChannel(JunebugTestBase):
     def test_create_channel_from_unknown_id(self):
         yield self.assertFailure(
             self.create_channel_from_id(
-                self.service, self.redis, 'unknown-id'),
+                self.redis, {}, 'unknown-id', self.service),
             ChannelNotFound)
 
     @inlineCallbacks
     def test_channel_status(self):
-        config = self.create_channel_config()
+        properties = self.create_channel_properties()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
-        self.assertEqual((yield channel.status()), conjoin(config, {
+        self.assertEqual((yield channel.status()), conjoin(properties, {
             'status': {},
             'id': 'channel-id',
-            'config': conjoin(config['config'], {
+            'config': conjoin(properties['config'], {
                 'transport_name': channel.id
             })
         }))
