@@ -32,10 +32,16 @@ class JunebugApi(object):
         self.config = config
 
     @inlineCallbacks
-    def setup(self):
-        self.redis = yield TxRedisManager.from_config(self.redis_config)
-        self.message_sender = MessageSender(
-            'amqp-spec-0-8.xml', self.amqp_config)
+    def setup(self, redis=None, message_sender=None):
+        if redis is None:
+            redis = yield TxRedisManager.from_config(self.redis_config)
+
+        if message_sender is None:
+            message_sender = MessageSender(
+                'amqp-spec-0-8.xml', self.amqp_config)
+
+        self.redis = redis
+        self.message_sender = message_sender
         self.message_sender.setServiceParent(self.service)
 
     @inlineCallbacks
