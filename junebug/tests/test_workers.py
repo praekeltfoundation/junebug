@@ -7,6 +7,7 @@ from twisted.web.client import HTTPConnectionPool
 from twisted.web.server import Site
 from vumi.application.tests.helpers import ApplicationHelper
 from vumi.message import TransportUserMessage
+from vumi.tests.helpers import PersistenceHelper
 
 from junebug.workers import MessageForwardingWorker
 from junebug.tests.helpers import JunebugTestBase
@@ -47,10 +48,16 @@ class TestMessageForwardingWorker(JunebugTestBase):
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
 
-        app_config = {
+        persistencehelper = PersistenceHelper()
+        yield persistencehelper.setup()
+        self.addCleanup(persistencehelper.cleanup)
+
+        app_config = persistencehelper.mk_config({
             'transport_name': 'testtransport',
             'mo_message_url': self.url.decode('utf-8'),
-        }
+            'ttl': 60,
+            'inbound_message_prefix': 'inbound_messages',
+        })
         self.worker = yield self.get_worker(app_config)
 
         connection_pool = HTTPConnectionPool(reactor, persistent=False)
@@ -88,7 +95,10 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.patch_logger()
         self.worker = yield self.get_worker({
             'transport_name': 'testtransport',
-            'mo_message_url': self.url + '/bad/'})
+            'mo_message_url': self.url + '/bad/',
+            'ttl': 60,
+            'inbound_message_prefix': 'inbound_messages',
+            })
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)
 
@@ -104,3 +114,15 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertTrue(any(
             'test-error-response' in l.getMessage()
             for l in self.logging_handler.buffer))
+
+    @inlineCallbacks
+    def test_send_message_storing(self):
+        '''Inbound messages should be stored in the InboundMessageStore'''
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        redis = self.worker.redis
+        key = '%s:inbound_messages:%s' % (
+            self.worker.config['transport_name'], msg['message_id'])
+        msg_json = yield redis.hget(key, 'message')
+        self.assertEqual(TransportUserMessage.from_json(msg_json), msg)
