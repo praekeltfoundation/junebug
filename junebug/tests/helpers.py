@@ -72,7 +72,7 @@ class JunebugTestBase(TestCase):
     def create_channel_properties(self, **kw):
         properties = deepcopy(self.default_channel_properties)
         properties.update(kw)
-        returnValue(properties)
+        return properties
 
     @inlineCallbacks
     def create_channel_config(self, **kw):
