@@ -93,8 +93,10 @@ class TestInboundMessageStore(JunebugTestBase):
         '''Stores the vumi message.'''
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
-        yield store.store_vumi_message(vumi_msg)
-        msg = yield self.redis.hget(vumi_msg.get('message_id'), 'message')
+        yield store.store_vumi_message('channel_id', vumi_msg)
+        msg = yield self.redis.hget(
+            'channel_id:inbound_messages:%s' % vumi_msg.get('message_id'),
+            'message')
         self.assertEqual(vumi_msg, TransportUserMessage.from_json(msg))
 
     @inlineCallbacks
@@ -103,13 +105,16 @@ class TestInboundMessageStore(JunebugTestBase):
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
         yield self.redis.hset(
-            vumi_msg.get('message_id'), 'message', vumi_msg.to_json())
+            'channel_id:inbound_messages:%s' % vumi_msg.get('message_id'),
+            'message', vumi_msg.to_json())
 
-        message = yield store.load_vumi_message(vumi_msg.get('message_id'))
+        message = yield store.load_vumi_message(
+            'channel_id', vumi_msg.get('message_id'))
         self.assertEqual(message, vumi_msg)
 
     @inlineCallbacks
     def test_load_vumi_message_not_exist(self):
         '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
-        self.assertEqual((yield store.load_vumi_message('bad-id')), None)
+        self.assertEqual((yield store.load_vumi_message(
+            'bad-channel', 'bad-id')), None)
