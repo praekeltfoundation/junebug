@@ -55,7 +55,6 @@ class JunebugTestBase(TestCase):
     default_channel_config = {
         'ttl': 60,
         'amqp': {},
-        'inbound_message_prefix': 'inbound_messages',
     }
 
     def patch_logger(self):
