@@ -72,12 +72,18 @@ class JunebugTestBase(TestCase):
     def create_channel_properties(self, **kw):
         properties = deepcopy(self.default_channel_properties)
         properties.update(kw)
-        return properties
+        returnValue(properties)
 
+    @inlineCallbacks
     def create_channel_config(self, **kw):
+        persistencehelper = PersistenceHelper()
+        yield persistencehelper.setup()
+        self.addCleanup(persistencehelper.cleanup)
+
         config = deepcopy(self.default_channel_config)
         config.update(kw)
-        return JunebugConfig(config)
+        channel_config = persistencehelper.mk_config(config)
+        returnValue(JunebugConfig(channel_config))
 
     @inlineCallbacks
     def create_channel(
@@ -86,7 +92,7 @@ class JunebugTestBase(TestCase):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         properties = deepcopy(properties)
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
         channel = Channel(
             redis, config, properties, id=id)
         properties['config']['transport_name'] = channel.id
@@ -95,10 +101,12 @@ class JunebugTestBase(TestCase):
         self.addCleanup(channel.stop)
         returnValue(channel)
 
+    @inlineCallbacks
     def create_channel_from_id(self, redis, config, id, service):
         '''Creates an existing channel given the channel id'''
-        config = self.create_channel_config(**config)
-        return Channel.from_id(redis, config, id, service)
+        config = yield self.create_channel_config(**config)
+        channel = yield Channel.from_id(redis, config, id, service)
+        returnValue(channel)
 
     @inlineCallbacks
     def get_redis(self):

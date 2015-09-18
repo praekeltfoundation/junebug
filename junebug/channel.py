@@ -194,16 +194,10 @@ class Channel(object):
 
     @property
     def _application_config(self):
-        redis_manager = self.redis._config
-        # For tests, FAKE_REDIS cannot be an object, else deepcopy doesn't
-        # work.
-        if 'FAKE_REDIS' in redis_manager:
-            redis_manager['FAKE_REDIS'] = 'yes'
-
         return {
             'transport_name': self.id,
             'mo_message_url': self._properties['mo_url'],
-            'redis_manager': redis_manager,
+            'redis_manager': self.config.redis,
             'ttl': self.config.ttl,
             'inbound_message_prefix': self.config.inbound_message_prefix,
         }
