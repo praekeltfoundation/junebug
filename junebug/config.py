@@ -38,7 +38,3 @@ class JunebugConfig(Config):
     inbound_message_ttl = ConfigInt(
         "Maximum time allowed to reply to messages",
         default=60)
-
-    inbound_message_prefix = ConfigText(
-        "Prefix to use for redis keys for storing inbound messages.",
-        default='inbound_messages')

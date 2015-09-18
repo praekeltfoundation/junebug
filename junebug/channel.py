@@ -199,7 +199,7 @@ class Channel(object):
             'mo_message_url': self._properties['mo_url'],
             'redis_manager': self.config.redis,
             'ttl': self.config.inbound_message_ttl,
-            'inbound_message_prefix': self.config.inbound_message_prefix,
+            'inbound_message_prefix': 'inbound_messages',
         }
 
     @property
