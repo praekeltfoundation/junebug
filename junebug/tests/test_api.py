@@ -59,7 +59,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_get_channel_list(self):
         redis = yield self.get_redis()
         properties = self.create_channel_properties()
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [])
@@ -157,7 +157,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_channel(self):
         properties = self.create_channel_properties()
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
         redis = yield self.get_redis()
         channel = Channel(redis, config, properties, u'test-channel')
         yield channel.save()
@@ -184,7 +184,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_modify_channel_no_config_change(self):
         properties = self.create_channel_properties()
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
         redis = yield self.get_redis()
 
         channel = Channel(redis, config, properties, 'test-channel')
@@ -205,7 +205,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_modify_channel_config_change(self):
         redis = yield self.get_redis()
         properties = self.create_channel_properties()
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
 
         channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
@@ -242,7 +242,7 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_channel(self):
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
         properties = self.create_channel_properties()
         channel = Channel(self.redis, config, properties, 'test-channel')
         yield channel.save()
@@ -289,7 +289,7 @@ class TestJunebugApi(JunebugTestBase):
         '''Sending a message should place the message on the queue for the
         channel'''
         properties = self.create_channel_properties()
-        config = self.create_channel_config()
+        config = yield self.create_channel_config()
         redis = yield self.get_redis()
         channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
