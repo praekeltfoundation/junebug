@@ -14,7 +14,6 @@ class TestChannel(JunebugTestBase):
     def setUp(self):
         self.patch_logger()
 
-        self.redis = yield self.get_redis()
         yield self.start_server()
 
     @inlineCallbacks
@@ -78,7 +77,7 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(worker.config, {
             'transport_name': channel.id,
             'mo_message_url': 'http://foo.org',
-            'redis_manager': self.redis._config,
+            'redis_manager': channel.config.redis,
             'ttl': 60,
             'inbound_message_prefix': 'inbound_messages'
         })

@@ -76,13 +76,14 @@ class JunebugTestBase(TestCase):
 
     @inlineCallbacks
     def create_channel_config(self, **kw):
-        persistencehelper = PersistenceHelper()
-        yield persistencehelper.setup()
-        self.addCleanup(persistencehelper.cleanup)
+        self.persistencehelper = PersistenceHelper()
+        yield self.persistencehelper.setup()
+        self.addCleanup(self.persistencehelper.cleanup)
 
         config = deepcopy(self.default_channel_config)
         config.update(kw)
-        channel_config = persistencehelper.mk_config(config)
+        channel_config = self.persistencehelper.mk_config(config)
+        channel_config['redis'] = channel_config['redis_manager']
         returnValue(JunebugConfig(channel_config))
 
     @inlineCallbacks
@@ -123,20 +124,12 @@ class JunebugTestBase(TestCase):
     def start_server(self):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
-        redis = yield self.get_redis()
-        config = JunebugConfig({
-            'host': '127.0.0.1',
-            'port': 0,
-            'redis': redis._config,
-            'amqp': {
-                'hostname': '',
-                'port': ''
-            }
-        })
+        config = yield self.create_channel_config()
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
-        self.api.redis = redis
+        self.api.redis = yield self.persistencehelper.get_redis_manager()
+        self.redis = self.api.redis
 
         self.api.message_sender = self.get_message_sender()
 
