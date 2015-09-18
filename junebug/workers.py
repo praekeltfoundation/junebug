@@ -18,9 +18,6 @@ class MessageForwardingConfig(ApplicationConfig):
         'The URL to send HTTP POST requests to for MO messages',
         required=True, static=True)
     redis_manager = ConfigDict('Redis config.', required=True, static=True)
-    inbound_message_prefix = ConfigText(
-        'Prefix to use for storing inbound messsages.',
-        required=True, static=True)
     ttl = ConfigInt(
         'Time to keep stored messages in redis for reply_to',
         required=True, static=True)
@@ -36,12 +33,8 @@ class MessageForwardingWorker(ApplicationWorker):
     def setup_application(self):
         self.redis = yield TxRedisManager.from_config(
             self.config['redis_manager'])
-        message_redis = self.redis.sub_manager(
-            '%s:%s' % (
-                self.config['transport_name'],
-                self.config['inbound_message_prefix']))
         self.message_store = InboundMessageStore(
-            message_redis, self.config['ttl'])
+            self.redis, self.config['ttl'])
 
     @inlineCallbacks
     def teardown_application(self):
@@ -50,8 +43,9 @@ class MessageForwardingWorker(ApplicationWorker):
     @inlineCallbacks
     def consume_user_message(self, message):
         '''Sends the vumi message as an HTTP request to the configured URL'''
-        yield self.message_store.store_vumi_message(message)
         config = yield self.get_config(message)
+        yield self.message_store.store_vumi_message(
+            config.transport_name, message)
         url = config.mo_message_url.encode('utf-8')
         headers = {
             'Content-Type': 'application/json',
