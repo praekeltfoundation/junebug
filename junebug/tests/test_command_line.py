@@ -173,15 +173,15 @@ class TestCommandLine(JunebugTestBase):
 
     def test_parse_arguments_ttl(self):
         '''The ttl command line argument can be specified by
-        "--message-ttl" or "-ttl" and has a default value of "80"'''
+        "--inbound-message-ttl" or "-ittl" and has a default value of "80"'''
         config = parse_arguments([])
-        self.assertEqual(config.ttl, 60)
+        self.assertEqual(config.inbound_message_ttl, 60)
 
-        config = parse_arguments(['--message-ttl', '80'])
-        self.assertEqual(config.ttl, 80)
+        config = parse_arguments(['--inbound-message-ttl', '80'])
+        self.assertEqual(config.inbound_message_ttl, 80)
 
-        config = parse_arguments(['-ttl', '80'])
-        self.assertEqual(config.ttl, 80)
+        config = parse_arguments(['-ittl', '80'])
+        self.assertEqual(config.inbound_message_ttl, 80)
 
     def test_parse_arguments_inbound_message_prefix(self):
         '''The inbound message prefix command line argument can be specified by
@@ -217,7 +217,7 @@ class TestCommandLine(JunebugTestBase):
                     'username': 'admin',
                     'password': 'nimda',
                 },
-                'ttl': 80,
+                'inbound_message_ttl': 80,
                 'inbound_message_prefix': 'prefix',
             }
         })
@@ -235,7 +235,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['port'], 2332)
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
-        self.assertEqual(config.ttl, 80)
+        self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.inbound_message_prefix, 'prefix')
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
@@ -251,7 +251,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['port'], 2332)
         self.assertEqual(config.amqp['username'], 'admin')
         self.assertEqual(config.amqp['password'], 'nimda')
-        self.assertEqual(config.ttl, 80)
+        self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.inbound_message_prefix, 'prefix')
 
     def test_config_file_overriding(self):

@@ -35,7 +35,7 @@ class JunebugConfig(Config):
             'password': 'guest'
         })
 
-    ttl = ConfigInt(
+    inbound_message_ttl = ConfigInt(
         "Maximum time allowed to reply to messages",
         default=60)
 
