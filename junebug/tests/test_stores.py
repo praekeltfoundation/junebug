@@ -1,7 +1,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportUserMessage
 
-from junebug.stores import BaseStore, InboundMessageStore
+from junebug.stores import BaseStore, InboundMessageStore, OutboundMessageStore
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -117,4 +117,48 @@ class TestInboundMessageStore(JunebugTestBase):
         '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
         self.assertEqual((yield store.load_vumi_message(
+            'bad-channel', 'bad-id')), None)
+
+
+class TestOutboundMessageStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self, ttl=60):
+        redis = yield self.get_redis()
+        store = OutboundMessageStore(redis, ttl)
+        returnValue(store)
+
+    @inlineCallbacks
+    def test_store_vumi_message(self):
+        '''Stores the vumi message.'''
+        store = yield self.create_store()
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        api_request = {
+            'to': '+213',
+            'content': 'foo',
+            'event_url': 'http://test.org',
+            }
+        yield store.store_vumi_message('channel_id', api_request, vumi_msg)
+        event_url = yield self.redis.hget(
+            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
+            'event_url')
+        self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_load_event_url(self):
+        '''Returns a vumi message from the stored json'''
+        store = yield self.create_store()
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
+            'event_url', 'http://test.org')
+
+        event_url = yield store.load_event_url(
+            'channel_id', vumi_msg.get('message_id'))
+        self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_load_vumi_message_not_exist(self):
+        '''`None` should be returned if the message cannot be found'''
+        store = yield self.create_store()
+        self.assertEqual((yield store.load_event_url(
             'bad-channel', 'bad-id')), None)
