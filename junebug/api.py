@@ -194,26 +194,36 @@ class JunebugApi(object):
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
             },
-            'required': ['from', 'content'],
+            'required': ['content'],
             'additionalProperties': False,
         }))
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        to_addr = body.get('to')
-        reply_to = body.get('reply_to')
-        if not (to_addr or reply_to):
+        if 'to' not in body and 'reply_to' not in body:
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
-        if (to_addr and reply_to):
+
+        if 'to' in body and 'reply_to' in body:
             raise ApiUsageError(
                 'Only one of "to" and "reply_to" may be specified')
+
+        if 'from' in body and 'reply_to' in body:
+            raise ApiUsageError(
+                'Only one of "from" and "reply_to" may be specified')
+
         try:
             self.service.getServiceNamed(channel_id)
         except KeyError:
             raise ChannelNotFound()
 
-        msg = yield Channel.send_message(channel_id, self.message_sender, body)
+        if 'to' in body:
+            msg = yield Channel.send_message(
+                channel_id, self.message_sender, body)
+        else:
+            msg = yield Channel.send_reply_message(
+                channel_id, self.message_sender, self.inbounds, body)
+
         returnValue(response(request, 'message sent', msg))
 
     @app.route(
