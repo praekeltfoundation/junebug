@@ -150,7 +150,6 @@ class Channel(object):
         '''Sends a message. Takes a :class:`junebug.amqp.MessageSender` instance to
         send a message.'''
         msg = cls.message_from_api(id, msg)
-        msg.setdefault('to_addr', None)
         msg = TransportUserMessage.send(**msg)
         msg = yield cls._send_vumi_message(id, sender, msg)
         returnValue(cls.api_from_message(msg))
