@@ -3,7 +3,6 @@ from vumi.message import TransportUserMessage
 
 
 class BaseStore(object):
-    KEYSPACE = 'basestore'
     '''
     Base class for store classes. Stores data in redis as a hash.
 
@@ -12,6 +11,8 @@ class BaseStore(object):
     :param ttl: Expiry time for keys in the store
     :type ttl: integer
     '''
+    KEYSPACE = 'basestore'
+
     def __init__(self, redis, ttl):
         self.redis = redis
         self.ttl = ttl
@@ -47,9 +48,10 @@ class BaseStore(object):
 
 
 class InboundMessageStore(BaseStore):
-    KEYSPACE = 'inbound_messages'
     '''Stores the entire inbound message, in order to later construct
     replies'''
+    KEYSPACE = 'inbound_messages'
+
     def store_vumi_message(self, channel_id, message):
         '''Stores the given vumi message'''
         key = self.get_key(channel_id, message.get('message_id'))
@@ -66,9 +68,10 @@ class InboundMessageStore(BaseStore):
 
 
 class OutboundMessageStore(BaseStore):
-    KEYSPACE = 'outbound_messages'
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
+    KEYSPACE = 'outbound_messages'
+
     def store_vumi_message(self, channel_id, api_request, message):
         '''Stores the event_url'''
         if api_request.get('event_url') is not None:
