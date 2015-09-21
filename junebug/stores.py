@@ -11,7 +11,6 @@ class BaseStore(object):
     :param ttl: Expiry time for keys in the store
     :type ttl: integer
     '''
-    KEYSPACE = 'basestore'
 
     def __init__(self, redis, ttl):
         self.redis = redis
@@ -23,10 +22,9 @@ class BaseStore(object):
         yield self.redis.expire(id, self.ttl)
         returnValue(val)
 
-    def get_key(self, channel_id, message_id):
-        '''Gets the key where a message would be stored, using the channel and
-        message ids'''
-        return '%s:%s:%s' % (channel_id, self.KEYSPACE, message_id)
+    def get_key(self, *args):
+        '''Returns a key given strings'''
+        return ':'.join(args)
 
     def store_all(self, id, properties):
         '''Stores all of the keys and values given in the dict `properties` as
@@ -50,7 +48,10 @@ class BaseStore(object):
 class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
     replies'''
-    KEYSPACE = 'inbound_messages'
+
+    def get_key(self, channel_id, message_id):
+        return super(InboundMessageStore, self).get_key(
+            channel_id, 'inbound_messages', message_id)
 
     def store_vumi_message(self, channel_id, message):
         '''Stores the given vumi message'''
@@ -70,7 +71,10 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
-    KEYSPACE = 'outbound_messages'
+
+    def get_key(self, channel_id, message_id):
+        return super(OutboundMessageStore, self).get_key(
+            channel_id, 'outbound_messages', message_id)
 
     def store_vumi_message(self, channel_id, api_request, message):
         '''Stores the event_url'''
