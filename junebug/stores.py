@@ -10,7 +10,7 @@ class MessageNotFound(JunebugError):
     '''Raised when a message is not found.'''
     name = 'MessageNotFound'
     description = 'message not found'
-    code = http.NOT_FOUND
+    code = http.BAD_REQUEST
 
 
 class BaseStore(object):
