@@ -13,7 +13,6 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         self.patch_logger()
-
         yield self.start_server()
 
     @inlineCallbacks
@@ -240,7 +239,7 @@ class TestChannel(JunebugTestBase):
         yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield Channel.send_message(
-            'channel-id', self.api.message_sender, {
+            'channel-id', self.message_sender, {
                 'from': '+1234',
                 'content': 'testcontent',
             })
@@ -251,6 +250,40 @@ class TestChannel(JunebugTestBase):
         [dispatched_message] = self.get_dispatched_messages(
             'channel-id.outbound')
         self.assertEqual(msg['message_id'], dispatched_message['message_id'])
+
+    @inlineCallbacks
+    def test_send_reply_message(self):
+        '''send_reply_message should place the correct reply message on the
+        correct queue'''
+        yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='channel-id',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
+
+        msg = yield Channel.send_reply_message(
+            'channel-id', self.message_sender, self.inbounds, {
+                'reply_to': in_msg['message_id'],
+                'content': 'testcontent',
+            })
+
+        expected = in_msg.reply(content='testcontent')
+        expected = conjoin(Channel.api_from_message(expected), {
+            'timestamp': msg['timestamp'],
+            'message_id': msg['message_id']
+        })
+
+        self.assertEqual(msg, expected)
+
+        [dispatched] = self.get_dispatched_messages('channel-id.outbound')
+        self.assertEqual(msg['message_id'], dispatched['message_id'])
+        self.assertEqual(Channel.api_from_message(dispatched), expected)
 
     @inlineCallbacks
     def test_api_from_message(self):
@@ -294,3 +327,24 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(msg.get('helper_metadata'), {'voice': {}})
         self.assertEqual(msg.get('from_addr'), '+1234')
         self.assertEqual(msg.get('content'), None)
+
+    @inlineCallbacks
+    def test_message_from_api_reply(self):
+        yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        msg = Channel.message_from_api(
+            'channel-id', {
+                'reply_to': 1234,
+                'content': 'foo',
+                'channel_data': {
+                    'continue_session': True,
+                    'voice': {},
+                },
+            })
+
+        self.assertFalse('to_addr' in msg)
+        self.assertFalse('from_addr' in msg)
+        self.assertEqual(msg['continue_session'], True)
+        self.assertEqual(msg['helper_metadata'], {'voice': {}})
+        self.assertEqual(msg['content'], 'foo')

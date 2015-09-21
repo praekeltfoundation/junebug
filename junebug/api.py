@@ -10,6 +10,7 @@ from junebug.channel import Channel, ChannelNotFound
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
+from junebug.stores import InboundMessageStore
 
 logging = logging.getLogger(__name__)
 
@@ -43,6 +44,9 @@ class JunebugApi(object):
         self.redis = redis
         self.message_sender = message_sender
         self.message_sender.setServiceParent(self.service)
+
+        self.inbounds = InboundMessageStore(
+            self.redis, self.config.inbound_message_ttl)
 
     @inlineCallbacks
     def teardown(self):

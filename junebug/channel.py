@@ -39,6 +39,7 @@ allowed_message_fields = [
 
 
 class Channel(object):
+    OUTBOUND_QUEUE = '%s.outbound'
     APPLICATION_ID = 'application:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
 
@@ -144,13 +145,26 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def send_message(cls, id, message_sender, msg):
-        '''Sends a message. Takes a junebug.amqp.MessageSender instance to
+    def send_message(cls, id, sender, msg):
+        '''Sends a message. Takes a :class:`junebug.amqp.MessageSender` instance to
         send a message.'''
-        message = TransportUserMessage.send(
-            **cls.message_from_api(id, msg))
-        queue = '%s.outbound' % id
-        msg = yield message_sender.send_message(message, routing_key=queue)
+        msg = cls.message_from_api(id, msg)
+        msg.setdefault('to_addr', None)
+        msg = TransportUserMessage.send(**msg)
+        msg = yield cls._send_vumi_message(id, sender, msg)
+        returnValue(cls.api_from_message(msg))
+
+    @classmethod
+    @inlineCallbacks
+    def send_reply_message(cls, id, sender, inbounds, msg):
+        '''Sends a reply message. Takes a
+        :class:`junebug.stores.InboundMessageStore` to fetch the original
+        message and a :class:`junebug.amqp.MessageSender` instance to send the
+        reply message.'''
+        in_msg = yield inbounds.load_vumi_message(id, msg['reply_to'])
+        msg = cls.message_from_api(id, msg)
+        msg = in_msg.reply(**msg)
+        msg = yield cls._send_vumi_message(id, sender, msg)
         returnValue(cls.api_from_message(msg))
 
     @classmethod
@@ -164,25 +178,34 @@ class Channel(object):
         ret['reply_to'] = msg['in_reply_to']
         ret['content'] = msg['content']
         ret['channel_data'] = msg['helper_metadata']
+
         if msg.get('continue_session') is not None:
             ret['channel_data']['continue_session'] = msg['continue_session']
         if msg.get('session_event') is not None:
             ret['channel_data']['session_event'] = msg['session_event']
+
         return ret
 
     @classmethod
     def message_from_api(cls, id, msg):
         ret = {}
-        ret['to_addr'] = msg.get('to')
-        ret['from_addr'] = msg['from']
+
+        if 'reply_to' not in msg:
+            ret['to_addr'] = msg.get('to')
+            ret['from_addr'] = msg.get('from')
+
         ret['content'] = msg['content']
         ret['transport_name'] = id
+
         channel_data = msg.get('channel_data', {})
         if channel_data.get('continue_session') is not None:
             ret['continue_session'] = channel_data.pop('continue_session')
+
         if channel_data.get('session_event') is not None:
             ret['session_event'] = channel_data.pop('session_event')
+
         ret['helper_metadata'] = channel_data
+        ret['transport_name'] = id
         return ret
 
     @property
@@ -270,3 +293,8 @@ class Channel(object):
             return type(data)(map(self._convert_unicode, data))
         else:
             return data
+
+    @classmethod
+    def _send_vumi_message(cls, id, sender, msg):
+        queue = cls.OUTBOUND_QUEUE % (id,)
+        return sender.send_message(msg, routing_key=queue)
