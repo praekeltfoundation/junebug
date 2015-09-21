@@ -3,13 +3,14 @@ from vumi.message import TransportUserMessage
 
 
 class BaseStore(object):
+    KEYSPACE = 'basestore'
     '''
-   Base class for store classes. Stores data in redis as a hash.
+    Base class for store classes. Stores data in redis as a hash.
 
-   :param redis: Redis manager
-   :type redis: :class:`vumi.persist.redis_manager.RedisManager`
-   :param ttl: Expiry time for keys in the store
-   :type ttl: integer
+    :param redis: Redis manager
+    :type redis: :class:`vumi.persist.redis_manager.RedisManager`
+    :param ttl: Expiry time for keys in the store
+    :type ttl: integer
     '''
     def __init__(self, redis, ttl):
         self.redis = redis
@@ -20,6 +21,11 @@ class BaseStore(object):
         val = yield func(id, *args, **kwargs)
         yield self.redis.expire(id, self.ttl)
         returnValue(val)
+
+    def get_key(self, channel_id, message_id):
+        '''Gets the key where a message would be stored, using the channel and
+        message ids'''
+        return '%s:%s:%s' % (channel_id, self.KEYSPACE, message_id)
 
     def store_all(self, id, properties):
         '''Stores all of the keys and values given in the dict `properties` as
@@ -41,20 +47,18 @@ class BaseStore(object):
 
 
 class InboundMessageStore(BaseStore):
+    KEYSPACE = 'inbound_messages'
     '''Stores the entire inbound message, in order to later construct
     replies'''
-    def _get_key(self, channel_id, message_id):
-        return '%s:inbound_messages:%s' % (channel_id, message_id)
-
     def store_vumi_message(self, channel_id, message):
         '''Stores the given vumi message'''
-        key = self._get_key(channel_id, message.get('message_id'))
+        key = self.get_key(channel_id, message.get('message_id'))
         return self.store_property(key, 'message', message.to_json())
 
     @inlineCallbacks
     def load_vumi_message(self, channel_id, message_id):
         '''Retrieves the stored vumi message, given its unique id'''
-        key = self._get_key(channel_id, message_id)
+        key = self.get_key(channel_id, message_id)
         msg_json = yield self.load_property(key, 'message')
         if msg_json is None:
             returnValue(None)
