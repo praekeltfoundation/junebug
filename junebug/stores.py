@@ -1,4 +1,4 @@
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportUserMessage
 
 
@@ -76,13 +76,10 @@ class OutboundMessageStore(BaseStore):
         return super(OutboundMessageStore, self).get_key(
             channel_id, 'outbound_messages', message_id)
 
-    def store_vumi_message(self, channel_id, api_request, message):
+    def store_event_url(self, channel_id, event_url, message_id):
         '''Stores the event_url'''
-        if api_request.get('event_url') is not None:
-            key = self.get_key(channel_id, message.get('message_id'))
-            return self.store_property(
-                key, 'event_url', api_request['event_url'])
-        return succeed(None)
+        key = self.get_key(channel_id, message_id)
+        return self.store_property(key, 'event_url', event_url)
 
     def load_event_url(self, channel_id, message_id):
         '''Retrieves a stored event url, given the channel and message ids'''

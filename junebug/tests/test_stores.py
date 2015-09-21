@@ -128,19 +128,13 @@ class TestOutboundMessageStore(JunebugTestBase):
         returnValue(store)
 
     @inlineCallbacks
-    def test_store_vumi_message(self):
-        '''Stores the vumi message.'''
+    def test_store_event_url(self):
+        '''Stores the event URL under the message ID'''
         store = yield self.create_store()
-        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
-        api_request = {
-            'to': '+213',
-            'content': 'foo',
-            'event_url': 'http://test.org',
-            }
-        yield store.store_vumi_message('channel_id', api_request, vumi_msg)
+        yield store.store_event_url(
+            'channel_id', 'http://test.org', 'messageid')
         event_url = yield self.redis.hget(
-            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
-            'event_url')
+            'channel_id:outbound_messages:messageid', 'event_url')
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
