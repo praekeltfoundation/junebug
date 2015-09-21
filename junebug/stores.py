@@ -1,5 +1,16 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.web import http
+
 from vumi.message import TransportUserMessage
+
+from junebug.error import JunebugError
+
+
+class MessageNotFound(JunebugError):
+    '''Raised when a message is not found.'''
+    name = 'MessageNotFound'
+    description = 'message not found'
+    code = http.NOT_FOUND
 
 
 class BaseStore(object):

@@ -5,6 +5,7 @@ from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.workers import MessageForwardingWorker
 from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
+from junebug.stores import MessageNotFound
 from junebug.tests.helpers import JunebugTestBase
 from junebug.tests.utils import conjoin
 
@@ -284,6 +285,19 @@ class TestChannel(JunebugTestBase):
         [dispatched] = self.get_dispatched_messages('channel-id.outbound')
         self.assertEqual(msg['message_id'], dispatched['message_id'])
         self.assertEqual(Channel.api_from_message(dispatched), expected)
+
+    @inlineCallbacks
+    def test_send_reply_message_inbound_not_found(self):
+        '''send_reply_message should raise an error if the inbound message is
+        not found'''
+        yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        self.assertFailure(Channel.send_reply_message(
+            'channel-id', self.message_sender, self.inbounds, {
+                'reply_to': 'i-do-not-exist',
+                'content': 'testcontent',
+            }), MessageNotFound)
 
     @inlineCallbacks
     def test_api_from_message(self):

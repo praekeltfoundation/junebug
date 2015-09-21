@@ -9,6 +9,7 @@ from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
 from junebug.error import JunebugError
+from junebug.stores import MessageNotFound
 
 
 class ChannelNotFound(JunebugError):
@@ -162,6 +163,11 @@ class Channel(object):
         message and a :class:`junebug.amqp.MessageSender` instance to send the
         reply message.'''
         in_msg = yield inbounds.load_vumi_message(id, msg['reply_to'])
+
+        if in_msg is None:
+            raise MessageNotFound(
+                "Inbound message with id %s not found" % (msg['reply_to'],))
+
         msg = cls.message_from_api(id, msg)
         msg = in_msg.reply(**msg)
         msg = yield cls._send_vumi_message(id, sender, msg)
