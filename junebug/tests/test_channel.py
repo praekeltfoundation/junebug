@@ -4,8 +4,8 @@ from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.workers import MessageForwardingWorker
-from junebug.channel import Channel, ChannelNotFound, InvalidChannelType
-from junebug.stores import MessageNotFound
+from junebug.channel import (
+    Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
 from junebug.tests.helpers import JunebugTestBase
 from junebug.tests.utils import conjoin
 

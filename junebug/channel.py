@@ -9,7 +9,13 @@ from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
 from junebug.error import JunebugError
-from junebug.stores import MessageNotFound
+
+
+class MessageNotFound(JunebugError):
+    '''Raised when a message is not found.'''
+    name = 'MessageNotFound'
+    description = 'message not found'
+    code = http.BAD_REQUEST
 
 
 class ChannelNotFound(JunebugError):
