@@ -132,7 +132,7 @@ class TestOutboundMessageStore(JunebugTestBase):
         '''Stores the event URL under the message ID'''
         store = yield self.create_store()
         yield store.store_event_url(
-            'channel_id', 'http://test.org', 'messageid')
+            'channel_id', 'messageid', 'http://test.org')
         event_url = yield self.redis.hget(
             'channel_id:outbound_messages:messageid', 'event_url')
         self.assertEqual(event_url, 'http://test.org')

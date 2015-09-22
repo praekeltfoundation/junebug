@@ -76,7 +76,7 @@ class OutboundMessageStore(BaseStore):
         return super(OutboundMessageStore, self).get_key(
             channel_id, 'outbound_messages', message_id)
 
-    def store_event_url(self, channel_id, event_url, message_id):
+    def store_event_url(self, channel_id, message_id, event_url):
         '''Stores the event_url'''
         key = self.get_key(channel_id, message_id)
         return self.store_property(key, 'event_url', event_url)
