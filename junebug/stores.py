@@ -1,4 +1,5 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
+
 from vumi.message import TransportUserMessage
 
 
@@ -43,15 +44,19 @@ class BaseStore(object):
 class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
     replies'''
-    def store_vumi_message(self, message):
+    def _get_key(self, channel_id, message_id):
+        return '%s:inbound_messages:%s' % (channel_id, message_id)
+
+    def store_vumi_message(self, channel_id, message):
         '''Stores the given vumi message'''
-        return self.store_property(
-            message.get('message_id'), 'message', message.to_json())
+        key = self._get_key(channel_id, message.get('message_id'))
+        return self.store_property(key, 'message', message.to_json())
 
     @inlineCallbacks
-    def load_vumi_message(self, message_id):
+    def load_vumi_message(self, channel_id, message_id):
         '''Retrieves the stored vumi message, given its unique id'''
-        msg_json = yield self.load_property(message_id, 'message')
+        key = self._get_key(channel_id, message_id)
+        msg_json = yield self.load_property(key, 'message')
         if msg_json is None:
             returnValue(None)
         returnValue(TransportUserMessage.from_json(msg_json))

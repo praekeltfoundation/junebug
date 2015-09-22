@@ -205,7 +205,6 @@ class TestCommandLine(JunebugTestBase):
                     'password': 'nimda',
                 },
                 'inbound_message_ttl': 80,
-                'inbound_message_prefix': 'prefix',
             }
         })
 

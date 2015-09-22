@@ -10,6 +10,7 @@ from junebug.channel import Channel, ChannelNotFound
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
+from junebug.stores import InboundMessageStore
 
 logging = logging.getLogger(__name__)
 
@@ -32,11 +33,20 @@ class JunebugApi(object):
         self.config = config
 
     @inlineCallbacks
-    def setup(self):
-        self.redis = yield TxRedisManager.from_config(self.redis_config)
-        self.message_sender = MessageSender(
-            'amqp-spec-0-8.xml', self.amqp_config)
+    def setup(self, redis=None, message_sender=None):
+        if redis is None:
+            redis = yield TxRedisManager.from_config(self.redis_config)
+
+        if message_sender is None:
+            message_sender = MessageSender(
+                'amqp-spec-0-8.xml', self.amqp_config)
+
+        self.redis = redis
+        self.message_sender = message_sender
         self.message_sender.setServiceParent(self.service)
+
+        self.inbounds = InboundMessageStore(
+            self.redis, self.config.inbound_message_ttl)
 
     @inlineCallbacks
     def teardown(self):
@@ -184,26 +194,36 @@ class JunebugApi(object):
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
             },
-            'required': ['from', 'content'],
+            'required': ['content'],
             'additionalProperties': False,
         }))
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        to_addr = body.get('to')
-        reply_to = body.get('reply_to')
-        if not (to_addr or reply_to):
+        if 'to' not in body and 'reply_to' not in body:
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
-        if (to_addr and reply_to):
+
+        if 'to' in body and 'reply_to' in body:
             raise ApiUsageError(
                 'Only one of "to" and "reply_to" may be specified')
+
+        if 'from' in body and 'reply_to' in body:
+            raise ApiUsageError(
+                'Only one of "from" and "reply_to" may be specified')
+
         try:
             self.service.getServiceNamed(channel_id)
         except KeyError:
             raise ChannelNotFound()
 
-        msg = yield Channel.send_message(channel_id, self.message_sender, body)
+        if 'to' in body:
+            msg = yield Channel.send_message(
+                channel_id, self.message_sender, body)
+        else:
+            msg = yield Channel.send_reply_message(
+                channel_id, self.message_sender, self.inbounds, body)
+
         returnValue(response(request, 'message sent', msg))
 
     @app.route(
