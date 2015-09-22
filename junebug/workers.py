@@ -3,7 +3,7 @@ import logging
 
 import treq
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
 from vumi.config import ConfigDict, ConfigInt, ConfigText

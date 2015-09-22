@@ -299,7 +299,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
-    def test_forward_nack_no_message(self):
+    def test_forward_dr_no_message(self):
         self.patch_logger()
 
         event = TransportEvent(
