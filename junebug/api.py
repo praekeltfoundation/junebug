@@ -10,7 +10,7 @@ from junebug.channel import Channel, ChannelNotFound
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
-from junebug.stores import InboundMessageStore
+from junebug.stores import InboundMessageStore, OutboundMessageStore
 
 logging = logging.getLogger(__name__)
 
@@ -47,6 +47,9 @@ class JunebugApi(object):
 
         self.inbounds = InboundMessageStore(
             self.redis, self.config.inbound_message_ttl)
+
+        self.outbounds = OutboundMessageStore(
+            self.redis, self.config.outbound_message_ttl)
 
     @inlineCallbacks
     def teardown(self):
@@ -223,6 +226,10 @@ class JunebugApi(object):
         else:
             msg = yield Channel.send_reply_message(
                 channel_id, self.message_sender, self.inbounds, body)
+
+        if 'event_url' in body:
+            yield self.outbounds.store_event_url(
+                channel_id, msg['message_id'], body['event_url'])
 
         returnValue(response(request, 'message sent', msg))
 
