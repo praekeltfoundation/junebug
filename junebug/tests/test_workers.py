@@ -80,6 +80,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
         worker = yield app_helper.get_application(config)
         returnValue(worker)
 
+    def assert_was_logged(self, msg):
+        return any(
+            msg in log.getMessage()
+            for log in self.logging_handler.buffer)
+
     @inlineCallbacks
     def test_channel_id(self):
         worker = yield self.get_worker({'transport_name': 'foo'})
@@ -113,18 +118,10 @@ class TestMessageForwardingWorker(JunebugTestBase):
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)
 
-        self.assertTrue(any(
-            "'content': 'testcontent'" in l.getMessage()
-            for l in self.logging_handler.buffer))
-        self.assertTrue(any(
-            "'to': '+1234'" in l.getMessage()
-            for l in self.logging_handler.buffer))
-        self.assertTrue(any(
-            '500' in l.getMessage()
-            for l in self.logging_handler.buffer))
-        self.assertTrue(any(
-            'test-error-response' in l.getMessage()
-            for l in self.logging_handler.buffer))
+        self.assert_was_logged("'content': 'testcontent'")
+        self.assert_was_logged("'to': '+1234'")
+        self.assert_was_logged('500')
+        self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
     def test_send_message_storing(self):
@@ -144,8 +141,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             event_type='ack',
             user_message_id='msg-21',
             sent_message_id='msg-21',
-            timestamp='2015-09-22 15:39:44.827794',
-        )
+            timestamp='2015-09-22 15:39:44.827794')
 
         yield self.worker.outbounds.store_event_url(
             self.worker.channel_id, 'msg-21', self.url)
@@ -162,6 +158,25 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(req.method, 'POST')
         self.assertEqual(body, api_from_event(self.worker.channel_id, event))
+
+    @inlineCallbacks
+    def test_forward_ack_bad_response(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.outbounds.store_event_url(
+            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+
+        yield self.worker.consume_ack(event)
+
+        self.assert_was_logged(repr(event))
+        self.assert_was_logged('500')
+        self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
     def test_forward_nack(self):
@@ -188,6 +203,25 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(body, api_from_event(self.worker.channel_id, event))
 
     @inlineCallbacks
+    def test_forward_nack_bad_response(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.outbounds.store_event_url(
+            self.worker.channel_id, 'msg-21', self.url)
+
+        yield self.worker.consume_nack(event)
+
+        self.assert_was_logged(repr(event))
+        self.assert_was_logged('500')
+        self.assert_was_logged('test-error-response')
+
+    @inlineCallbacks
     def test_forward_dr(self):
         event = TransportEvent(
             event_type='delivery_report',
@@ -212,6 +246,25 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(body, api_from_event(self.worker.channel_id, event))
 
     @inlineCallbacks
+    def test_forward_dr_bad_response(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='pending',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.outbounds.store_event_url(
+            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+
+        yield self.worker.consume_delivery_report(event)
+
+        self.assert_was_logged(repr(event))
+        self.assert_was_logged('500')
+        self.assert_was_logged('test-error-response')
+
+    @inlineCallbacks
     def test_forward_event_bad_event(self):
         self.patch_logger()
 
@@ -230,6 +283,4 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(self.logging_api.requests, [])
 
-        self.assertTrue(any(
-            "Discarding unrecognised event %r" % (event,) in log.getMessage()
-            for log in self.logging_handler.buffer))
+        self.assert_was_logged("Discarding unrecognised event %r" % (event,))

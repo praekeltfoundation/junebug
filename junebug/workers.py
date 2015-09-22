@@ -83,7 +83,7 @@ class MessageForwardingWorker(ApplicationWorker):
         if request_failed(resp):
             logging.exception(
                 'Error sending event, received HTTP code %r with body %r. '
-                'Event: %r' % (resp.code, (yield resp.content()), msg))
+                'Event: %r' % (resp.code, (yield resp.content()), event))
 
     def consume_ack(self, event):
         return self.forward_event(event)
