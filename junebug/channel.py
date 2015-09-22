@@ -8,6 +8,7 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
+from junebug.utils import api_from_message, message_from_api
 from junebug.error import JunebugError
 
 
@@ -155,10 +156,10 @@ class Channel(object):
     def send_message(cls, id, sender, msg):
         '''Sends a message. Takes a :class:`junebug.amqp.MessageSender` instance to
         send a message.'''
-        msg = cls.message_from_api(id, msg)
+        msg = message_from_api(id, msg)
         msg = TransportUserMessage.send(**msg)
         msg = yield cls._send_vumi_message(id, sender, msg)
-        returnValue(cls.api_from_message(msg))
+        returnValue(api_from_message(msg))
 
     @classmethod
     @inlineCallbacks
@@ -173,51 +174,10 @@ class Channel(object):
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
-        msg = cls.message_from_api(id, msg)
+        msg = message_from_api(id, msg)
         msg = in_msg.reply(**msg)
         msg = yield cls._send_vumi_message(id, sender, msg)
-        returnValue(cls.api_from_message(msg))
-
-    @classmethod
-    def api_from_message(cls, msg):
-        ret = {}
-        ret['to'] = msg['to_addr']
-        ret['from'] = msg['from_addr']
-        ret['message_id'] = msg['message_id']
-        ret['channel_id'] = msg['transport_name']
-        ret['timestamp'] = msg['timestamp']
-        ret['reply_to'] = msg['in_reply_to']
-        ret['content'] = msg['content']
-        ret['channel_data'] = msg['helper_metadata']
-
-        if msg.get('continue_session') is not None:
-            ret['channel_data']['continue_session'] = msg['continue_session']
-        if msg.get('session_event') is not None:
-            ret['channel_data']['session_event'] = msg['session_event']
-
-        return ret
-
-    @classmethod
-    def message_from_api(cls, id, msg):
-        ret = {}
-
-        if 'reply_to' not in msg:
-            ret['to_addr'] = msg.get('to')
-            ret['from_addr'] = msg.get('from')
-
-        ret['content'] = msg['content']
-        ret['transport_name'] = id
-
-        channel_data = msg.get('channel_data', {})
-        if channel_data.get('continue_session') is not None:
-            ret['continue_session'] = channel_data.pop('continue_session')
-
-        if channel_data.get('session_event') is not None:
-            ret['session_event'] = channel_data.pop('session_event')
-
-        ret['helper_metadata'] = channel_data
-        ret['transport_name'] = id
-        return ret
+        returnValue(api_from_message(msg))
 
     @property
     def _transport_config(self):

@@ -7,7 +7,7 @@ from vumi.config import ConfigDict, ConfigInt, ConfigText
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 
-from junebug.channel import Channel
+from junebug.utils import api_from_message
 from junebug.stores import InboundMessageStore
 
 
@@ -51,7 +51,7 @@ class MessageForwardingWorker(ApplicationWorker):
             'Content-Type': 'application/json',
         }
         msg = json.dumps(
-            Channel.api_from_message(message), cls=JSONMessageEncoder)
+            api_from_message(message), cls=JSONMessageEncoder)
         resp = yield treq.post(url, data=msg, headers=headers)
         if resp.code < 200 or resp.code >= 300:
             logging.exception(
