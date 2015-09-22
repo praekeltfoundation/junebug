@@ -76,3 +76,43 @@ def message_from_api(channel_id, msg):
     ret['helper_metadata'] = channel_data
     ret['transport_name'] = channel_id
     return ret
+
+
+def api_from_event(channel_id, event):
+    parser = {
+        'ack': _api_from_event_ack,
+        'nack': _api_from_event_nack,
+        'delivery_report': _api_from_event_dr,
+    }.get(event['event_type'], lambda *a, **kw: {})
+
+    return conjoin({
+        'channel_id': channel_id,
+        'timestamp': event['timestamp'],
+        'message_id': event['user_message_id'],
+        'event_details': {},
+        'event_type': None,
+    }, parser(channel_id, event))
+
+
+def _api_from_event_ack(channel_id, event):
+    return {
+        'event_type': 'submitted',
+        'event_details': {}
+    }
+
+
+def _api_from_event_nack(channel_id, event):
+    return {
+        'event_type': 'rejected',
+        'event_details': {'reason': event['nack_reason']}
+    }
+
+
+def _api_from_event_dr(channel_id, event):
+    return {
+        'event_type': {
+            'pending': 'delivery_pending',
+            'failed': 'delivery_failed',
+            'delivered': 'delivery_succeeded',
+        }.get(event['delivery_status']),
+    }
