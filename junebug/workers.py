@@ -7,7 +7,7 @@ from vumi.config import ConfigDict, ConfigInt, ConfigText
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 
-from junebug.utils import api_from_message
+from junebug.utils import api_from_message, api_from_event
 from junebug.stores import InboundMessageStore, OutboundMessageStore
 
 
@@ -52,19 +52,60 @@ class MessageForwardingWorker(ApplicationWorker):
     def teardown_application(self):
         yield self.redis.close_manager()
 
+    @property
+    def channel_id(self):
+        return self.config['transport_name']
+
     @inlineCallbacks
     def consume_user_message(self, message):
         '''Sends the vumi message as an HTTP request to the configured URL'''
-        config = yield self.get_config(message)
-        yield self.inbounds.store_vumi_message(config.transport_name, message)
-        url = config.mo_message_url.encode('utf-8')
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        msg = json.dumps(
-            api_from_message(message), cls=JSONMessageEncoder)
-        resp = yield treq.post(url, data=msg, headers=headers)
-        if resp.code < 200 or resp.code >= 300:
+        yield self.inbounds.store_vumi_message(self.channel_id, message)
+
+        msg = api_from_message(message)
+        resp = yield post(self.config['mo_message_url'], msg)
+
+        if request_failed(resp):
             logging.exception(
                 'Error sending message, received HTTP code %r with body %r. '
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
+
+    @inlineCallbacks
+    def forward_event(self, event):
+        url = yield self._get_event_url(event)
+        msg = api_from_event(self.channel_id, event)
+
+        if msg['event_type'] is None:
+            logging.exception("Discarding unrecognised event %r" % (event,))
+            return
+
+        resp = yield post(url, msg)
+
+        if request_failed(resp):
+            logging.exception(
+                'Error sending event, received HTTP code %r with body %r. '
+                'Event: %r' % (resp.code, (yield resp.content()), msg))
+
+    def consume_ack(self, event):
+        return self.forward_event(event)
+
+    def consume_nack(self, event):
+        return self.forward_event(event)
+
+    def consume_delivery_report(self, event):
+        return self.forward_event(event)
+
+    def _get_event_url(self, event):
+        # TODO handle not found
+        msg_id = event['user_message_id']
+        return self.outbounds.load_event_url(self.channel_id, msg_id)
+
+
+def request_failed(resp):
+    return resp.code < 200 or resp.code >= 300
+
+
+def post(url, data):
+    return treq.post(
+        url.encode('utf-8'),
+        data=json.dumps(data, cls=JSONMessageEncoder),
+        headers={'Content-Type': 'application/json'})
