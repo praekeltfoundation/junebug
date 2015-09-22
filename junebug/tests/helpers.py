@@ -129,7 +129,6 @@ class JunebugTestBase(TestCase):
             self.service, config)
 
         redis = yield self.persistencehelper.get_redis_manager()
-        message_sender = self.get_message_sender()
         self.api = JunebugApi(self.service, config)
         yield self.api.setup(redis, self.get_message_sender())
 
