@@ -9,7 +9,7 @@ from klein import Klein
 
 from junebug.tests.utils import ToyServer
 from junebug.utils import (
-    response, json_body, message_from_api, api_from_message)
+    response, json_body, conjoin, omit, message_from_api, api_from_message)
 
 from vumi.message import TransportUserMessage
 
@@ -74,6 +74,53 @@ class TestUtils(TestCase):
             data=json.dumps({'foo': 23}))
 
         self.assertEqual(bodies, [{'foo': 23}])
+
+    def test_conjoin(self):
+        a = {
+            'foo': 21,
+            'bar': 23,
+        }
+
+        b = {
+            'bar': 'baz',
+            'quux': 'corge',
+        }
+
+        self.assertEqual(conjoin(a, b), {
+            'foo': 21,
+            'bar': 'baz',
+            'quux': 'corge',
+        })
+
+        self.assertEqual(a, {
+            'foo': 21,
+            'bar': 23,
+        })
+
+        self.assertEqual(b, {
+            'bar': 'baz',
+            'quux': 'corge',
+        })
+
+    def test_omit(self):
+        coll = {
+            'foo': 'bar',
+            'baz': 'quux',
+            'corge': 'grault',
+            'garply': 'waldo',
+        }
+
+        self.assertEqual(omit(coll, 'foo', 'garply'), {
+            'baz': 'quux',
+            'corge': 'grault',
+        })
+
+        self.assertEqual(coll, {
+            'foo': 'bar',
+            'baz': 'quux',
+            'corge': 'grault',
+            'garply': 'waldo',
+        })
 
     def test_api_from_message(self):
         '''The api from message function should take a vumi message, and

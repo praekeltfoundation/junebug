@@ -26,6 +26,17 @@ def json_body(fn):
     return wrapper
 
 
+def conjoin(a, b):
+    result = {}
+    result.update(a)
+    result.update(b)
+    return result
+
+
+def omit(collection, *fields):
+    return dict((k, v) for k, v in collection.iteritems() if k not in fields)
+
+
 def api_from_message(msg):
     ret = {}
     ret['to'] = msg['to_addr']

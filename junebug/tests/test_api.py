@@ -8,7 +8,7 @@ from vumi.message import TransportUserMessage
 from junebug.channel import Channel
 from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase
-from junebug.tests.utils import conjoin, omit
+from junebug.utils import conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):

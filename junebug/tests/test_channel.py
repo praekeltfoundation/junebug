@@ -8,7 +8,7 @@ from junebug.workers import MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
 from junebug.tests.helpers import JunebugTestBase
-from junebug.tests.utils import conjoin
+from junebug.utils import conjoin
 
 
 class TestChannel(JunebugTestBase):

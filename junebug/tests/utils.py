@@ -26,14 +26,3 @@ class ToyServer(object):
         yield server.setup(app)
         test.addCleanup(server.teardown)
         returnValue(server)
-
-
-def conjoin(a, b):
-    result = {}
-    result.update(a)
-    result.update(b)
-    return result
-
-
-def omit(collection, *fields):
-    return dict((k, v) for k, v in collection.iteritems() if k not in fields)
