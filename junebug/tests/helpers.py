@@ -127,10 +127,16 @@ class JunebugTestBase(TestCase):
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
-        self.api.redis = yield self.persistencehelper.get_redis_manager()
-        self.redis = self.api.redis
 
-        self.api.message_sender = self.get_message_sender()
+        redis = yield self.persistencehelper.get_redis_manager()
+        message_sender = self.get_message_sender()
+        self.api = JunebugApi(self.service, config)
+        yield self.api.setup(redis, self.get_message_sender())
+
+        self.config = self.api.config
+        self.redis = self.api.redis
+        self.inbounds = self.api.inbounds
+        self.message_sender = self.api.message_sender
 
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),

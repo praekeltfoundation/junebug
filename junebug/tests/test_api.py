@@ -3,9 +3,11 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
 
+from vumi.message import TransportUserMessage
+
 from junebug.channel import Channel
 from junebug.tests.helpers import JunebugTestBase
-from junebug.tests.utils import conjoin
+from junebug.tests.utils import conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -311,6 +313,46 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(message['message_id'], message_id)
 
     @inlineCallbacks
+    def test_send_message_reply(self):
+        '''Sending a reply message should fetch the relevant inbound message,
+        use it to construct a reply message, and place the reply message on the
+        queue for the channel'''
+        channel = Channel(
+            redis_manager=(yield self.get_redis()),
+            config=(yield self.create_channel_config()),
+            properties=self.create_channel_properties(),
+            id='test-channel')
+
+        yield channel.save()
+        yield channel.start(self.service)
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='test-channel',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message('test-channel', in_msg)
+        expected = in_msg.reply(content='testcontent')
+        expected = Channel.api_from_message(expected)
+
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'reply_to': in_msg['message_id'],
+            'content': 'testcontent',
+        })
+
+        yield self.assert_response(
+            resp, http.OK,
+            'message sent',
+            omit(expected, 'timestamp', 'message_id'),
+            ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+
+    @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
         resp = yield self.post(
             '/channels/foo-bar/messages/', {'from': None, 'content': None})
@@ -349,6 +391,23 @@ class TestJunebugApi(JunebugTestBase):
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
                     'message': 'Only one of "to" and "reply_to" may be '
+                    'specified',
+                    'type': 'ApiUsageError',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_send_message_from_and_reply_to(self):
+        resp = yield self.post('/channels/foo-bar/messages/', {
+            'from': '+1234',
+            'reply_to': '2e8u9ua8',
+            'content': None,
+        })
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': 'Only one of "from" and "reply_to" may be '
                     'specified',
                     'type': 'ApiUsageError',
                 }]

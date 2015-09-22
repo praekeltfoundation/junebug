@@ -33,3 +33,7 @@ def conjoin(a, b):
     result.update(a)
     result.update(b)
     return result
+
+
+def omit(collection, *fields):
+    return dict((k, v) for k, v in collection.iteritems() if k not in fields)
