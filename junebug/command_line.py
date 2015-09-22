@@ -65,6 +65,10 @@ def parse_arguments(args):
         '--inbound-message-ttl', '-ittl', dest='inbound_message_ttl', type=int,
         help='The maximum time allowed to reply to a message. Defaults to '
         '"60" seconds')
+    parser.add_argument(
+        '--outbound-message-ttl', '-ottl', dest='outbound_message_ttl',
+        type=int, help='The maximum time allowed for events to arrive for '
+        'messages. Defaults to 60*60*24*3 seconds or 3 days')
 
     return config_from_args(vars(parser.parse_args(args)))
 

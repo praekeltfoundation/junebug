@@ -38,3 +38,7 @@ class JunebugConfig(Config):
     inbound_message_ttl = ConfigInt(
         "Maximum time allowed to reply to messages",
         default=60)
+
+    outbound_message_ttl = ConfigInt(
+        "Maximum time allowed for events to arrive for messages",
+        default=60*60*24*3)
