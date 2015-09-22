@@ -207,9 +207,9 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.patch_logger()
 
         event = TransportEvent(
-            event_type='ack',
+            event_type='nack',
             user_message_id='msg-21',
-            sent_message_id='msg-21',
+            nack_reason='too many foos',
             timestamp='2015-09-22 15:39:44.827794')
 
         yield self.worker.outbounds.store_event_url(
