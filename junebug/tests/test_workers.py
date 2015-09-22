@@ -9,6 +9,7 @@ from vumi.application.tests.helpers import ApplicationHelper
 from vumi.message import TransportUserMessage
 from vumi.tests.helpers import PersistenceHelper
 
+from junebug.utils import conjoin
 from junebug.workers import MessageForwardingWorker
 from junebug.tests.helpers import JunebugTestBase
 
@@ -55,8 +56,8 @@ class TestMessageForwardingWorker(JunebugTestBase):
         app_config = persistencehelper.mk_config({
             'transport_name': 'testtransport',
             'mo_message_url': self.url.decode('utf-8'),
-            'ttl': 60,
         })
+
         self.worker = yield self.get_worker(app_config)
 
         connection_pool = HTTPConnectionPool(reactor, persistent=False)
@@ -68,7 +69,10 @@ class TestMessageForwardingWorker(JunebugTestBase):
         app_helper = ApplicationHelper(MessageForwardingWorker)
         yield app_helper.setup()
         self.addCleanup(app_helper.cleanup)
-        worker = yield app_helper.get_application(config)
+        worker = yield app_helper.get_application(conjoin(config, {
+            'inbound_ttl': 60,
+            'outbound_ttl': 60 * 60 * 24 * 2,
+        }))
         returnValue(worker)
 
     @inlineCallbacks
@@ -95,7 +99,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.worker = yield self.get_worker({
             'transport_name': 'testtransport',
             'mo_message_url': self.url + '/bad/',
-            'ttl': 60,
             })
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)

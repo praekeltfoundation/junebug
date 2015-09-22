@@ -8,18 +8,26 @@ from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.utils import api_from_message
-from junebug.stores import InboundMessageStore
+from junebug.stores import InboundMessageStore, OutboundMessageStore
 
 
 class MessageForwardingConfig(ApplicationConfig):
     '''Config for MessageForwardingWorker application worker'''
 
     mo_message_url = ConfigText(
-        'The URL to send HTTP POST requests to for MO messages',
+        "The URL to send HTTP POST requests to for MO messages",
         required=True, static=True)
-    redis_manager = ConfigDict('Redis config.', required=True, static=True)
-    ttl = ConfigInt(
-        'Time to keep stored messages in redis for reply_to',
+
+    redis_manager = ConfigDict(
+        "Redis config.",
+        required=True, static=True)
+
+    inbound_ttl = ConfigInt(
+        "Maximum time (in seconds) allowed to reply to messages",
+        required=True, static=True)
+
+    outbound_ttl = ConfigInt(
+        "Maximum time (in seconds) allowed for events to arrive for messages",
         required=True, static=True)
 
 
@@ -33,8 +41,12 @@ class MessageForwardingWorker(ApplicationWorker):
     def setup_application(self):
         self.redis = yield TxRedisManager.from_config(
             self.config['redis_manager'])
-        self.message_store = InboundMessageStore(
-            self.redis, self.config['ttl'])
+
+        self.inbounds = InboundMessageStore(
+            self.redis, self.config['inbound_ttl'])
+
+        self.outbounds = OutboundMessageStore(
+            self.redis, self.config['outbound_ttl'])
 
     @inlineCallbacks
     def teardown_application(self):
@@ -44,8 +56,7 @@ class MessageForwardingWorker(ApplicationWorker):
     def consume_user_message(self, message):
         '''Sends the vumi message as an HTTP request to the configured URL'''
         config = yield self.get_config(message)
-        yield self.message_store.store_vumi_message(
-            config.transport_name, message)
+        yield self.inbounds.store_vumi_message(config.transport_name, message)
         url = config.mo_message_url.encode('utf-8')
         headers = {
             'Content-Type': 'application/json',
