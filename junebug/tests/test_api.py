@@ -312,6 +312,37 @@ class TestJunebugApi(JunebugTestBase):
         message_id = (yield resp.json())['result']['message_id']
         self.assertEqual(message['message_id'], message_id)
 
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
+    def test_send_message_event_url(self):
+        '''Sending a message with a specified event url should store the event
+        url for sending events in the future'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'event_url': 'http://test.org'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', (yield resp.json())['result']['message_id'])
+        self.assertEqual(event_url, 'http://test.org')
+
     @inlineCallbacks
     def test_send_message_reply(self):
         '''Sending a reply message should fetch the relevant inbound message,
