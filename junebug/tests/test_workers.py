@@ -179,6 +179,23 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
+    def test_forward_ack_no_message(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.consume_ack(event)
+
+        self.assertEqual(self.logging_api.requests, [])
+
+        self.assert_was_logged(
+            "Outbound mesage not found for event %r" % (event,))
+
+    @inlineCallbacks
     def test_forward_nack(self):
         event = TransportEvent(
             event_type='nack',
@@ -220,6 +237,23 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged(repr(event))
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+
+    @inlineCallbacks
+    def test_forward_nack_no_message(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='nack',
+            user_message_id='msg-21',
+            nack_reason='too many foos',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.consume_nack(event)
+
+        self.assertEqual(self.logging_api.requests, [])
+
+        self.assert_was_logged(
+            "Outbound mesage not found for event %r" % (event,))
 
     @inlineCallbacks
     def test_forward_dr(self):
@@ -265,6 +299,23 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
+    def test_forward_nack_no_message(self):
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='pending',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.consume_delivery_report(event)
+
+        self.assertEqual(self.logging_api.requests, [])
+
+        self.assert_was_logged(
+            "Outbound mesage not found for event %r" % (event,))
+
+    @inlineCallbacks
     def test_forward_event_bad_event(self):
         self.patch_logger()
 
@@ -282,5 +333,4 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.forward_event(event)
 
         self.assertEqual(self.logging_api.requests, [])
-
         self.assert_was_logged("Discarding unrecognised event %r" % (event,))

@@ -1,7 +1,10 @@
 import json
 import logging
-from twisted.internet.defer import inlineCallbacks
+
 import treq
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from vumi.application.base import ApplicationConfig, ApplicationWorker
 from vumi.config import ConfigDict, ConfigInt, ConfigText
 from vumi.message import JSONMessageEncoder
@@ -72,6 +75,12 @@ class MessageForwardingWorker(ApplicationWorker):
     @inlineCallbacks
     def forward_event(self, event):
         url = yield self._get_event_url(event)
+
+        if url is None:
+            logging.exception(
+                "Outbound message not found for event %r" % (event,))
+            return
+
         msg = api_from_event(self.channel_id, event)
 
         if msg['event_type'] is None:
@@ -95,7 +104,6 @@ class MessageForwardingWorker(ApplicationWorker):
         return self.forward_event(event)
 
     def _get_event_url(self, event):
-        # TODO handle not found
         msg_id = event['user_message_id']
         return self.outbounds.load_event_url(self.channel_id, msg_id)
 
