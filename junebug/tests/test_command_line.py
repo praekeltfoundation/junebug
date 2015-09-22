@@ -185,10 +185,10 @@ class TestCommandLine(JunebugTestBase):
 
     def test_parse_arguments_outbound_ttl(self):
         '''The outbound ttl command line argument can be specified by
-        "--outbound-message-ttl" or "-ottl" and has a default value of 3 days
+        "--outbound-message-ttl" or "-ottl" and has a default value of 2 days
         '''
         config = parse_arguments([])
-        self.assertEqual(config.outbound_message_ttl, 60*60*24*3)
+        self.assertEqual(config.outbound_message_ttl, 60*60*24*2)
 
         config = parse_arguments(['--outbound-message-ttl', '90'])
         self.assertEqual(config.outbound_message_ttl, 90)
