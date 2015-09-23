@@ -132,9 +132,13 @@ Messages
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
        Optional. Only one of ``to`` or ``reply_to`` may be specified.
+       Defaults settings allow 10 minutes to reply to a message, after which
+       an error will be returned.
    :param str event_url:
        URL to call for status events (e.g. acknowledgements and
-       delivery reports) related to this message.
+       delivery reports) related to this message. Default settings allow for
+       2 days for events to arrive, after which they will no longer be
+       forwarded.
    :param int priority:
        Delivery priority from 1 to 5. Higher priority messages are delivered first.
        If omitted, priority is 1.
@@ -218,6 +222,8 @@ format:
 
 Events are posted to the message’s ``event_url`` after the message is
 submitted to the provider, and when delivery reports are received.
+Default settings allow events to arrive for up to 2 days; any further events
+will not be forwarded.
 
 **Request example**:
 
