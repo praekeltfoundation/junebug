@@ -77,8 +77,6 @@ class MessageForwardingWorker(ApplicationWorker):
         url = yield self._get_event_url(event)
 
         if url is None:
-            logging.exception(
-                "Outbound message not found for event %r" % (event,))
             return
 
         msg = api_from_event(self.channel_id, event)

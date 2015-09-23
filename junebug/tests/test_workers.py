@@ -205,9 +205,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(self.logging_api.requests, [])
 
-        self.assert_was_logged(
-            "Outbound mesage not found for event %r" % (event,))
-
     @inlineCallbacks
     def test_forward_nack(self):
         event = TransportEvent(
@@ -261,9 +258,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(self.logging_api.requests, [])
 
-        self.assert_was_logged(
-            "Outbound mesage not found for event %r" % (event,))
-
     @inlineCallbacks
     def test_forward_dr(self):
         event = TransportEvent(
@@ -316,9 +310,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.consume_delivery_report(event)
 
         self.assertEqual(self.logging_api.requests, [])
-
-        self.assert_was_logged(
-            "Outbound mesage not found for event %r" % (event,))
 
     @inlineCallbacks
     def test_forward_event_bad_event(self):
