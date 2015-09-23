@@ -3,12 +3,11 @@ from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
 
-from junebug.utils import api_from_message
+from junebug.utils import api_from_message, conjoin
 from junebug.workers import MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
 from junebug.tests.helpers import JunebugTestBase
-from junebug.utils import conjoin
 
 
 class TestChannel(JunebugTestBase):
