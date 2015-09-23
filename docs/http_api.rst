@@ -8,8 +8,8 @@ Junebug's HTTP API.
 
 .. warning::
 
-   Junebug's HTTP API doesn't exist yet. This document describes what
-   its HTTP API might look like.
+   Junebug is still in alpha, and some of the HTTP API endpoints documented
+   here are yet to be completed.
 
 
 HTTP API endpoints
