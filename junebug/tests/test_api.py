@@ -6,8 +6,9 @@ from twisted.web import http
 from vumi.message import TransportUserMessage
 
 from junebug.channel import Channel
+from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase
-from junebug.tests.utils import conjoin, omit
+from junebug.utils import conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -366,7 +367,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.api.inbounds.store_vumi_message('test-channel', in_msg)
         expected = in_msg.reply(content='testcontent')
-        expected = Channel.api_from_message(expected)
+        expected = api_from_message(expected)
 
         resp = yield self.post('/channels/test-channel/messages/', {
             'reply_to': in_msg['message_id'],

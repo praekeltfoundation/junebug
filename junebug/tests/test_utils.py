@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 from twisted.web import http
 from twisted.trial.unittest import TestCase
@@ -8,7 +9,11 @@ import treq
 from klein import Klein
 
 from junebug.tests.utils import ToyServer
-from junebug.utils import response, json_body
+from junebug.utils import (
+    response, json_body, conjoin, omit,
+    message_from_api, api_from_message, api_from_event)
+
+from vumi.message import TransportUserMessage, TransportEvent
 
 
 class TestUtils(TestCase):
@@ -71,3 +76,208 @@ class TestUtils(TestCase):
             data=json.dumps({'foo': 23}))
 
         self.assertEqual(bodies, [{'foo': 23}])
+
+    def test_conjoin(self):
+        a = {
+            'foo': 21,
+            'bar': 23,
+        }
+
+        b = {
+            'bar': 'baz',
+            'quux': 'corge',
+        }
+
+        self.assertEqual(conjoin(a, b), {
+            'foo': 21,
+            'bar': 'baz',
+            'quux': 'corge',
+        })
+
+        self.assertEqual(a, {
+            'foo': 21,
+            'bar': 23,
+        })
+
+        self.assertEqual(b, {
+            'bar': 'baz',
+            'quux': 'corge',
+        })
+
+    def test_omit(self):
+        coll = {
+            'foo': 'bar',
+            'baz': 'quux',
+            'corge': 'grault',
+            'garply': 'waldo',
+        }
+
+        self.assertEqual(omit(coll, 'foo', 'garply'), {
+            'baz': 'quux',
+            'corge': 'grault',
+        })
+
+        self.assertEqual(coll, {
+            'foo': 'bar',
+            'baz': 'quux',
+            'corge': 'grault',
+            'garply': 'waldo',
+        })
+
+    def test_api_from_message(self):
+        '''The api from message function should take a vumi message, and
+        return a dict with the appropriate values'''
+        message = TransportUserMessage.send(
+            content=None, from_addr='+1234', to_addr='+5432',
+            transport_name='testtransport', continue_session=True,
+            helper_metadata={'voice': {}})
+        dct = api_from_message(message)
+        [dct.pop(f) for f in ['timestamp', 'message_id']]
+        self.assertEqual(dct, {
+            'channel_data': {
+                'continue_session': True,
+                'voice': {},
+                },
+            'from': '+1234',
+            'to': '+5432',
+            'channel_id': 'testtransport',
+            'content': None,
+            'reply_to': None,
+            })
+
+    def test_message_from_api(self):
+        msg = message_from_api(
+            'channel-id', {
+                'from': '+1234',
+                'content': None,
+                'channel_data': {
+                    'continue_session': True,
+                    'voice': {},
+                    },
+                })
+        msg = TransportUserMessage.send(**msg)
+        self.assertEqual(msg.get('continue_session'), True)
+        self.assertEqual(msg.get('helper_metadata'), {'voice': {}})
+        self.assertEqual(msg.get('from_addr'), '+1234')
+        self.assertEqual(msg.get('content'), None)
+
+    def test_message_from_api_reply(self):
+        msg = message_from_api(
+            'channel-id', {
+                'reply_to': 1234,
+                'content': 'foo',
+                'channel_data': {
+                    'continue_session': True,
+                    'voice': {},
+                },
+            })
+
+        self.assertFalse('to_addr' in msg)
+        self.assertFalse('from_addr' in msg)
+        self.assertEqual(msg['continue_session'], True)
+        self.assertEqual(msg['helper_metadata'], {'voice': {}})
+        self.assertEqual(msg['content'], 'foo')
+
+    def test_api_from_event_ack(self):
+        self.assertEqual(api_from_event('channel-23', TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+        )), {
+            'event_type': 'submitted',
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
+
+    def test_api_from_event_nack(self):
+        self.assertEqual(api_from_event('channel-23', TransportEvent(
+            event_type='nack',
+            user_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+            nack_reason='too many lemons',
+        )), {
+            'event_type': 'rejected',
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {'reason': 'too many lemons'},
+        })
+
+    def test_api_from_event_dr_pending(self):
+        self.assertEqual(api_from_event('channel-23', TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+            delivery_status='pending',
+        )), {
+            'event_type': 'delivery_pending',
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
+
+    def test_api_from_event_dr_delivered(self):
+        self.assertEqual(api_from_event('channel-23', TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+            delivery_status='delivered',
+        )), {
+            'event_type': 'delivery_succeeded',
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
+
+    def test_api_from_event_dr_failed(self):
+        self.assertEqual(api_from_event('channel-23', TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+            delivery_status='failed',
+        )), {
+            'event_type': 'delivery_failed',
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
+
+    def test_api_from_event_dr_unknown(self):
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            timestamp=date(2321, 2, 3),
+            delivery_status='pending')
+
+        event['delivery_status'] = 'unknown'
+
+        self.assertEqual(api_from_event('channel-23', event), {
+            'event_type': None,
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
+
+    def test_api_from_event_unknown_type(self):
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp=date(2321, 2, 3))
+
+        event['event_type'] = 'unknown'
+
+        self.assertEqual(api_from_event('channel-23', event), {
+            'event_type': None,
+            'channel_id': 'channel-23',
+            'message_id': 'msg-21',
+            'timestamp': date(2321, 2, 3),
+            'event_details': {},
+        })
