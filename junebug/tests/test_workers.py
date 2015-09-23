@@ -85,6 +85,26 @@ class TestMessageForwardingWorker(JunebugTestBase):
             msg in log.getMessage()
             for log in self.logging_handler.buffer)
 
+    def assert_request(self, req, method=None, body=None, headers=None):
+        if method is not None:
+            self.assertEqual(req['request'].method, 'POST')
+
+        if headers is not None:
+            for name, values in headers.iteritems():
+                self.assertEqual(
+                    req['request'].requestHeaders.getRawHeaders(name),
+                    values)
+
+        if body is not None:
+            self.assertEqual(json.loads(req['body']), body)
+
+    def assert_body_contains(self, req, **fields):
+        body = json.loads(req['body'])
+
+        self.assertEqual(
+            dict((k, v) for k, v in body.iteritems()),
+            body)
+
     @inlineCallbacks
     def test_channel_id(self):
         worker = yield self.get_worker({'transport_name': 'foo'})
@@ -95,16 +115,13 @@ class TestMessageForwardingWorker(JunebugTestBase):
         '''A sent message should be forwarded to the configured URL'''
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)
-        [request] = self.logging_api.requests
-        req = request['request']
-        body = json.loads(request['body'])
+        [req] = self.logging_api.requests
 
-        self.assertEqual(
-            req.requestHeaders.getRawHeaders('content-type'),
-            ['application/json'])
-        self.assertEqual(req.method, 'POST')
-        self.assertEqual(body['content'], 'testcontent')
-        self.assertEqual(body['to'], '+1234')
+        self.assert_request(req, method='POST', headers={
+            'content-type': ['application/json']
+        })
+
+        self.assert_body_contains(req, to='+1234', content='testcontent')
 
     @inlineCallbacks
     def test_send_message_bad_response(self):
@@ -147,17 +164,13 @@ class TestMessageForwardingWorker(JunebugTestBase):
             self.worker.channel_id, 'msg-21', self.url)
 
         yield self.worker.consume_ack(event)
+        [req] = self.logging_api.requests
 
-        [request] = self.logging_api.requests
-        req = request['request']
-        body = json.loads(request['body'])
-
-        self.assertEqual(
-            req.requestHeaders.getRawHeaders('content-type'),
-            ['application/json'])
-
-        self.assertEqual(req.method, 'POST')
-        self.assertEqual(body, api_from_event(self.worker.channel_id, event))
+        self.assert_request(
+            req,
+            method='POST',
+            headers={'content-type': ['application/json']},
+            body=api_from_event(self.worker.channel_id, event))
 
     @inlineCallbacks
     def test_forward_ack_bad_response(self):
@@ -207,17 +220,13 @@ class TestMessageForwardingWorker(JunebugTestBase):
             self.worker.channel_id, 'msg-21', self.url)
 
         yield self.worker.consume_nack(event)
+        [req] = self.logging_api.requests
 
-        [request] = self.logging_api.requests
-        req = request['request']
-        body = json.loads(request['body'])
-
-        self.assertEqual(
-            req.requestHeaders.getRawHeaders('content-type'),
-            ['application/json'])
-
-        self.assertEqual(req.method, 'POST')
-        self.assertEqual(body, api_from_event(self.worker.channel_id, event))
+        self.assert_request(
+            req,
+            method='POST',
+            headers={'content-type': ['application/json']},
+            body=api_from_event(self.worker.channel_id, event))
 
     @inlineCallbacks
     def test_forward_nack_bad_response(self):
@@ -267,17 +276,13 @@ class TestMessageForwardingWorker(JunebugTestBase):
             self.worker.channel_id, 'msg-21', self.url)
 
         yield self.worker.consume_delivery_report(event)
+        [req] = self.logging_api.requests
 
-        [request] = self.logging_api.requests
-        req = request['request']
-        body = json.loads(request['body'])
-
-        self.assertEqual(
-            req.requestHeaders.getRawHeaders('content-type'),
-            ['application/json'])
-
-        self.assertEqual(req.method, 'POST')
-        self.assertEqual(body, api_from_event(self.worker.channel_id, event))
+        self.assert_request(
+            req,
+            method='POST',
+            headers={'content-type': ['application/json']},
+            body=api_from_event(self.worker.channel_id, event))
 
     @inlineCallbacks
     def test_forward_dr_bad_response(self):
