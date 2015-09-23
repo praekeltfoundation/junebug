@@ -241,7 +241,7 @@ class TestChannel(JunebugTestBase):
         yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield Channel.send_message(
-            'channel-id', self.message_sender, {
+            'channel-id', self.message_sender, self.outbounds, {
                 'from': '+1234',
                 'content': 'testcontent',
             })
@@ -252,6 +252,25 @@ class TestChannel(JunebugTestBase):
         [dispatched_message] = self.get_dispatched_messages(
             'channel-id.outbound')
         self.assertEqual(msg['message_id'], dispatched_message['message_id'])
+
+    @inlineCallbacks
+    def test_send_message_event_url(self):
+        '''Sending a message with a specified event url should store the event
+        url for sending events in the future'''
+        yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        msg = yield Channel.send_message(
+            'channel-id', self.message_sender, self.outbounds, {
+                'from': '+1234',
+                'content': 'testcontent',
+                'event_url': 'http://test.org'
+            })
+
+        event_url = yield self.outbounds.load_event_url(
+            'channel-id', msg['message_id'])
+
+        self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
     def test_send_reply_message(self):
@@ -270,7 +289,7 @@ class TestChannel(JunebugTestBase):
         yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
 
         msg = yield Channel.send_reply_message(
-            'channel-id', self.message_sender, self.inbounds, {
+            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': in_msg['message_id'],
                 'content': 'testcontent',
             })
@@ -295,7 +314,35 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         self.assertFailure(Channel.send_reply_message(
-            'channel-id', self.message_sender, self.inbounds, {
+            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': 'i-do-not-exist',
                 'content': 'testcontent',
             }), MessageNotFound)
+
+    @inlineCallbacks
+    def test_send_reply_message_event_url(self):
+        '''Sending a message with a specified event url should store the event
+        url for sending events in the future'''
+        yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='channel-id',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
+
+        msg = yield Channel.send_reply_message(
+            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
+                'reply_to': in_msg['message_id'],
+                'content': 'testcontent',
+                'event_url': 'http://test.org',
+            })
+
+        event_url = yield self.outbounds.load_event_url(
+            'channel-id', msg['message_id'])
+
+        self.assertEqual(event_url, 'http://test.org')

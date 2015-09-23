@@ -317,6 +317,7 @@ class TestJunebugApi(JunebugTestBase):
             'test-channel', message['message_id'])
         self.assertEqual(event_url, None)
 
+    timeout = 1
     @inlineCallbacks
     def test_send_message_event_url(self):
         '''Sending a message with a specified event url should store the event
