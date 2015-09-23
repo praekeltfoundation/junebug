@@ -135,6 +135,7 @@ class JunebugTestBase(TestCase):
         self.config = self.api.config
         self.redis = self.api.redis
         self.inbounds = self.api.inbounds
+        self.outbounds = self.api.outbounds
         self.message_sender = self.api.message_sender
 
         port = reactor.listenTCP(

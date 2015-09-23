@@ -153,30 +153,28 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def send_message(cls, id, sender, msg):
-        '''Sends a message. Takes a :class:`junebug.amqp.MessageSender` instance to
-        send a message.'''
+    def send_message(cls, id, sender, outbounds, msg):
+        '''Sends a message.'''
+        event_url = msg.get('event_url')
         msg = message_from_api(id, msg)
         msg = TransportUserMessage.send(**msg)
-        msg = yield cls._send_vumi_message(id, sender, msg)
+        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
     @classmethod
     @inlineCallbacks
-    def send_reply_message(cls, id, sender, inbounds, msg):
-        '''Sends a reply message. Takes a
-        :class:`junebug.stores.InboundMessageStore` to fetch the original
-        message and a :class:`junebug.amqp.MessageSender` instance to send the
-        reply message.'''
+    def send_reply_message(cls, id, sender, outbounds, inbounds, msg):
+        '''Sends a reply message.'''
         in_msg = yield inbounds.load_vumi_message(id, msg['reply_to'])
 
         if in_msg is None:
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
+        event_url = msg.get('event_url')
         msg = message_from_api(id, msg)
         msg = in_msg.reply(**msg)
-        msg = yield cls._send_vumi_message(id, sender, msg)
+        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
     @property
@@ -267,6 +265,11 @@ class Channel(object):
             return data
 
     @classmethod
-    def _send_vumi_message(cls, id, sender, msg):
+    @inlineCallbacks
+    def _send_message(cls, id, sender, outbounds, event_url, msg):
+        if event_url is not None:
+            yield outbounds.store_event_url(id, msg['message_id'], event_url)
+
         queue = cls.OUTBOUND_QUEUE % (id,)
-        return sender.send_message(msg, routing_key=queue)
+        msg = yield sender.send_message(msg, routing_key=queue)
+        returnValue(msg)

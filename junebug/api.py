@@ -222,14 +222,11 @@ class JunebugApi(object):
 
         if 'to' in body:
             msg = yield Channel.send_message(
-                channel_id, self.message_sender, body)
+                channel_id, self.message_sender, self.outbounds, body)
         else:
             msg = yield Channel.send_reply_message(
-                channel_id, self.message_sender, self.inbounds, body)
-
-        if 'event_url' in body:
-            yield self.outbounds.store_event_url(
-                channel_id, msg['message_id'], body['event_url'])
+                channel_id, self.message_sender, self.outbounds,
+                self.inbounds, body)
 
         returnValue(response(request, 'message sent', msg))
 
