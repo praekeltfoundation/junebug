@@ -136,7 +136,7 @@ Messages
        an error will be returned.
    :param str event_url:
        URL to call for status events (e.g. acknowledgements and
-       delivery reports) related to this message. Default settings allow for
+       delivery reports) related to this message. The default settings allow
        2 days for events to arrive, after which they will no longer be
        forwarded.
    :param int priority:
@@ -222,8 +222,8 @@ format:
 
 Events are posted to the message’s ``event_url`` after the message is
 submitted to the provider, and when delivery reports are received.
-Default settings allow events to arrive for up to 2 days; any further events
-will not be forwarded.
+The default settings allow events to arrive for up to 2 days; any further
+events will not be forwarded.
 
 **Request example**:
 
