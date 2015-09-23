@@ -132,7 +132,7 @@ Messages
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
        Optional. Only one of ``to`` or ``reply_to`` may be specified.
-       Defaults settings allow 10 minutes to reply to a message, after which
+       The default settings allow 10 minutes to reply to a message, after which
        an error will be returned.
    :param str event_url:
        URL to call for status events (e.g. acknowledgements and
