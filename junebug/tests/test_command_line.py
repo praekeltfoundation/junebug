@@ -173,9 +173,10 @@ class TestCommandLine(JunebugTestBase):
 
     def test_parse_arguments_inbound_ttl(self):
         '''The inbound ttl command line argument can be specified by
-        "--inbound-message-ttl" or "-ittl" and has a default value of "60"'''
+        "--inbound-message-ttl" or "-ittl" and has a default value of
+        10 minutes'''
         config = parse_arguments([])
-        self.assertEqual(config.inbound_message_ttl, 60)
+        self.assertEqual(config.inbound_message_ttl, 60 * 10)
 
         config = parse_arguments(['--inbound-message-ttl', '80'])
         self.assertEqual(config.inbound_message_ttl, 80)
