@@ -446,6 +446,77 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_send_message_under_character_limit(self):
+        '''If the content length is under the character limit, no errors should
+        be returned'''
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'Under the character limit.',
+            'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'Under the character limit.',
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
+    def test_send_message_equal_character_limit(self):
+        '''If the content length is equal to the character limit, no errors
+        should be returned'''
+        content = 'Equal to the character limit.'
+        properties = self.create_channel_properties(
+            character_limit=len(content))
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': content, 'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': content,
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
+    def test_send_message_over_character_limit(self):
+        '''If the content length is over the character limit, an error should
+        be returned'''
+        properties = self.create_channel_properties(character_limit=10)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'Over the character limit.',
+            'from': None})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message':
+                        "Message content u'Over the character limit.' "
+                        "is of length 25, which is greater than the character "
+                        "limit of 10",
+                    'type': 'ApiUsageError',
+                }],
+            })
+
+    @inlineCallbacks
     def test_get_message_status(self):
         resp = yield self.get('/channels/foo-bar/messages/j98qfj9aw')
         yield self.assert_response(
