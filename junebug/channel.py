@@ -73,6 +73,10 @@ class Channel(object):
     def application_id(self):
         return self.APPLICATION_ID % (self.id,)
 
+    @property
+    def character_limit(self):
+        return self._properties.get('character_limit')
+
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''

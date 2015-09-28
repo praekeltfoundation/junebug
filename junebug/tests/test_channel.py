@@ -83,6 +83,22 @@ class TestChannel(JunebugTestBase):
         })
 
     @inlineCallbacks
+    def test_channel_character_limit(self):
+        '''`character_limit` parameter should return the character limit, or
+        `None` if no character limit was specified'''
+        properties_limit = self.create_channel_properties(character_limit=100)
+        properties_no_limit = self.create_channel_properties()
+
+        channel_limit = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, properties_limit)
+        channel_no_limit = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport,
+            properties_no_limit)
+
+        self.assertEqual(channel_limit.character_limit, 100)
+        self.assertEqual(channel_no_limit.character_limit, None)
+
+    @inlineCallbacks
     def test_create_channel_invalid_type(self):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
