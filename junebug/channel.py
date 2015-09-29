@@ -155,19 +155,17 @@ class Channel(object):
         channels = yield redis.smembers('channels')
         returnValue(channels)
 
-    @classmethod
     @inlineCallbacks
-    def send_message(cls, id, sender, outbounds, msg):
+    def send_message(self, id, sender, outbounds, msg):
         '''Sends a message.'''
         event_url = msg.get('event_url')
         msg = message_from_api(id, msg)
         msg = TransportUserMessage.send(**msg)
-        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
+        msg = yield self._send_message(id, sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
-    @classmethod
     @inlineCallbacks
-    def send_reply_message(cls, id, sender, outbounds, inbounds, msg):
+    def send_reply_message(self, id, sender, outbounds, inbounds, msg):
         '''Sends a reply message.'''
         in_msg = yield inbounds.load_vumi_message(id, msg['reply_to'])
 
@@ -178,7 +176,7 @@ class Channel(object):
         event_url = msg.get('event_url')
         msg = message_from_api(id, msg)
         msg = in_msg.reply(**msg)
-        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
+        msg = yield self._send_message(id, sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
     @property
@@ -268,12 +266,11 @@ class Channel(object):
         else:
             return data
 
-    @classmethod
     @inlineCallbacks
-    def _send_message(cls, id, sender, outbounds, event_url, msg):
+    def _send_message(self, id, sender, outbounds, event_url, msg):
         if event_url is not None:
             yield outbounds.store_event_url(id, msg['message_id'], event_url)
 
-        queue = cls.OUTBOUND_QUEUE % (id,)
+        queue = self.OUTBOUND_QUEUE % (id,)
         msg = yield sender.send_message(msg, routing_key=queue)
         returnValue(msg)

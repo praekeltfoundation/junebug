@@ -254,9 +254,9 @@ class TestChannel(JunebugTestBase):
     def test_send_message(self):
         '''The send_message function should place the message on the correct
         queue'''
-        yield self.create_channel(
+        channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
-        msg = yield Channel.send_message(
+        msg = yield channel.send_message(
             'channel-id', self.message_sender, self.outbounds, {
                 'from': '+1234',
                 'content': 'testcontent',
@@ -273,10 +273,10 @@ class TestChannel(JunebugTestBase):
     def test_send_message_event_url(self):
         '''Sending a message with a specified event url should store the event
         url for sending events in the future'''
-        yield self.create_channel(
+        channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
-        msg = yield Channel.send_message(
+        msg = yield channel.send_message(
             'channel-id', self.message_sender, self.outbounds, {
                 'from': '+1234',
                 'content': 'testcontent',
@@ -292,7 +292,7 @@ class TestChannel(JunebugTestBase):
     def test_send_reply_message(self):
         '''send_reply_message should place the correct reply message on the
         correct queue'''
-        yield self.create_channel(
+        channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         in_msg = TransportUserMessage(
@@ -304,7 +304,7 @@ class TestChannel(JunebugTestBase):
 
         yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
 
-        msg = yield Channel.send_reply_message(
+        msg = yield channel.send_reply_message(
             'channel-id', self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': in_msg['message_id'],
                 'content': 'testcontent',
@@ -326,10 +326,10 @@ class TestChannel(JunebugTestBase):
     def test_send_reply_message_inbound_not_found(self):
         '''send_reply_message should raise an error if the inbound message is
         not found'''
-        yield self.create_channel(
+        channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
-        self.assertFailure(Channel.send_reply_message(
+        self.assertFailure(channel.send_reply_message(
             'channel-id', self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': 'i-do-not-exist',
                 'content': 'testcontent',
@@ -339,7 +339,7 @@ class TestChannel(JunebugTestBase):
     def test_send_reply_message_event_url(self):
         '''Sending a message with a specified event url should store the event
         url for sending events in the future'''
-        yield self.create_channel(
+        channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         in_msg = TransportUserMessage(
@@ -351,7 +351,7 @@ class TestChannel(JunebugTestBase):
 
         yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
 
-        msg = yield Channel.send_reply_message(
+        msg = yield channel.send_reply_message(
             'channel-id', self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': in_msg['message_id'],
                 'content': 'testcontent',
