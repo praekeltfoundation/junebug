@@ -71,12 +71,13 @@ def parse_arguments(args):
         'messages (in seconds). Defaults to 172800 seconds (2 days)')
     parser.add_argument(
         '--channels', '-ch', dest='channels', type=str, action='append',
-        help='The mapping between the channel names and python classes. '
-        'Defaults to {}')
+        help='Add a mapping to the list of channels, in the format '
+        '"channel_type:python_class".')
     parser.add_argument(
         '--replace-channels', '-rch', dest='replace_channels', type=bool,
         help='If True, replaces the default channels with `channels`. '
-        'If False, adds `channels` to the list of default channels')
+        'If False, adds `channels` to the list of default channels. Defaults'
+        ' to False.')
 
     return config_from_args(vars(parser.parse_args(args)))
 
