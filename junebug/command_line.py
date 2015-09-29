@@ -69,6 +69,14 @@ def parse_arguments(args):
         '--outbound-message-ttl', '-ottl', dest='outbound_message_ttl',
         type=int, help='The maximum time allowed for events to arrive for '
         'messages (in seconds). Defaults to 172800 seconds (2 days)')
+    parser.add_argument(
+        '--channels', '-ch', dest='channels', type=str, action='append',
+        help='The mapping between the channel names and python classes. '
+        'Defaults to {}')
+    parser.add_argument(
+        '--replace-channels', '-rch', dest='replace_channels', type=bool,
+        help='If True, replaces the default channels with `channels`. '
+        'If False, adds `channels` to the list of default channels')
 
     return config_from_args(vars(parser.parse_args(args)))
 
@@ -115,6 +123,7 @@ def config_from_args(args):
     config = load_config(args.pop('config_filename', None))
     config['redis'] = parse_redis(config.get('redis', {}), args)
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
+    parse_channels(args)
     return JunebugConfig(conjoin(config, args))
 
 
@@ -143,6 +152,16 @@ def parse_amqp(config, args):
     })
 
     return config
+
+
+def parse_channels(args):
+    channels = {}
+    for ch in args.get('channels', {}):
+        key, value = ch.split(':')
+        channels[key] = value
+
+    if len(channels) > 0:
+        args['channels'] = channels
 
 
 def omit_nones(d):
