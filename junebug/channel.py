@@ -33,6 +33,13 @@ class InvalidChannelType(JunebugError):
     code = http.BAD_REQUEST
 
 
+class MessageTooLong(JunebugError):
+    '''Raised when a message exceeds the configured character limit'''
+    name = 'MessageTooLong'
+    description = 'message too long'
+    code = http.BAD_REQUEST
+
+
 transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
@@ -72,6 +79,10 @@ class Channel(object):
     @property
     def application_id(self):
         return self.APPLICATION_ID % (self.id,)
+
+    @property
+    def character_limit(self):
+        return self._properties.get('character_limit')
 
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
@@ -151,30 +162,28 @@ class Channel(object):
         channels = yield redis.smembers('channels')
         returnValue(channels)
 
-    @classmethod
     @inlineCallbacks
-    def send_message(cls, id, sender, outbounds, msg):
+    def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''
         event_url = msg.get('event_url')
-        msg = message_from_api(id, msg)
+        msg = message_from_api(self.id, msg)
         msg = TransportUserMessage.send(**msg)
-        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
-    @classmethod
     @inlineCallbacks
-    def send_reply_message(cls, id, sender, outbounds, inbounds, msg):
+    def send_reply_message(self, sender, outbounds, inbounds, msg):
         '''Sends a reply message.'''
-        in_msg = yield inbounds.load_vumi_message(id, msg['reply_to'])
+        in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
 
         if in_msg is None:
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
         event_url = msg.get('event_url')
-        msg = message_from_api(id, msg)
+        msg = message_from_api(self.id, msg)
         msg = in_msg.reply(**msg)
-        msg = yield cls._send_message(id, sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
     @property
@@ -264,12 +273,23 @@ class Channel(object):
         else:
             return data
 
-    @classmethod
-    @inlineCallbacks
-    def _send_message(cls, id, sender, outbounds, event_url, msg):
-        if event_url is not None:
-            yield outbounds.store_event_url(id, msg['message_id'], event_url)
+    def _check_character_limit(self, content):
+        count = len(content)
+        if (self.character_limit is not None and count > self.character_limit):
+            raise MessageTooLong(
+                'Message content %r is of length %d, which is greater than the'
+                ' character limit of %d' % (
+                    content, count, self.character_limit)
+                )
 
-        queue = cls.OUTBOUND_QUEUE % (id,)
+    @inlineCallbacks
+    def _send_message(self, sender, outbounds, event_url, msg):
+        self._check_character_limit(msg['content'])
+
+        if event_url is not None:
+            yield outbounds.store_event_url(
+                self.id, msg['message_id'], event_url)
+
+        queue = self.OUTBOUND_QUEUE % (self.id,)
         msg = yield sender.send_message(msg, routing_key=queue)
         returnValue(msg)

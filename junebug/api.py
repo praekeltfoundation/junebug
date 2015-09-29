@@ -6,7 +6,7 @@ from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.amqp import MessageSender
-from junebug.channel import Channel, ChannelNotFound
+from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
@@ -215,18 +215,15 @@ class JunebugApi(object):
             raise ApiUsageError(
                 'Only one of "from" and "reply_to" may be specified')
 
-        try:
-            self.service.getServiceNamed(channel_id)
-        except KeyError:
-            raise ChannelNotFound()
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service)
 
         if 'to' in body:
-            msg = yield Channel.send_message(
-                channel_id, self.message_sender, self.outbounds, body)
+            msg = yield channel.send_message(
+                self.message_sender, self.outbounds, body)
         else:
-            msg = yield Channel.send_reply_message(
-                channel_id, self.message_sender, self.outbounds,
-                self.inbounds, body)
+            msg = yield channel.send_reply_message(
+                self.message_sender, self.outbounds, self.inbounds, body)
 
         returnValue(response(request, 'message sent', msg))
 
