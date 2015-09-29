@@ -257,7 +257,7 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
         msg = yield channel.send_message(
-            'channel-id', self.message_sender, self.outbounds, {
+            self.message_sender, self.outbounds, {
                 'from': '+1234',
                 'content': 'testcontent',
             })
@@ -277,7 +277,7 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         msg = yield channel.send_message(
-            'channel-id', self.message_sender, self.outbounds, {
+            self.message_sender, self.outbounds, {
                 'from': '+1234',
                 'content': 'testcontent',
                 'event_url': 'http://test.org'
@@ -305,7 +305,7 @@ class TestChannel(JunebugTestBase):
         yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
 
         msg = yield channel.send_reply_message(
-            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
+            self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': in_msg['message_id'],
                 'content': 'testcontent',
             })
@@ -330,7 +330,7 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         self.assertFailure(channel.send_reply_message(
-            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
+            self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': 'i-do-not-exist',
                 'content': 'testcontent',
             }), MessageNotFound)
@@ -352,7 +352,7 @@ class TestChannel(JunebugTestBase):
         yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
 
         msg = yield channel.send_reply_message(
-            'channel-id', self.message_sender, self.outbounds, self.inbounds, {
+            self.message_sender, self.outbounds, self.inbounds, {
                 'reply_to': in_msg['message_id'],
                 'content': 'testcontent',
                 'event_url': 'http://test.org',
