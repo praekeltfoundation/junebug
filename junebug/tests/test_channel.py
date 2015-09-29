@@ -63,6 +63,34 @@ class TestChannel(JunebugTestBase):
             channel.transport_worker)
 
     @inlineCallbacks
+    def test_transport_class_name_default(self):
+        config = yield self.create_channel_config(channels={})
+        properties = self.create_channel_properties(type='telnet')
+        channel = Channel(self.redis, config, properties)
+        self.assertEqual(
+            channel._transport_cls_name,
+            'vumi.transports.telnet.TelnetServerTransport')
+
+    @inlineCallbacks
+    def test_transport_class_name_specified(self):
+        config = yield self.create_channel_config(channels={'foo': 'bar.baz'})
+        properties = self.create_channel_properties(type='foo')
+        channel = Channel(self.redis, config, properties)
+        self.assertEqual(
+            channel._transport_cls_name,
+            'bar.baz')
+
+    @inlineCallbacks
+    def test_transport_class_name_overridden(self):
+        config = yield self.create_channel_config(
+            channels={'foo': 'bar.baz'}, replace_channels=True)
+        properties = self.create_channel_properties(type='telnet')
+        channel = Channel(self.redis, config, properties)
+        err = self.assertRaises(
+            InvalidChannelType, getattr, channel, '_transport_cls_name')
+        self.assertTrue(all(cls in err.message for cls in ['telnet', 'foo']))
+
+    @inlineCallbacks
     def test_start_channel_application(self):
         properties = self.create_channel_properties(mo_url='http://foo.org')
 

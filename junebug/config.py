@@ -49,5 +49,5 @@ class JunebugConfig(Config):
 
     replace_channels = ConfigBool(
         "If `True`, replaces the default channels with `channels`. If `False`,"
-        " `channels` is added to the default channels.",
+        " `channels` is added to the default channels. Defaults to False.",
         default=False)
