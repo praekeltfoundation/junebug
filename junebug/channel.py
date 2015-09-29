@@ -33,6 +33,13 @@ class InvalidChannelType(JunebugError):
     code = http.BAD_REQUEST
 
 
+class MessageTooLong(JunebugError):
+    '''Raised when a message exceeds the configured character limit'''
+    name = 'MessageTooLong'
+    description = 'message too long'
+    code = http.BAD_REQUEST
+
+
 transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
@@ -266,8 +273,19 @@ class Channel(object):
         else:
             return data
 
+    def _check_character_limit(self, content):
+        count = len(content)
+        if (self.character_limit is not None and count > self.character_limit):
+            raise MessageTooLong(
+                'Message content %r is of length %d, which is greater than the'
+                ' character limit of %d' % (
+                    content, count, self.character_limit)
+                )
+
     @inlineCallbacks
     def _send_message(self, id, sender, outbounds, event_url, msg):
+        self._check_character_limit(msg['content'])
+
         if event_url is not None:
             yield outbounds.store_event_url(id, msg['message_id'], event_url)
 

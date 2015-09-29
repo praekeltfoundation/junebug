@@ -506,13 +506,13 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'Over the character limit.',
             'from': None})
         yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
+            resp, http.BAD_REQUEST, 'message too long', {
                 'errors': [{
                     'message':
                         "Message content u'Over the character limit.' "
                         "is of length 25, which is greater than the character "
                         "limit of 10",
-                    'type': 'ApiUsageError',
+                    'type': 'MessageTooLong',
                 }],
             })
 

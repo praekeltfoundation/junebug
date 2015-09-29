@@ -218,15 +218,6 @@ class JunebugApi(object):
         channel = yield Channel.from_id(
             self.redis, self.config, channel_id, self.service)
 
-        if (channel.character_limit is not None
-                and len(body['content']) > channel.character_limit):
-            raise ApiUsageError(
-                'Message content %r is of length %d, which is greater than the'
-                ' character limit of %d' % (
-                    body['content'], len(body['content']),
-                    channel.character_limit)
-                )
-
         if 'to' in body:
             msg = yield channel.send_message(
                 channel_id, self.message_sender, self.outbounds, body)
