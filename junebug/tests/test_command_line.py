@@ -197,6 +197,37 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-ottl', '90'])
         self.assertEqual(config.outbound_message_ttl, 90)
 
+    def test_parse_arguments_channels(self):
+        '''Each channel mapping be specified by "--channels" or "-ch"'''
+        config = parse_arguments([])
+        self.assertEqual(config.channels, {})
+
+        config = parse_arguments(['--channels', 'foo:bar'])
+        self.assertEqual(config.channels, {'foo': 'bar'})
+
+        config = parse_arguments([
+            '--channels', 'foo:bar', '--channels', 'bar:foo'])
+        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
+
+        config = parse_arguments(['-ch', 'foo:bar'])
+        self.assertEqual(config.channels, {'foo': 'bar'})
+
+        config = parse_arguments(['-ch', 'foo:bar', '-ch', 'bar:foo'])
+        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
+
+    def test_parse_arguments_replace_channels(self):
+        '''The replace channels command line argument can be specified by
+        "--replace-channels" or "-rch" and has a default value of False
+        '''
+        config = parse_arguments([])
+        self.assertEqual(config.replace_channels, False)
+
+        config = parse_arguments(['--replace-channels', 'true'])
+        self.assertEqual(config.replace_channels, True)
+
+        config = parse_arguments(['-rch', 'true'])
+        self.assertEqual(config.replace_channels, True)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -220,6 +251,7 @@ class TestCommandLine(JunebugTestBase):
                 },
                 'inbound_message_ttl': 80,
                 'outbound_message_ttl': 90,
+                'channels': {'foo': 'bar'},
             }
         })
 
@@ -238,6 +270,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['password'], 'nimda')
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
+        self.assertEqual(config.channels, {'foo': 'bar'})
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -254,6 +287,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['password'], 'nimda')
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
+        self.assertEqual(config.channels, {'foo': 'bar'})
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command

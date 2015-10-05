@@ -204,14 +204,24 @@ class Channel(object):
         }
 
     @property
+    def _available_transports(self):
+        if self.config.replace_channels:
+            return self.config.channels
+        else:
+            channels = {}
+            channels.update(transports)
+            channels.update(self.config.channels)
+            return channels
+
+    @property
     def _transport_cls_name(self):
-        cls_name = transports.get(self._properties.get('type'))
+        cls_name = self._available_transports.get(self._properties.get('type'))
 
         if cls_name is None:
             raise InvalidChannelType(
                 'Invalid channel type %r, must be one of: %s' % (
                     self._properties.get('type'),
-                    ', '.join(transports.keys())))
+                    ', '.join(self._available_transports.keys())))
 
         return cls_name
 

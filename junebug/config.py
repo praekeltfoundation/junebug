@@ -1,5 +1,5 @@
 from confmodel import Config
-from confmodel.fields import ConfigText, ConfigInt, ConfigDict
+from confmodel.fields import ConfigBool, ConfigText, ConfigInt, ConfigDict
 
 
 class JunebugConfig(Config):
@@ -42,3 +42,12 @@ class JunebugConfig(Config):
     outbound_message_ttl = ConfigInt(
         "Maximum time (in seconds) allowed for events to arrive for messages",
         default=60 * 60 * 24 * 2)
+
+    channels = ConfigDict(
+        "Mapping between channel types and python classes.",
+        default={})
+
+    replace_channels = ConfigBool(
+        "If `True`, replaces the default channels with `channels`. If `False`,"
+        " `channels` is added to the default channels.",
+        default=False)
