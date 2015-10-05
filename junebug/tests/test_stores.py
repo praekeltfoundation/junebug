@@ -1,5 +1,5 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
-from vumi.message import TransportUserMessage
+from vumi.message import TransportEvent, TransportUserMessage
 
 from junebug.stores import BaseStore, InboundMessageStore, OutboundMessageStore
 from junebug.tests.helpers import JunebugTestBase
@@ -151,8 +151,100 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
-    def test_load_vumi_message_not_exist(self):
+    def test_load_event_url_not_exist(self):
         '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
         self.assertEqual((yield store.load_event_url(
             'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_store_event(self):
+        '''Stores the event under the message ID'''
+        store = yield self.create_store()
+        event = TransportEvent(
+            user_message_id='message_id', sent_message_id='message_id',
+            event_type='ack')
+        yield store.store_event('channel_id', 'message_id', event)
+
+        event_json = yield self.redis.hget(
+            'channel_id:outbound_messages:message_id', event['event_id'])
+        self.assertEqual(event_json, event.to_json())
+
+    @inlineCallbacks
+    def test_load_event(self):
+        store = yield self.create_store()
+        event = TransportEvent(
+            user_message_id='message_id', sent_message_id='message_id',
+            event_type='nack', nack_reason='error error')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:message_id', event['event_id'],
+            event.to_json())
+
+        stored_event = yield store.load_event(
+            'channel_id', 'message_id', event['event_id'])
+        self.assertEqual(stored_event, event)
+
+    @inlineCallbacks
+    def test_load_event_not_exist(self):
+        '''`None` should be returned if the event doesn't exist'''
+        store = yield self.create_store()
+        stored_event = yield store.load_event(
+            'channel_id', 'message_id', 'bad_event_id')
+        self.assertEqual(stored_event, None)
+
+    @inlineCallbacks
+    def test_load_all_events_none(self):
+        '''Returns an empty list'''
+        store = yield self.create_store()
+        events = yield store.load_all_events('channel_id', 'message_id')
+        self.assertEqual(events, [])
+
+    @inlineCallbacks
+    def test_load_all_events_one(self):
+        '''Returns a list with one event inside'''
+        store = yield self.create_store()
+        event = TransportEvent(
+            user_message_id='message_id', sent_message_id='message_id',
+            event_type='delivery_report', delivery_status='pending')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:message_id', event['event_id'],
+            event.to_json())
+
+        events = yield store.load_all_events('channel_id', 'message_id')
+        self.assertEqual(events, [event])
+
+    @inlineCallbacks
+    def test_load_all_events_multiple(self):
+        '''Returns a list of all the stored events'''
+        store = yield self.create_store()
+        events = []
+        for i in range(5):
+            event = TransportEvent(
+                user_message_id='message_id', sent_message_id='message_id',
+                event_type='delivery_report', delivery_status='pending')
+            events.append(event)
+            yield self.redis.hset(
+                'channel_id:outbound_messages:message_id', event['event_id'],
+                event.to_json())
+
+        stored_events = yield store.load_all_events('channel_id', 'message_id')
+        self.assertEqual(
+            sorted(events, key=lambda e: e['event_id']),
+            sorted(stored_events, key=lambda e: e['event_id']))
+
+    @inlineCallbacks
+    def test_load_all_events_with_other_stored_fields(self):
+        '''Should return just the stored events'''
+        store = yield self.create_store()
+        event = TransportEvent(
+            user_message_id='message_id', sent_message_id='message_id',
+            event_type='delivery_report', delivery_status='pending')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:message_id', event['event_id'],
+            event.to_json())
+        yield self.redis.hset(
+            'channel_id:outbound_messages:message_id', 'event_url',
+            'test_url')
+
+        stored_events = yield store.load_all_events('channel_id', 'message_id')
+        self.assertEqual(stored_events, [event])

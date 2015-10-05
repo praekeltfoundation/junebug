@@ -1,6 +1,6 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from vumi.message import TransportUserMessage
+from vumi.message import TransportEvent, TransportUserMessage
 
 
 class BaseStore(object):
@@ -72,6 +72,7 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
+    PROPERTY_KEYS = ['event_url']
 
     def get_key(self, channel_id, message_id):
         return super(OutboundMessageStore, self).get_key(
@@ -86,3 +87,33 @@ class OutboundMessageStore(BaseStore):
         '''Retrieves a stored event url, given the channel and message ids'''
         key = self.get_key(channel_id, message_id)
         return self.load_property(key, 'event_url')
+
+    def store_event(self, channel_id, message_id, event):
+        '''Stores an event for a message'''
+        key = self.get_key(channel_id, message_id)
+        event_id = event['event_id']
+        return self.store_property(key, event_id, event.to_json())
+
+    @inlineCallbacks
+    def load_event(self, channel_id, message_id, event_id):
+        '''Loads the event with id event_id'''
+        key = self.get_key(channel_id, message_id)
+        event_json = yield self.load_property(key, event_id)
+        if event_json is None:
+            returnValue(None)
+        returnValue(TransportEvent.from_json(event_json))
+
+    @inlineCallbacks
+    def load_all_events(self, channel_id, message_id):
+        '''Returns a list of all the stored events'''
+        key = self.get_key(channel_id, message_id)
+        events_json = yield self.load_all(key)
+        self._remove_property_keys(events_json)
+        returnValue([
+            TransportEvent.from_json(e) for e in events_json.values()])
+
+    def _remove_property_keys(self, dct):
+        '''If we remove all other property keys, we will be left with just the
+        events.'''
+        for k in self.PROPERTY_KEYS:
+            dct.pop(k, None)
