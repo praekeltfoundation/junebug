@@ -106,6 +106,13 @@ class TestMessageForwardingWorker(JunebugTestBase):
             body)
 
     @inlineCallbacks
+    def assert_event_stored(self, event):
+        key = '%s:outbound_messages:%s' % (
+            self.worker.config['transport_name'], 'msg-21')
+        event_json = yield self.worker.redis.hget(key, event['event_id'])
+        self.assertEqual(event_json, event.to_json())
+
+    @inlineCallbacks
     def test_channel_id(self):
         worker = yield self.get_worker({'transport_name': 'foo'})
         self.assertEqual(worker.channel_id, 'foo')
@@ -171,6 +178,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             method='POST',
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_ack_bad_response(self):
@@ -190,6 +198,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged(repr(event))
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_ack_no_message(self):
@@ -204,6 +213,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.consume_ack(event)
 
         self.assertEqual(self.logging_api.requests, [])
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_nack(self):
@@ -224,6 +234,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             method='POST',
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_nack_bad_response(self):
@@ -243,6 +254,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged(repr(event))
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_nack_no_message(self):
@@ -257,6 +269,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.consume_nack(event)
 
         self.assertEqual(self.logging_api.requests, [])
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_dr(self):
@@ -277,6 +290,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             method='POST',
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_dr_bad_response(self):
@@ -296,6 +310,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged(repr(event))
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_dr_no_message(self):
@@ -310,6 +325,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.consume_delivery_report(event)
 
         self.assertEqual(self.logging_api.requests, [])
+        yield self.assert_event_stored(event)
 
     @inlineCallbacks
     def test_forward_event_bad_event(self):
@@ -326,7 +342,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.worker.outbounds.store_event_url(
             self.worker.channel_id, 'msg-21', self.url)
 
-        yield self.worker.forward_event(event)
+        yield self.worker._forward_event(event)
 
         self.assertEqual(self.logging_api.requests, [])
         self.assert_was_logged("Discarding unrecognised event %r" % (event,))
