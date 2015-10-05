@@ -72,6 +72,7 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
+    PROPERTY_KEYS = ['event_url']
 
     def get_key(self, channel_id, message_id):
         return super(OutboundMessageStore, self).get_key(
@@ -107,6 +108,12 @@ class OutboundMessageStore(BaseStore):
         '''Returns a list of all the stored events'''
         key = self.get_key(channel_id, message_id)
         events_json = yield self.load_all(key)
-        events_json.pop('event_url', None)
+        self._remove_property_keys(events_json)
         returnValue([
             TransportEvent.from_json(e) for e in events_json.values()])
+
+    def _remove_property_keys(self, dct):
+        '''If we remove all other property keys, we will be left with just the
+        events.'''
+        for k in self.PROPERTY_KEYS:
+            dct.pop(k, None)
