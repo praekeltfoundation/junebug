@@ -6,7 +6,12 @@ Getting started
 This guides assumed you have already followed the :ref:`installation guide
 <installation>`.
 
-First you'll need to launch Junebug::
+First, make sure you have `Redis`_ and `RabbitMQ` running_. On a Debian-based system, one can run them with::
+
+  $ service redis-server start
+  $ service rabbitmq-server start
+
+We can now launch Junebug::
 
   $ jb -p 8000
 
@@ -14,25 +19,105 @@ This starts the Junebug HTTP API running on port 8000. At the moment it won't
 have any transports running, so let's create one using the API::
 
   $ curl -X POST \
-         -d '{"type": "telnet", "label": "My First Channel", "mo_url": "http://www.example.com/first_channel/mo", "config": {"transport_name": "my_first_transport", "twisted_endpoint": "tcp:9001"}}' \
-         http://localhost:8000/channels
+         -d '{
+          "type": "telnet",
+          "label": "My First Channel",
+          "mo_url": "http://requestb.in/pzvivfpz",
+          "config": {
+            "transport_name": "my_first_transport",
+            "twisted_endpoint": "tcp:9001"
+            }
+          }' \
+         http://localhost:8000/channels/
+
+Here, we tell Junebug to send all mobile-originating messages received by this
+channel to `mo_url`. We use a `requestb.in <requestbin>`_ url so that we can inspect the messages.
+
+.. _requestbin: http://requestb.in/
 
 This creates a simple telnet transport that listens on port 9001. You should
-get a response like::
+get a response like:
 
-  {
-    "status": 200,
-    "code": "OK",
-    "description": "channel created",
-    "result": {
-      "status": {},
-      "mo_url": "http://www.example.com/first_channel/mo",
-      "label": "My First Channel",
-      "type": "telnet",
-      "config": {
-        "transport_name": "my_first_transport",
-        "twisted_endpoint": "tcp:9001"
-      },
-      "id": "6a5c691e-140c-48b0-9f39-a53d4951d7fa"
+  .. code-block:: json
+
+    {
+      "status": 200,
+      "code": "OK",
+      "description": "channel created",
+      "result": {
+        "status": {},
+        "mo_url": "http://www.example.com/first_channel/mo",
+        "label": "My First Channel",
+        "type": "telnet",
+        "config": {
+          "transport_name": "my_first_transport",
+          "twisted_endpoint": "tcp:9001"
+        },
+        "id": "6a5c691e-140c-48b0-9f39-a53d4951d7fa"
+      }
     }
-  }
+
+With the telnet transport running, we can now connect to the telnet transport::
+
+  $ telnet localhost 9001
+
+If we take a look at the requestbin we gave as the `mo_url` when creating the
+channel, we should see something like this:
+
+  .. code-block:: json
+
+      {
+        "channel_data": {"session_event": "new"},
+        "from": "127.0.0.1:53378",
+        "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+        "timestamp": "2015-10-06 14:16:34.578820",
+        "content": null,
+        "to": "0.0.0.0:9001",
+        "reply_to": null,
+        "message_id": "35f3336d4a1a46c7b40cd172a41c510d"
+      }
+
+This message was sent to the channel when we connected to the telnet transport,
+and is equivalent to starting a session for a session-based transport type like USSD.
+
+Now, lets send a message to the telnet transport via junebug::
+
+  $ curl -X POST \
+      -d '{
+        "to": "0.0.0.0:9001",
+        "content": "hello"
+      }' \
+      localhost:8000/channels/bc5f2e63-7f53-4996-816d-4f89f45a5842/messages/
+
+Here, we sent a message to the address `0.0.0.0:9001`. We should see a `hello` message appear in our telnet client.
+
+Now, lets try receive a message via junebug by entering a message in our telnet
+client::
+
+   > Hi there
+
+If we take a look at our requestbin url, we should see a new request:
+
+  .. code-block:: json
+
+    {
+        channel_data: {session_event: "resume"},
+        from: "127.0.0.1:53378",
+        channel_id: "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+        timestamp: "2015-10-06 14:30:51.876897",
+        content: "hi there",
+        to: "0.0.0.0:9001",
+        reply_to: null,
+        message_id: "22c9cd74c5ff42d9b8e1a538e2a17175"
+    }
+
+Now, lets send a reply to this message by referencing its `message_id`::
+
+  $ curl -X POST \
+      -d '{
+        "reply_to": "22c9cd74c5ff42d9b8e1a538e2a17175",
+        "content": "hello again"
+      }' \
+      localhost:8000/channels/bc5f2e63-7f53-4996-816d-4f89f45a5842/messages/
+
+We should see `hello again` appear in our telnet client.
