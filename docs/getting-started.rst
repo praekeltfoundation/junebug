@@ -6,10 +6,13 @@ Getting started
 This guides assumed you have already followed the :ref:`installation guide
 <installation>`.
 
-First, make sure you have `Redis`_ and `RabbitMQ` running_. On a Debian-based system, one can run them with::
+First, make sure you have `Redis`_ and `RabbitMQ`_ running. On a Debian-based system, one can run them with::
 
   $ service redis-server start
   $ service rabbitmq-server start
+
+.. _redis: http://redis.io/
+.. _rabbitmq: https://www.rabbitmq.com/
 
 We can now launch Junebug::
 
