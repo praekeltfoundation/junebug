@@ -5,10 +5,12 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
 
+from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import json_body, response
 from junebug.validate import body_schema, validate
+from junebug.stores import InboundMessageStore, OutboundMessageStore
 
 logging = logging.getLogger(__name__)
 
@@ -24,14 +26,30 @@ class ApiUsageError(JunebugError):
 class JunebugApi(object):
     app = Klein()
 
-    def __init__(self, service, redis_config, amqp_config):
+    def __init__(self, service, config):
         self.service = service
-        self.redis_config = redis_config
-        self.amqp_config = amqp_config
+        self.redis_config = config.redis
+        self.amqp_config = config.amqp
+        self.config = config
 
     @inlineCallbacks
-    def setup(self):
-        self.redis = yield TxRedisManager.from_config(self.redis_config)
+    def setup(self, redis=None, message_sender=None):
+        if redis is None:
+            redis = yield TxRedisManager.from_config(self.redis_config)
+
+        if message_sender is None:
+            message_sender = MessageSender(
+                'amqp-spec-0-8.xml', self.amqp_config)
+
+        self.redis = redis
+        self.message_sender = message_sender
+        self.message_sender.setServiceParent(self.service)
+
+        self.inbounds = InboundMessageStore(
+            self.redis, self.config.inbound_message_ttl)
+
+        self.outbounds = OutboundMessageStore(
+            self.redis, self.config.outbound_message_ttl)
 
     @inlineCallbacks
     def teardown(self):
@@ -103,7 +121,7 @@ class JunebugApi(object):
     def create_channel(self, request, body):
         '''Create a channel'''
         channel = Channel(
-            self.redis, self.amqp_config, body)
+            self.redis, self.config, body)
         yield channel.save()
         yield channel.start(self.service)
         returnValue(response(
@@ -114,7 +132,7 @@ class JunebugApi(object):
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service)
         resp = yield channel.status()
         returnValue(response(
             request, 'channel found', resp))
@@ -149,7 +167,7 @@ class JunebugApi(object):
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service)
         resp = yield channel.update(body)
         returnValue(response(
             request, 'channel updated', resp))
@@ -159,7 +177,7 @@ class JunebugApi(object):
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''
         channel = yield Channel.from_id(
-            self.redis, self.amqp_config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service)
         yield channel.stop()
         yield channel.delete()
         returnValue(response(
@@ -172,25 +190,42 @@ class JunebugApi(object):
             'type': 'object',
             'properties': {
                 'to': {'type': 'string'},
-                'from': {'type': 'string'},
+                'from': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
+                'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
-            }
+            },
+            'required': ['content'],
+            'additionalProperties': False,
         }))
+    @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        to_addr = body.get('to')
-        reply_to = body.get('reply_to')
-        if not (to_addr or reply_to):
+        if 'to' not in body and 'reply_to' not in body:
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
-        if (to_addr and reply_to):
+
+        if 'to' in body and 'reply_to' in body:
             raise ApiUsageError(
                 'Only one of "to" and "reply_to" may be specified')
 
-        raise NotImplementedError()
+        if 'from' in body and 'reply_to' in body:
+            raise ApiUsageError(
+                'Only one of "from" and "reply_to" may be specified')
+
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service)
+
+        if 'to' in body:
+            msg = yield channel.send_message(
+                self.message_sender, self.outbounds, body)
+        else:
+            msg = yield channel.send_reply_message(
+                self.message_sender, self.outbounds, self.inbounds, body)
+
+        returnValue(response(request, 'message sent', msg))
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',

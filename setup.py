@@ -8,7 +8,7 @@ def read_file(filename):
 
 setup(
     name='junebug',
-    version='0.0.2a',
+    version='0.0.5a',
     url='http://github.com/praekelt/junebug',
     license='BSD',
     description=(
@@ -24,6 +24,8 @@ setup(
         'jsonschema',
         'treq',
         'vumi',
+        'confmodel',
+        'PyYAML',
     ],
     entry_points='''
     [console_scripts]

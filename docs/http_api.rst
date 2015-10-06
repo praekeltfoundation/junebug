@@ -8,8 +8,8 @@ Junebug's HTTP API.
 
 .. warning::
 
-   Junebug's HTTP API doesn't exist yet. This document describes what
-   its HTTP API might look like.
+   Junebug is still in alpha, and some of the HTTP API endpoints documented
+   here are yet to be completed.
 
 
 HTTP API endpoints
@@ -105,7 +105,7 @@ Channels
 
    Modify a channel's configuration.
 
-   Accepts the same parameters as :http:post:`/channels`. Only the
+   Accepts the same parameters as :http:post:`/channels/`. Only the
    parameters provided are updated. Others retain their original
    values.
 
@@ -132,9 +132,13 @@ Messages
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
        Optional. Only one of ``to`` or ``reply_to`` may be specified.
+       The default settings allow 10 minutes to reply to a message, after which
+       an error will be returned.
    :param str event_url:
        URL to call for status events (e.g. acknowledgements and
-       delivery reports) related to this message.
+       delivery reports) related to this message. The default settings allow
+       2 days for events to arrive, after which they will no longer be
+       forwarded.
    :param int priority:
        Delivery priority from 1 to 5. Higher priority messages are delivered first.
        If omitted, priority is 1.
@@ -200,7 +204,7 @@ Events
 ------
 
 Events POSTed to the ``event_url`` specified in
-:http:post:`/channels/(channel_id:str)/messages` have the following
+:http:post:`/channels/(channel_id:str)/messages/` have the following
 format:
 
 .. http:post:: /event/url
@@ -218,6 +222,8 @@ format:
 
 Events are posted to the message’s ``event_url`` after the message is
 submitted to the provider, and when delivery reports are received.
+The default settings allow events to arrive for up to 2 days; any further
+events will not be forwarded.
 
 **Request example**:
 

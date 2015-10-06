@@ -1,12 +1,14 @@
-from copy import deepcopy
 import json
 import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
-from vumi.transports.telnet import TelnetServerTransport
+
+from vumi.message import TransportUserMessage
 
 from junebug.channel import Channel
+from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase
+from junebug.utils import conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -14,7 +16,6 @@ class TestJunebugApi(JunebugTestBase):
     def setUp(self):
         self.patch_logger()
         yield self.start_server()
-        yield self.patch_worker_creation(TelnetServerTransport)
 
     def get(self, url):
         return treq.get("%s%s" % (self.url, url), persistent=False)
@@ -33,8 +34,10 @@ class TestJunebugApi(JunebugTestBase):
     def assert_response(self, response, code, description, result, ignore=[]):
         data = yield response.json()
         self.assertEqual(response.code, code)
+
         for field in ignore:
             data['result'].pop(field)
+
         self.assertEqual(data, {
             'status': code,
             'code': http.RESPONSES[code],
@@ -58,19 +61,20 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_channel_list(self):
         redis = yield self.get_redis()
-        config = self.default_channel_config
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [])
 
-        yield Channel(redis, {}, config, u'test-channel-1').save()
+        yield Channel(redis, config, properties, u'test-channel-1').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
             u'test-channel-1',
         ])
 
-        yield Channel(redis, {}, config, u'test-channel-2').save()
+        yield Channel(redis, config, properties, u'test-channel-2').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
@@ -80,27 +84,41 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_create_channel(self):
-        resp = yield self.post('/channels/', {
-            'type': 'telnet',
-            'config': self.default_channel_config,
-            'mo_url': 'http://foo.bar',
-        })
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
+
         yield self.assert_response(
-            resp, http.OK, 'channel created', {
-                'config': self.default_channel_config,
-                'mo_url': 'http://foo.bar',
-                'status': {},
-                'type': 'telnet',
-            }, ignore=['id'])
+            resp, http.OK, 'channel created',
+            conjoin(properties, {'status': {}}),
+            ignore=['id'])
+
+    @inlineCallbacks
+    def test_create_channel_transport(self):
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
+
         # Check that the transport is created with the correct config
-        [transport] = self.service.services
+        id = (yield resp.json())['result']['id']
+        transport = self.service.namedServices[id]
+
         self.assertEqual(transport.parent, self.service)
-        self.assertEqual(transport.config, {
-            'transport_name': 'dummy_transport1',
-            'twisted_endpoint': 'tcp:0',
-            'worker_name': 'unnamed',
-            })
-        self.assertTrue(transport.running)
+
+        self.assertEqual(transport.config, conjoin(properties['config'], {
+            'transport_name': id,
+        }))
+
+    @inlineCallbacks
+    def test_create_channel_application(self):
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
+
+        channel_id = (yield resp.json())['result']['id']
+        id = Channel.APPLICATION_ID % (channel_id,)
+        worker = self.service.namedServices[id]
+
+        self.assertEqual(worker.parent, self.service)
+        self.assertEqual(worker.config['transport_name'], channel_id)
+        self.assertEqual(worker.config['mo_message_url'], 'http://foo.bar')
 
     @inlineCallbacks
     def test_create_channel_invalid_parameters(self):
@@ -141,19 +159,19 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_channel(self):
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, u'test-channel')
+        channel = Channel(redis, config, properties, u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            })
+
         yield self.assert_response(
-            resp, http.OK, 'channel found', expected)
+            resp, http.OK, 'channel found', conjoin(properties, {
+                'status': {},
+                'id': 'test-channel',
+            }))
 
     @inlineCallbacks
     def test_modify_unknown_channel(self):
@@ -168,39 +186,42 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_modify_channel_no_config_change(self):
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 'test-channel')
+
+        channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
+
         resp = yield self.post(
             '/channels/test-channel', {'metadata': {'foo': 'bar'}})
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            'metadata': {'foo': 'bar'},
-            })
+
         yield self.assert_response(
-            resp, http.OK, 'channel updated', expected)
+            resp, http.OK, 'channel updated', conjoin(properties, {
+                'status': {},
+                'id': 'test-channel',
+                'metadata': {'foo': 'bar'},
+            }))
 
     @inlineCallbacks
     def test_modify_channel_config_change(self):
         redis = yield self.get_redis()
-        channel = Channel(
-            redis, {}, self.default_channel_config, 'test-channel')
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+
+        channel = Channel(redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
-        resp = yield self.post(
-            '/channels/test-channel', {'config': {'name': 'bar'}})
-        expected = deepcopy(self.default_channel_config)
-        expected.update({
-            'status': {},
-            'id': 'test-channel',
-            'config': {'name': 'bar'},
-            })
+
+        properties['config']['name'] = 'bar'
+        resp = yield self.post('/channels/test-channel', properties)
+
         yield self.assert_response(
-            resp, http.OK, 'channel updated', expected)
+            resp, http.OK, 'channel updated', conjoin(properties, {
+                'status': {},
+                'id': 'test-channel',
+            }))
 
     @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
@@ -224,8 +245,9 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_channel(self):
-        channel = Channel(
-            self.redis, {}, self.default_channel_config, 'test-channel')
+        config = yield self.create_channel_config()
+        properties = self.create_channel_properties()
+        channel = Channel(self.redis, config, properties, 'test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -254,20 +276,118 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(properties, None)
 
     @inlineCallbacks
-    def test_send_message(self):
+    def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
-            'to': '+1234'})
+            'to': '+1234', 'from': '', 'content': None})
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
+            resp, http.NOT_FOUND, 'channel not found', {
                 'errors': [{
                     'message': '',
-                    'type': 'NotImplementedError',
-                }]
-            })
+                    'type': 'ChannelNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_send_message(self):
+        '''Sending a message should place the message on the queue for the
+        channel'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
+    def test_send_message_event_url(self):
+        '''Sending a message with a specified event url should store the event
+        url for sending events in the future'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'event_url': 'http://test.org'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', (yield resp.json())['result']['message_id'])
+        self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_send_message_reply(self):
+        '''Sending a reply message should fetch the relevant inbound message,
+        use it to construct a reply message, and place the reply message on the
+        queue for the channel'''
+        channel = Channel(
+            redis_manager=(yield self.get_redis()),
+            config=(yield self.create_channel_config()),
+            properties=self.create_channel_properties(),
+            id='test-channel')
+
+        yield channel.save()
+        yield channel.start(self.service)
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='test-channel',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message('test-channel', in_msg)
+        expected = in_msg.reply(content='testcontent')
+        expected = api_from_message(expected)
+
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'reply_to': in_msg['message_id'],
+            'content': 'testcontent',
+        })
+
+        yield self.assert_response(
+            resp, http.OK,
+            'message sent',
+            omit(expected, 'timestamp', 'message_id'),
+            ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {})
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {'from': None, 'content': None})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
@@ -277,10 +397,27 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_send_message_additional_properties(self):
+        '''Additional properties should result in an error being returned.'''
+        resp = yield self.post(
+            '/channels/foo-bar/messages/', {
+                'from': None, 'content': None, 'to': '', 'foo': 'bar'})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': "Additional properties are not allowed (u'foo' "
+                    "was unexpected)",
+                    'type': 'invalid_body',
+                }]
+            })
+
+    @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
+            'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
+            'content': None,
         })
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
@@ -289,6 +426,94 @@ class TestJunebugApi(JunebugTestBase):
                     'specified',
                     'type': 'ApiUsageError',
                 }]
+            })
+
+    @inlineCallbacks
+    def test_send_message_from_and_reply_to(self):
+        resp = yield self.post('/channels/foo-bar/messages/', {
+            'from': '+1234',
+            'reply_to': '2e8u9ua8',
+            'content': None,
+        })
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': 'Only one of "from" and "reply_to" may be '
+                    'specified',
+                    'type': 'ApiUsageError',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_send_message_under_character_limit(self):
+        '''If the content length is under the character limit, no errors should
+        be returned'''
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'Under the character limit.',
+            'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'Under the character limit.',
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
+    def test_send_message_equal_character_limit(self):
+        '''If the content length is equal to the character limit, no errors
+        should be returned'''
+        content = 'Equal to the character limit.'
+        properties = self.create_channel_properties(
+            character_limit=len(content))
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': content, 'from': None})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': content,
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
+    def test_send_message_over_character_limit(self):
+        '''If the content length is over the character limit, an error should
+        be returned'''
+        properties = self.create_channel_properties(character_limit=10)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, 'test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'Over the character limit.',
+            'from': None})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'message too long', {
+                'errors': [{
+                    'message':
+                        "Message content u'Over the character limit.' "
+                        "is of length 25, which is greater than the character "
+                        "limit of 10",
+                    'type': 'MessageTooLong',
+                }],
             })
 
     @inlineCallbacks
