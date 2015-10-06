@@ -3,11 +3,6 @@
 Design
 ======
 
-.. warning::
-
-   Junebug doesn't exist yet. These notes are a description of its
-   intended goals.
-
 An HTTP API for managing text-based messaging channels such as SMS,
 USSD, XMPP, Twitter, IRC.
 
