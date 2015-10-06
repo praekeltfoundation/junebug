@@ -73,7 +73,20 @@ class MessageForwardingWorker(ApplicationWorker):
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
 
     @inlineCallbacks
-    def forward_event(self, event):
+    def store_and_forward_event(self, event):
+        '''Store the event in the message store, POST it to the correct
+        URL.'''
+        yield self._store_event(event)
+        yield self._forward_event(event)
+
+    def _store_event(self, event):
+        '''Stores the event in the message store'''
+        message_id = event['user_message_id']
+        return self.outbounds.store_event(self.channel_id, message_id, event)
+
+    @inlineCallbacks
+    def _forward_event(self, event):
+        '''POST the event to the correct URL'''
         url = yield self._get_event_url(event)
 
         if url is None:
@@ -93,13 +106,13 @@ class MessageForwardingWorker(ApplicationWorker):
                 'Event: %r' % (resp.code, (yield resp.content()), event))
 
     def consume_ack(self, event):
-        return self.forward_event(event)
+        return self.store_and_forward_event(event)
 
     def consume_nack(self, event):
-        return self.forward_event(event)
+        return self.store_and_forward_event(event)
 
     def consume_delivery_report(self, event):
-        return self.forward_event(event)
+        return self.store_and_forward_event(event)
 
     def _get_event_url(self, event):
         msg_id = event['user_message_id']
