@@ -13,9 +13,7 @@ from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 
 
-def parse_arguments(args):
-    '''Parse and return the command line arguments'''
-
+def create_parser():
     parser = argparse.ArgumentParser(
         description=(
             'Junebug. A system for managing text messaging transports via a '
@@ -79,6 +77,12 @@ def parse_arguments(args):
         'If False, adds `channels` to the list of default channels. Defaults'
         ' to False.')
 
+    return parser
+
+
+def parse_arguments(args):
+    '''Parse and return the command line arguments'''
+    parser = create_parser()
     return config_from_args(vars(parser.parse_args(args)))
 
 

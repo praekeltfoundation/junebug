@@ -30,6 +30,7 @@ import os
 # ones.
 extensions = [
     'sphinx.ext.todo',
+    'sphinxarg.ext',
     'sphinxcontrib.httpdomain',
 ]
 
