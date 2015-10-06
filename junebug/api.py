@@ -8,7 +8,7 @@ from vumi.persist.txredis_manager import TxRedisManager
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
-from junebug.utils import json_body, response
+from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import InboundMessageStore, OutboundMessageStore
 
@@ -230,9 +230,24 @@ class JunebugApi(object):
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
         methods=['GET'])
+    @inlineCallbacks
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
-        raise NotImplementedError()
+        events = yield self.outbounds.load_all_events(channel_id, message_id)
+        events = sorted(
+            (api_from_event(channel_id, e) for e in events),
+            key=lambda e: e['timestamp'])
+
+        last_event = events[-1] if events else None
+        last_event_type = last_event['event_type'] if last_event else None
+        last_event_timestamp = last_event['timestamp'] if last_event else None
+
+        returnValue(response(request, 'message status', {
+            'id': message_id,
+            'last_event_type': last_event_type,
+            'last_event_timestamp': last_event_timestamp,
+            'events': events,
+        }))
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
