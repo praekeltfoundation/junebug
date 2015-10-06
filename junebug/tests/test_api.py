@@ -549,8 +549,8 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_get_message_status_multiple_events(self):
-        '''Returns the event details for last event fields, and list with
-        single event for `events`'''
+        '''Returns the last event details for last event fields, and list with
+        all events for `events`'''
         events = []
         event_dicts = []
         for i in range(5):
