@@ -1,4 +1,4 @@
-.. Junebug Design
+.. _design:
 
 Design
 ======

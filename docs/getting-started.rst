@@ -1,4 +1,4 @@
-.. Getting started
+.. _getting-started:
 
 Getting started
 ===============
