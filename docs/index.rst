@@ -20,6 +20,7 @@ Contents:
    installation
    getting-started
    cli-reference
+   config-reference
    design
    http_api
 

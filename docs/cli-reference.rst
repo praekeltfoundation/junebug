@@ -1,4 +1,4 @@
-.. Junebug command line
+.. _cli-reference:
 
 Command-line Reference
 ======================
