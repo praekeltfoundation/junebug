@@ -60,7 +60,8 @@ def config_field_default(default):
 
 
 def config_field_name(name):
-    # hack to get rtfd.org's theme to newline some field bodies and not others
+    # hack to get rtfd.org's theme to newline all field bodies instead of only
+    # some of them
     name = name.rjust(23)
     return el(field_name, text=name)
 
