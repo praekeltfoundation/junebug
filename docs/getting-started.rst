@@ -3,9 +3,8 @@
 Getting started
 ===============
 
-This guides assumed you have already followed the `installation guide`_.
-
-.. _installation guide: installation
+This guides assumed you have already followed the :ref:`installation guide
+<installation>`.
 
 First you'll need to launch Junebug::
 
