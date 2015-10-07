@@ -1,4 +1,4 @@
-.. _config:
+.. _config-reference:
 
 Config File Reference
 =====================

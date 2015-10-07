@@ -118,3 +118,5 @@ Now, lets send a reply to this message by referencing its `message_id`::
       localhost:8000/channels/bc5f2e63-7f53-4996-816d-4f89f45a5842/messages/
 
 We should see `hello again` appear in our telnet client.
+
+Those are the basics for sending and receiving messages via junebug. Take a look at junebug's :ref:`HTTP API documentation <http-api>` to see how else one can interact with junebug, and junebug's :ref:`CLI <cli-reference>` and :ref:`config <config-reference>` references for more on how junebug can be configured.
