@@ -26,10 +26,7 @@ have any transports running, so let's create one using the API::
           "type": "telnet",
           "label": "My First Channel",
           "mo_url": "http://requestb.in/pzvivfpz",
-          "config": {
-            "transport_name": "my_first_transport",
-            "twisted_endpoint": "tcp:9001"
-            }
+          "config": {"twisted_endpoint": "tcp:9001"}
           }' \
          http://localhost:8000/channels/
 
@@ -52,10 +49,7 @@ get a response like:
         "mo_url": "http://www.example.com/first_channel/mo",
         "label": "My First Channel",
         "type": "telnet",
-        "config": {
-          "transport_name": "my_first_transport",
-          "twisted_endpoint": "tcp:9001"
-        },
+        "config": {"twisted_endpoint": "tcp:9001"},
         "id": "6a5c691e-140c-48b0-9f39-a53d4951d7fa"
       }
     }
@@ -87,12 +81,12 @@ Now, lets send a message to the telnet transport via junebug::
 
   $ curl -X POST \
       -d '{
-        "to": "0.0.0.0:9001",
+        "to": "127.0.0.1:53378",
         "content": "hello"
       }' \
       localhost:8000/channels/bc5f2e63-7f53-4996-816d-4f89f45a5842/messages/
 
-Here, we sent a message to the address `0.0.0.0:9001`. We should see a `hello` message appear in our telnet client.
+Here, we sent a message to the address `127.0.0.1:53378`. We should see a `hello` message appear in our telnet client.
 
 Now, lets try receive a message via junebug by entering a message in our telnet
 client::
