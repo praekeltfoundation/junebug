@@ -1,4 +1,4 @@
-.. Junebug HTTP API
+.. _http-api:
 
 
 HTTP API
