@@ -3,12 +3,12 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
 
-from vumi.message import TransportUserMessage
+from vumi.message import TransportEvent, TransportUserMessage
 
 from junebug.channel import Channel
 from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase
-from junebug.utils import conjoin, omit
+from junebug.utils import api_from_event, conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -517,14 +517,59 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
-    def test_get_message_status(self):
-        resp = yield self.get('/channels/foo-bar/messages/j98qfj9aw')
+    def test_get_message_status_no_events(self):
+        '''Returns `None` for last event fields, and empty list for events'''
+        resp = yield self.get('/channels/foo-bar/messages/message-id')
         yield self.assert_response(
-            resp, http.INTERNAL_SERVER_ERROR, 'generic error', {
-                'errors': [{
-                    'message': '',
-                    'type': 'NotImplementedError',
-                }]
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': None,
+                'last_event_timestamp': None,
+                'events': [],
+            })
+
+    @inlineCallbacks
+    def test_get_message_status_one_event(self):
+        '''Returns the event details for last event fields, and list with
+        single event for `events`'''
+        event = TransportEvent(
+            user_message_id='message-id', sent_message_id='message-id',
+            event_type='nack', nack_reason='error error')
+        yield self.outbounds.store_event('channel-id', 'message-id', event)
+        resp = yield self.get('/channels/channel-id/messages/message-id')
+        event_dict = api_from_event('channel-id', event)
+        event_dict['timestamp'] = str(event_dict['timestamp'])
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': 'rejected',
+                'last_event_timestamp': str(event['timestamp']),
+                'events': [event_dict],
+            })
+
+    @inlineCallbacks
+    def test_get_message_status_multiple_events(self):
+        '''Returns the last event details for last event fields, and list with
+        all events for `events`'''
+        events = []
+        event_dicts = []
+        for i in range(5):
+            event = TransportEvent(
+                user_message_id='message-id', sent_message_id='message-id',
+                event_type='nack', nack_reason='error error')
+            yield self.outbounds.store_event('channel-id', 'message-id', event)
+            events.append(event)
+            event_dict = api_from_event('channel-id', event)
+            event_dict['timestamp'] = str(event_dict['timestamp'])
+            event_dicts.append(event_dict)
+
+        resp = yield self.get('/channels/channel-id/messages/message-id')
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': 'rejected',
+                'last_event_timestamp': event_dicts[-1]['timestamp'],
+                'events': event_dicts,
             })
 
     @inlineCallbacks
