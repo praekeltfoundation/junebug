@@ -36,8 +36,8 @@ Channels
        user-defined data blob (used to record user-specified
        information about the channel, e.g. the channel owner)
    :param str status_url:
-       URL to call on changes in channel status. May be null if not
-       desired. Not supported by every channel type.
+       URL that junebug should send :ref:`status events <status-events>`
+       to. May be ``null`` if not desired. Not supported by every channel.
    :param str mo_url:
        URL to call on incoming messages (mobile originated) from this channel.
    :param int rate_limit_count:
@@ -55,16 +55,26 @@ Channels
    :param str code:
        HTTP status string.
    :param str description:
-       Description of result (usually ``"channel created""``).
+       Description of result (usually ``"channel created"``).
    :param dict result:
        The channel created.
 
 
 .. http:get:: /channels/(channel_id:str)
 
-   Return the channel configuration and a nested status object.
+   Return the channel configuration and a nested :ref:`status <status-events>`
+   object.
 
-   Possible connection states are: ``up``, ``down``, ``unknown``.
+   The status object takes the following form:
+
+   :param str status:
+      The worst case of each :ref:`component's <status-components>`
+      :ref:`status level <status-levels>`. For example if the ``redis``
+      component's status is ``minor`` and the ``amqp`` component's status is
+      ``major``, this field's value will will be `major`.
+
+   :param dict components:
+      An object showing the most recent status event for each component.
 
    **Example response**:
 
@@ -79,11 +89,11 @@ Channels
           type: "smpp",
           label: "An SMPP Transport",
           config: {
-              system_id: "secret_id",
-              password: "secret_password"
+            system_id: "secret_id",
+            password: "secret_password"
           },
           metadata: {
-              owned_by: "user-5",
+            owned_by: "user-5",
           },
           status_url: "http://example.com/user-5/status",
           mo_url: "http://example.com/user-5/mo",
@@ -91,11 +101,21 @@ Channels
           rate_limit_window: 10,
           character_limit: null,
           status: {
-            queue_length: 5,
-            connection_state: "up",
-            send_rate: 10,
-            accept_rate: 12,
-            reject_rate: 0
+             status: 'good',
+             components: {
+                smpp: {
+                   component: 'smpp',
+                   status: 'good',
+                   reasons: [],
+                   details: {}
+                },
+                component: {
+                   component: 'amqp',
+                   status: 'good',
+                   reasons: [],
+                   details: {}
+                }
+            }
           }
         }
       }
@@ -203,7 +223,7 @@ Messages
 Events
 ------
 
-Events POSTed to the ``event_url`` specified in
+Events ``POST``\ed to the ``event_url`` specified in
 :http:post:`/channels/(channel_id:str)/messages/` have the following
 format:
 
@@ -220,7 +240,7 @@ format:
    :param dict event_details:
        Details specific to the event type.
 
-Events are posted to the message’s ``event_url`` after the message is
+Events are posted to the message's ``event_url`` after the message is
 submitted to the provider, and when delivery reports are received.
 The default settings allow events to arrive for up to 2 days; any further
 events will not be forwarded.
@@ -252,3 +272,63 @@ Sent later when (or if) delivery reports are received:
 * ``delivery_succeeded``: provider confirmed that the message was delivered.
 * ``delivery_failed``: provider declared that message delivery failed.
 * ``delivery_pending``: provider is still attempting to deliver the message.
+
+
+.. _status-events:
+
+Status events
+-------------
+
+Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channels/` have the following format:
+
+.. http:post:: /status/url
+
+   :param str component:
+      The :ref:`component <status-components>`  relevant to this status event.
+   :param str status:
+      The :ref:`status level <status-levels>` this event was categorised under.
+   :param list reasons:
+      An array of human-readable strings associated with this status event.
+   :param dict details:
+      Details specific to this event intended to be used for debugging
+      purposes. For example, if the event was related to a component
+      establishing a connection, the host and port are possible fields.
+
+
+Example:
+
+.. sourcecode:: json
+
+   {
+      smpp: {
+      component: 'smpp',
+      status: 'good',
+      reasons: [],
+      details: {}
+   }
+
+
+.. _status-components:
+
+Components
+^^^^^^^^^^
+
+Each status event published by a channel describes a component used as part of
+the channel's operation. For example, an smpp channel type will have a
+``redis`` component describing its redis connection, an ``amqp`` component
+describing its amqp connection and an ``smpp`` component describing events
+specific to the SMPP protocol (for example, connections, binds, throttling).
+
+.. _status-levels:
+
+Status levels
+^^^^^^^^^^^^^
+
+A status event can be categorised under one of the following levels:
+
+  - ``good``: The component is operational.
+  - ``minor``: The component is operational, but there is an issue which may
+    affect the operation of the component. For example, the component may be
+    throttled.
+  - ``major``: The component is not operational as a result of the issue
+    described by the event.
