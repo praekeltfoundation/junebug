@@ -300,7 +300,6 @@ Example:
 .. sourcecode:: json
 
    {
-      smpp: {
       component: 'smpp',
       status: 'good',
       reasons: [],
