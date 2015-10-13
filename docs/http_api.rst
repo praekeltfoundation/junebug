@@ -295,7 +295,7 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
       establishing a connection, the host and port are possible fields.
 
 
-Example:
+**Request Example**:
 
 .. sourcecode:: json
 
