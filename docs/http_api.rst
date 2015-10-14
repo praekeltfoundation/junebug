@@ -105,12 +105,14 @@ Channels
              components: {
                 smpp: {
                    component: 'smpp',
+                   channel_id: "channel-uuid-1234",
                    status: 'good',
                    reasons: [],
                    details: {}
                 },
                 component: {
                    component: 'amqp',
+                   channel_id: "channel-uuid-1234",
                    status: 'good',
                    reasons: [],
                    details: {}
@@ -284,15 +286,17 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
 .. http:post:: /status/url
 
    :param str component:
-      The :ref:`component <status-components>`  relevant to this status event.
+       The :ref:`component <status-components>`  relevant to this status event.
+   :param str channel_id:
+       The UUID of the channel the status event occurred for.
    :param str status:
-      The :ref:`status level <status-levels>` this event was categorised under.
+       The :ref:`status level <status-levels>` this event was categorised under.
    :param list reasons:
-      An array of human-readable strings associated with this status event.
+       An array of human-readable strings associated with this status event.
    :param dict details:
-      Details specific to this event intended to be used for debugging
-      purposes. For example, if the event was related to a component
-      establishing a connection, the host and port are possible fields.
+       Details specific to this event intended to be used for debugging
+       purposes. For example, if the event was related to a component
+       establishing a connection, the host and port are possible fields.
 
 
 **Request Example**:
@@ -301,6 +305,7 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
 
    {
       component: 'smpp',
+      channel_id: "channel-uuid-5678",
       status: 'good',
       reasons: [],
       details: {}
