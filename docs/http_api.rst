@@ -110,7 +110,7 @@ Channels
                    reasons: [],
                    details: {}
                 },
-                component: {
+                amqp: {
                    component: 'amqp',
                    channel_id: "channel-uuid-1234",
                    status: 'good',
