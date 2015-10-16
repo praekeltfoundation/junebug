@@ -291,10 +291,12 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
        The UUID of the channel the status event occurred for.
    :param str status:
        The :ref:`status level <status-levels>` this event was categorised under.
-   :param list reasons:
-       An array of objects describing the reasons for the status event, where
-       each object contains a ``message`` field with a human-readable string
-       value and a ``type`` field with a programmatically usable string value.
+   :param str type:
+       A programmatically usable string value describing the reason for the
+       status event.
+   :param str message:
+       A human-readable string value describing the reason for the status
+       event.
    :param dict details:
        Details specific to this event intended to be used for debugging
        purposes. For example, if the event was related to a component
@@ -309,10 +311,8 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
       status: "major",
       component: "smpp",
       channel_id: "channel-uuid-5678",
-      reasons: [{
-        type: "connection_lost",
-        message: "Connection lost"
-      }],
+      type: "connection_lost",
+      message: "Connection lost",
       details: {}
    }
 
