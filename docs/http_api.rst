@@ -70,8 +70,8 @@ Channels
    :param str status:
       The worst case of each :ref:`component's <status-components>`
       :ref:`status level <status-levels>`. For example if the ``redis``
-      component's status is ``minor`` and the ``amqp`` component's status is
-      ``major``, this field's value will will be `major`.
+      component's status is ``degraded`` and the ``amqp`` component's status is
+      ``down``, this field's value will will be `down`.
 
    :param dict components:
       An object showing the most recent status event for each component.
@@ -101,19 +101,19 @@ Channels
           rate_limit_window: 10,
           character_limit: null,
           status: {
-             status: 'good',
+             status: 'ok',
              components: {
                 smpp: {
                    component: 'smpp',
                    channel_id: "channel-uuid-1234",
-                   status: 'good',
+                   status: 'ok',
                    reasons: [],
                    details: {}
                 },
                 amqp: {
                    component: 'amqp',
                    channel_id: "channel-uuid-1234",
-                   status: 'good',
+                   status: 'ok',
                    reasons: [],
                    details: {}
                 }
@@ -308,7 +308,7 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
 .. sourcecode:: json
 
    {
-      status: "major",
+      status: "down",
       component: "smpp",
       channel_id: "channel-uuid-5678",
       type: "connection_lost",
@@ -335,9 +335,9 @@ Status levels
 
 A status event can be categorised under one of the following levels:
 
-  - ``good``: The component is operational.
-  - ``minor``: The component is operational, but there is an issue which may
+  - ``ok``: The component is operational.
+  - ``degraded``: The component is operational, but there is an issue which may
     affect the operation of the component. For example, the component may be
     throttled.
-  - ``major``: The component is not operational as a result of the issue
+  - ``down``: The component is not operational as a result of the issue
     described by the event.
