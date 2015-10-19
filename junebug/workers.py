@@ -9,6 +9,7 @@ from vumi.application.base import ApplicationConfig, ApplicationWorker
 from vumi.config import ConfigDict, ConfigInt, ConfigText
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
+from vumi.worker import BaseConfig, BaseWorker
 
 from junebug.utils import api_from_message, api_from_event
 from junebug.stores import InboundMessageStore, OutboundMessageStore
@@ -128,3 +129,39 @@ def post(url, data):
         url.encode('utf-8'),
         data=json.dumps(data, cls=JSONMessageEncoder),
         headers={'Content-Type': 'application/json'})
+
+
+class ChannelStatusConfig(BaseConfig):
+    '''Config for the ChannelStatusWorker'''
+    status_connector_name = ConfigText(
+        "The name of the connector where the statuses will be published to",
+        required=True, static=True)
+
+    redis_manager = ConfigDict(
+        "Redis config.",
+        required=True, static=True)
+
+
+class ChannelStatusWorker(BaseWorker):
+    '''This worker consumes status messages for the transport, and stores them
+    in redis. Statuses with the same component are overwritten. It can also
+    optionally forward the statuses to a URL'''
+    CONFIG_CLASS = ChannelStatusConfig
+
+    @inlineCallbacks
+    def setup_connectors(self):
+        connector = yield self.setup_receive_status_connector(
+            self.config['status_connector_name'])
+        connector.set_status_handler(self.consume_status)
+
+    @inlineCallbacks
+    def setup_worker(self):
+        self.redis = yield TxRedisManager.from_config(
+            self.config['redis_manager'])
+
+    def teardown_worker(self):
+        pass
+
+    def consume_status(self, status):
+        '''Store the status in redis under the correct component'''
+        return self.redis.hset('status', status['component'], status.to_json())
