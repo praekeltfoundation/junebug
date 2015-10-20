@@ -9,11 +9,11 @@ from twisted.web.client import HTTPConnectionPool
 from twisted.web.server import Site
 
 from vumi.application.tests.helpers import ApplicationHelper
-from vumi.message import TransportUserMessage, TransportEvent
+from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
 from vumi.tests.helpers import PersistenceHelper
 
 from junebug.utils import conjoin, api_from_event
-from junebug.workers import MessageForwardingWorker
+from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -346,3 +346,43 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(self.logging_api.requests, [])
         self.assert_was_logged("Discarding unrecognised event %r" % (event,))
+
+
+class TestChannelStatusWorker(JunebugTestBase):
+    @inlineCallbacks
+    def setUp(self):
+        self.worker = yield self.get_worker()
+
+    @inlineCallbacks
+    def get_worker(self, config=None):
+        '''Get a new ChannelStatusWorker with the provided config'''
+        if config is None:
+            config = {}
+
+        app_helper = ApplicationHelper(ChannelStatusWorker)
+        yield app_helper.setup()
+        self.addCleanup(app_helper.cleanup)
+
+        persistencehelper = PersistenceHelper()
+        yield persistencehelper.setup()
+        self.addCleanup(persistencehelper.cleanup)
+
+        config = conjoin(persistencehelper.mk_config({
+            'status_connector_name': 'testchannel:status',
+            'channel_id': 'testchannel',
+        }), config)
+
+        worker = yield app_helper.get_application(config)
+        returnValue(worker)
+
+    @inlineCallbacks
+    def test_status_stored_in_redis(self):
+        '''The published status gets consumed and stored in redis under the
+        correct key'''
+        status = TransportStatus(status='ok', component='foo')
+        yield self.worker.consume_status(status)
+
+        redis_status = yield self.worker.store.redis.hget(
+            'testchannel:status', 'foo')
+
+        self.assertEqual(redis_status, status.to_json())
