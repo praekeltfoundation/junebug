@@ -105,6 +105,7 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(transport.config, conjoin(properties['config'], {
             'transport_name': id,
+            'publish_status': True,
         }))
 
     @inlineCallbacks

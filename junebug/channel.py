@@ -201,6 +201,7 @@ class Channel(object):
         config = self._properties['config']
         config = self._convert_unicode(config)
         config['transport_name'] = self.id
+        config['publish_status'] = True
         return config
 
     @property
