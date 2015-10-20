@@ -1,12 +1,8 @@
-import json
-
 import treq
-from klein import Klein
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.client import HTTPConnectionPool
-from twisted.web.server import Site
 
 from vumi.application.tests.helpers import ApplicationHelper
 from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
@@ -14,43 +10,16 @@ from vumi.tests.helpers import PersistenceHelper
 
 from junebug.utils import conjoin, api_from_event
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
-from junebug.tests.helpers import JunebugTestBase
-
-
-class RequestLoggingApi(object):
-    app = Klein()
-
-    def __init__(self):
-        self.requests = []
-
-    @app.route('/')
-    def log_request(self, request):
-        self.requests.append({
-            'request': request,
-            'body': request.content.read(),
-            })
-        return ''
-
-    @app.route('/bad/')
-    def bad_request(self, request):
-        self.requests.append({
-            'request': request,
-            'body': request.content.read(),
-            })
-        request.setResponseCode(500)
-        return 'test-error-response'
+from junebug.tests.helpers import JunebugTestBase, RequestLoggingApi
 
 
 class TestMessageForwardingWorker(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         self.logging_api = RequestLoggingApi()
-        port = reactor.listenTCP(
-            0, Site(self.logging_api.app.resource()),
-            interface='127.0.0.1')
-        self.addCleanup(port.stopListening)
-        addr = port.getHost()
-        self.url = "http://%s:%s" % (addr.host, addr.port)
+        self.logging_api.setup()
+        self.addCleanup(self.logging_api.teardown)
+        self.url = self.logging_api.url
 
         self.worker = yield self.get_worker()
         connection_pool = HTTPConnectionPool(reactor, persistent=False)
@@ -79,31 +48,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         worker = yield app_helper.get_application(config)
         returnValue(worker)
-
-    def assert_was_logged(self, msg):
-        return any(
-            msg in log.getMessage()
-            for log in self.logging_handler.buffer)
-
-    def assert_request(self, req, method=None, body=None, headers=None):
-        if method is not None:
-            self.assertEqual(req['request'].method, 'POST')
-
-        if headers is not None:
-            for name, values in headers.iteritems():
-                self.assertEqual(
-                    req['request'].requestHeaders.getRawHeaders(name),
-                    values)
-
-        if body is not None:
-            self.assertEqual(json.loads(req['body']), body)
-
-    def assert_body_contains(self, req, **fields):
-        body = json.loads(req['body'])
-
-        self.assertEqual(
-            dict((k, v) for k, v in body.iteritems()),
-            body)
 
     @inlineCallbacks
     def assert_event_stored(self, event):
