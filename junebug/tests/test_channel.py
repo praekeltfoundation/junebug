@@ -4,7 +4,7 @@ from vumi.message import TransportUserMessage
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.utils import api_from_message, conjoin
-from junebug.workers import MessageForwardingWorker
+from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
 from junebug.tests.helpers import JunebugTestBase
@@ -111,6 +111,24 @@ class TestChannel(JunebugTestBase):
         })
 
     @inlineCallbacks
+    def test_start_channel_status_application(self):
+        properties = self.create_channel_properties()
+
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, properties)
+
+        worker = channel.status_application_worker
+        id = channel.status_application_id
+        self.assertTrue(isinstance(worker, ChannelStatusWorker))
+        self.assertEqual(self.service.namedServices[id], worker)
+
+        self.assertEqual(worker.config, {
+            'redis_manager': channel.config.redis,
+            'status_connector_name': '%s.status' % channel.id,
+            'channel_id': channel.id,
+        })
+
+    @inlineCallbacks
     def test_channel_character_limit(self):
         '''`character_limit` parameter should return the character limit, or
         `None` if no character limit was specified'''
@@ -202,6 +220,10 @@ class TestChannel(JunebugTestBase):
         application_id = channel.application_id
         self.assertEqual(self.service.namedServices.get(application_id), None)
 
+        status_application_id = channel.status_application_id
+        self.assertEqual(
+            self.service.namedServices.get(status_application_id), None)
+
     @inlineCallbacks
     def test_create_channel_from_id(self):
         channel1 = yield self.create_channel(
@@ -219,6 +241,10 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(
             channel1.application_worker,
             channel2.application_worker)
+
+        self.assertEqual(
+            channel1.status_application_worker,
+            channel2.status_application_worker)
 
     @inlineCallbacks
     def test_create_channel_from_unknown_id(self):
