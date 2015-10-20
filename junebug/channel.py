@@ -55,8 +55,11 @@ allowed_message_fields = [
 
 class Channel(object):
     OUTBOUND_QUEUE = '%s.outbound'
+    STATUS_QUEUE = '%s.status'
     APPLICATION_ID = 'application:%s'
+    STATUS_APPLICATION_ID = 'status:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
+    STATUS_APPLICATION_CLS_NAME = 'junebug.workers.ChannelStatusWorker'
 
     def __init__(self, redis_manager, config, properties, id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
@@ -75,10 +78,15 @@ class Channel(object):
 
         self.transport_worker = None
         self.application_worker = None
+        self.status_application_worker = None
 
     @property
     def application_id(self):
         return self.APPLICATION_ID % (self.id,)
+
+    @property
+    def status_application_id(self):
+        return self.STATUS_APPLICATION_ID % (self.id,)
 
     @property
     def character_limit(self):
@@ -89,11 +97,13 @@ class Channel(object):
         parent of under which the workers should be started.'''
         self._start_transport(service, transport_worker)
         self._start_application(service)
+        self._start_status_application(service)
 
     @inlineCallbacks
     def stop(self):
         '''Stops the relevant workers for the channel'''
         yield self._stop_application()
+        yield self._stop_status_application()
         yield self._stop_transport()
 
     @inlineCallbacks
@@ -204,6 +214,14 @@ class Channel(object):
         }
 
     @property
+    def _status_application_config(self):
+        return {
+            'status_connector_name': self.STATUS_QUEUE % self.id,
+            'redis_manager': self.config.redis,
+            'channel_id': self.id,
+        }
+
+    @property
     def _available_transports(self):
         if self.config.replace_channels:
             return self.config.channels
@@ -241,6 +259,12 @@ class Channel(object):
         worker.setServiceParent(service)
         self.application_worker = worker
 
+    def _start_status_application(self, service):
+        worker = self._create_status_application()
+        worker.setName(self.status_application_id)
+        worker.setServiceParent(service)
+        self.status_application_worker = worker
+
     def _create_transport(self):
         return self._create_worker(
             self._transport_cls_name,
@@ -250,6 +274,11 @@ class Channel(object):
         return self._create_worker(
             self.APPLICATION_CLS_NAME,
             self._application_config)
+
+    def _create_status_application(self):
+        return self._create_worker(
+            self.STATUS_APPLICATION_CLS_NAME,
+            self._status_application_config)
 
     def _create_worker(self, cls_name, config):
         creator = WorkerCreator(self.options)
@@ -268,9 +297,17 @@ class Channel(object):
             yield self.application_worker.disownServiceParent()
             self.application_worker = None
 
+    @inlineCallbacks
+    def _stop_status_application(self):
+        if self.status_application_worker is not None:
+            yield self.status_application_worker.disownServiceParent()
+            self.status_application_worker = None
+
     def _restore(self, service):
         self.transport_worker = service.getServiceNamed(self.id)
         self.application_worker = service.getServiceNamed(self.application_id)
+        self.status_application_worker = service.getServiceNamed(
+            self.status_application_id)
 
     def _convert_unicode(self, data):
         # Twisted doesn't like it when we give unicode in for config things
