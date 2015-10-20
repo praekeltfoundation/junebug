@@ -12,7 +12,8 @@ from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
 
 from junebug.utils import api_from_message, api_from_event
-from junebug.stores import InboundMessageStore, OutboundMessageStore
+from junebug.stores import (
+    InboundMessageStore, OutboundMessageStore, StatusStore)
 
 
 class MessageForwardingConfig(ApplicationConfig):
@@ -141,6 +142,10 @@ class ChannelStatusConfig(BaseConfig):
         "Redis config.",
         required=True, static=True)
 
+    channel_id = ConfigText(
+        "The channel id which this worker is consuming statuses for",
+        required=True, static=True)
+
 
 class ChannelStatusWorker(BaseWorker):
     '''This worker consumes status messages for the transport, and stores them
@@ -156,12 +161,12 @@ class ChannelStatusWorker(BaseWorker):
 
     @inlineCallbacks
     def setup_worker(self):
-        self.redis = yield TxRedisManager.from_config(
-            self.config['redis_manager'])
+        redis = yield TxRedisManager.from_config(self.config['redis_manager'])
+        self.store = StatusStore(redis, 0)
 
     def teardown_worker(self):
         pass
 
     def consume_status(self, status):
         '''Store the status in redis under the correct component'''
-        return self.redis.hset('status', status['component'], status.to_json())
+        return self.store.store_status(self.config['channel_id'], status)

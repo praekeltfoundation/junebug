@@ -13,6 +13,8 @@ class BaseStore(object):
     :type ttl: integer
     '''
 
+    EXPIRE = True
+
     def __init__(self, redis, ttl):
         self.redis = redis
         self.ttl = ttl
@@ -20,7 +22,8 @@ class BaseStore(object):
     @inlineCallbacks
     def _redis_op(self, func, id, *args, **kwargs):
         val = yield func(id, *args, **kwargs)
-        yield self.redis.expire(id, self.ttl)
+        if self.EXPIRE:
+            yield self.redis.expire(id, self.ttl)
         returnValue(val)
 
     def get_key(self, *args):
@@ -117,3 +120,17 @@ class OutboundMessageStore(BaseStore):
         events.'''
         for k in self.PROPERTY_KEYS:
             dct.pop(k, None)
+
+
+class StatusStore(BaseStore):
+    '''Stores the most recent status message for each status component.'''
+    EXPIRE = False
+
+    def get_key(self, channel_id):
+        return '%s:status' % channel_id
+
+    def store_status(self, channel_id, status):
+        '''Stores a single status. Overrides any previous status with the same
+        component.'''
+        key = self.get_key(channel_id)
+        return self.store_property(key, status['component'], status.to_json())

@@ -369,6 +369,7 @@ class TestChannelStatusWorker(JunebugTestBase):
 
         config = conjoin(persistencehelper.mk_config({
             'status_connector_name': 'testchannel:status',
+            'channel_id': 'testchannel',
         }), config)
 
         worker = yield app_helper.get_application(config)
@@ -378,9 +379,10 @@ class TestChannelStatusWorker(JunebugTestBase):
     def test_status_stored_in_redis(self):
         '''The published status gets consumed and stored in redis under the
         correct key'''
-        status = TransportStatus(status='good', component='foo')
+        status = TransportStatus(status='ok', component='foo')
         yield self.worker.consume_status(status)
 
-        redis_status = yield self.worker.redis.hget('status', 'foo')
+        redis_status = yield self.worker.store.redis.hget(
+            'testchannel:status', 'foo')
 
         self.assertEqual(redis_status, status.to_json())

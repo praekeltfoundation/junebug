@@ -1,7 +1,8 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
-from vumi.message import TransportEvent, TransportUserMessage
+from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
-from junebug.stores import BaseStore, InboundMessageStore, OutboundMessageStore
+from junebug.stores import (
+    BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore)
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -248,3 +249,42 @@ class TestOutboundMessageStore(JunebugTestBase):
 
         stored_events = yield store.load_all_events('channel_id', 'message_id')
         self.assertEqual(stored_events, [event])
+
+
+class TestStatusStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self, ttl=60):
+        redis = yield self.get_redis()
+        store = StatusStore(redis, ttl)
+        returnValue(store)
+
+    @inlineCallbacks
+    def test_store_single_status(self):
+        '''The single status is stored under the correct key'''
+        store = yield self.create_store()
+        status = TransportStatus(status='ok', component='foo')
+        yield store.store_status('channelid', status)
+
+        status_redis = yield self.redis.hget('channelid:status', 'foo')
+        self.assertEqual(status_redis, status.to_json())
+
+        self.assertEqual((yield self.redis.ttl('channelid:status')), None)
+
+    @inlineCallbacks
+    def test_store_status_overwrite(self):
+        '''New statuses override old statuses with the same component, but do
+        not affect statuses of different components'''
+        store = yield self.create_store()
+        status_old = TransportStatus(status='ok', component='foo')
+        status_new = TransportStatus(status='down', component='foo')
+        status_other = TransportStatus(status='ok', component='bar')
+
+        yield store.store_status('channelid', status_other)
+        yield store.store_status('channelid', status_old)
+        yield store.store_status('channelid', status_new)
+
+        status_new_redis = yield self.redis.hget('channelid:status', 'foo')
+        self.assertEqual(status_new_redis, status_new.to_json())
+
+        status_other_redis = yield self.redis.hget('channelid:status', 'bar')
+        self.assertEqual(status_other_redis, status_other.to_json())
