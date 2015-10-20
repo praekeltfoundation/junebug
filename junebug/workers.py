@@ -162,7 +162,7 @@ class ChannelStatusWorker(BaseWorker):
     @inlineCallbacks
     def setup_worker(self):
         redis = yield TxRedisManager.from_config(self.config['redis_manager'])
-        self.store = StatusStore(redis, 0)
+        self.store = StatusStore(redis, ttl=None)
 
     def teardown_worker(self):
         pass

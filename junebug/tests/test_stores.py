@@ -253,9 +253,9 @@ class TestOutboundMessageStore(JunebugTestBase):
 
 class TestStatusStore(JunebugTestBase):
     @inlineCallbacks
-    def create_store(self, ttl=60):
+    def create_store(self):
         redis = yield self.get_redis()
-        store = StatusStore(redis, ttl)
+        store = StatusStore(redis, ttl=None)
         returnValue(store)
 
     @inlineCallbacks
