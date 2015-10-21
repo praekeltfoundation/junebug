@@ -224,5 +224,5 @@ class JunebugTestBase(TestCase):
         body = json.loads(req['body'])
 
         self.assertEqual(
-            dict((k, v) for k, v in body.iteritems()),
-            body)
+            dict((k, v) for k, v in body.iteritems() if k in fields),
+            fields)
