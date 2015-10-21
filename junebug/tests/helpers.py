@@ -203,9 +203,9 @@ class JunebugTestBase(TestCase):
             'vumi', queue)
 
     def assert_was_logged(self, msg):
-        return any(
+        return self.assertTrue(any(
             msg in log.getMessage()
-            for log in self.logging_handler.buffer)
+            for log in self.logging_handler.buffer))
 
     def assert_request(self, req, method=None, body=None, headers=None):
         if method is not None:
