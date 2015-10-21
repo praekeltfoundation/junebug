@@ -1,7 +1,6 @@
-import json
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from vumi.message import TransportEvent, TransportUserMessage
+from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
 
 class BaseStore(object):
@@ -134,12 +133,12 @@ class StatusStore(BaseStore):
         return self.store_property(key, status['component'], status.to_json())
 
     @inlineCallbacks
-    def get_statuses_dict(self, channel_id):
+    def get_statuses(self, channel_id):
         '''Returns the latest status message for each component in a
         dictionary'''
         key = self.get_key(channel_id)
         statuses = yield self.load_all(key)
-        res = {}
-        for k, v in statuses.iteritems():
-            res[k] = json.loads(v)
-        returnValue(res)
+        returnValue(dict(
+            (k, TransportStatus.from_json(v))
+            for k, v in statuses.iteritems()
+        ))
