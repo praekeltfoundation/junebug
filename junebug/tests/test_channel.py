@@ -126,7 +126,18 @@ class TestChannel(JunebugTestBase):
             'redis_manager': channel.config.redis,
             'status_connector_name': '%s.status' % channel.id,
             'channel_id': channel.id,
+            'status_url': None,
         })
+
+    @inlineCallbacks
+    def test_start_channel_status_application_status_url(self):
+        properties = self.create_channel_properties(status_url='example.org')
+
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, properties)
+
+        worker = channel.status_application_worker
+        self.assertEqual(worker.config['status_url'], 'example.org')
 
     @inlineCallbacks
     def test_channel_character_limit(self):
