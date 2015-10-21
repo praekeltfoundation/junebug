@@ -8,7 +8,7 @@ from vumi.application.tests.helpers import ApplicationHelper
 from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
 from vumi.tests.helpers import PersistenceHelper
 
-from junebug.utils import conjoin, api_from_event
+from junebug.utils import conjoin, api_from_event, api_from_status
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.tests.helpers import JunebugTestBase, RequestLoggingApi
 
@@ -296,6 +296,12 @@ class TestChannelStatusWorker(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         self.worker = yield self.get_worker()
+        self.logging_api = RequestLoggingApi()
+        self.logging_api.setup()
+        self.addCleanup(self.logging_api.teardown)
+
+        connection_pool = HTTPConnectionPool(reactor, persistent=False)
+        treq._utils.set_global_pool(connection_pool)
 
     @inlineCallbacks
     def get_worker(self, config=None):
@@ -323,10 +329,63 @@ class TestChannelStatusWorker(JunebugTestBase):
     def test_status_stored_in_redis(self):
         '''The published status gets consumed and stored in redis under the
         correct key'''
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            component='foo',
+            status='ok',
+            type='bar',
+            message='Bar')
         yield self.worker.consume_status(status)
 
         redis_status = yield self.worker.store.redis.hget(
             'testchannel:status', 'foo')
 
         self.assertEqual(redis_status, status.to_json())
+
+    @inlineCallbacks
+    def test_status_sent_to_status_url(self):
+        '''The published status gets consumed and sent to the configured
+        status_url'''
+        worker = yield self.get_worker({
+            'channel_id': 'channel-23',
+            'status_url': self.logging_api.url,
+        })
+
+        status = TransportStatus(
+            component='foo',
+            status='ok',
+            type='bar',
+            message='Bar')
+
+        yield worker.consume_status(status)
+
+        [req] = self.logging_api.requests
+
+        self.assert_request(
+            req,
+            method='POST',
+            headers={'content-type': ['application/json']},
+            body=api_from_status('channel-23', status))
+
+    @inlineCallbacks
+    def test_status_send_to_status_url_bad_response(self):
+        '''If there is an error sending a status to the configured status_url,
+        the error and status should be logged'''
+        self.patch_logger()
+
+        worker = yield self.get_worker({
+            'channel_id': 'channel-23',
+            'status_url': "%s/bad/" % (self.logging_api.url,),
+        })
+
+        status = TransportStatus(
+            component='foo',
+            status='ok',
+            type='bar',
+            message='Bar')
+
+        yield worker.consume_status(status)
+
+        self.assert_was_logged("'content': 'testcontent'")
+        self.assert_was_logged("'to': '+1234'")
+        self.assert_was_logged('500')
+        self.assert_was_logged('test-error-response')
