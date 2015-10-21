@@ -385,7 +385,6 @@ class TestChannelStatusWorker(JunebugTestBase):
 
         yield worker.consume_status(status)
 
-        self.assert_was_logged("'content': 'testcontent'")
-        self.assert_was_logged("'to': '+1234'")
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+        self.assert_was_logged(repr(status))
