@@ -191,7 +191,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             timestamp='2015-09-22 15:39:44.827794')
 
         yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+            self.worker.channel_id, 'msg-21', "%s/bad/" % (self.url,))
 
         yield self.worker.consume_nack(event)
 
