@@ -139,4 +139,7 @@ class StatusStore(BaseStore):
         dictionary'''
         key = self.get_key(channel_id)
         statuses = yield self.load_all(key)
-        returnValue({k: json.loads(v) for k, v in statuses.iteritems()})
+        res = {}
+        for k, v in statuses.iteritems():
+            res[k] = json.loads(v)
+        returnValue(res)
