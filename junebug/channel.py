@@ -9,7 +9,7 @@ from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
 from junebug.stores import StatusStore
-from junebug.utils import api_from_message, message_from_api
+from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
 
 
@@ -154,7 +154,10 @@ class Channel(object):
 
     @inlineCallbacks
     def _get_status(self):
-        components = yield self.sstore.get_statuses_dict(self.id)
+        components = yield self.sstore.get_statuses(self.id)
+        components = dict(
+            (k, api_from_status(self.id, v)) for k, v in components.iteritems()
+        )
 
         status_values = {
             'down': 0,

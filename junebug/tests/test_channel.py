@@ -3,7 +3,7 @@ from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage, TransportStatus
 from vumi.transports.telnet import TelnetServerTransport
 
-from junebug.utils import api_from_message, conjoin
+from junebug.utils import api_from_message, api_from_status, conjoin
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
@@ -283,13 +283,17 @@ class TestChannel(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            status='ok',
+            component='foo',
+            type='bar',
+            message='Bar')
         yield channel.sstore.store_status('channel-id', status)
 
         self.assertEqual((yield channel.status())['status'], {
             'status': 'ok',
             'components': {
-                'foo': json.loads(status.to_json()),
+                'foo': api_from_status('channel-id', status),
             }
         })
 
@@ -301,9 +305,13 @@ class TestChannel(JunebugTestBase):
         components = {}
 
         for i in range(5):
-            status = TransportStatus(status='ok', component=i)
+            status = TransportStatus(
+                status='ok',
+                component=i,
+                type='bar',
+                message='Bar')
             yield channel.sstore.store_status('channel-id', status)
-            components[str(i)] = json.loads(status.to_json())
+            components[str(i)] = api_from_status('channel-id', status)
 
         self.assertEqual((yield channel.status())['status'], {
             'status': 'ok',
@@ -318,13 +326,21 @@ class TestChannel(JunebugTestBase):
         components = {}
 
         for i in range(5):
-            status = TransportStatus(status='ok', component=i)
+            status = TransportStatus(
+                status='ok',
+                component=i,
+                type='bar',
+                message='Bar')
             yield channel.sstore.store_status('channel-id', status)
-            components[str(i)] = json.loads(status.to_json())
+            components[str(i)] = api_from_status('channel-id', status)
 
-        status = TransportStatus(status='degraded', component=5)
+        status = TransportStatus(
+            status='degraded',
+            component=5,
+            type='bar',
+            message='Bar')
         yield channel.sstore.store_status('channel-id', status)
-        components['5'] = json.loads(status.to_json())
+        components['5'] = api_from_status('channel-id', status)
 
         self.assertEqual((yield channel.status())['status'], {
             'status': 'degraded',
@@ -339,17 +355,29 @@ class TestChannel(JunebugTestBase):
         components = {}
 
         for i in range(5):
-            status = TransportStatus(status='ok', component=i)
+            status = TransportStatus(
+                status='ok',
+                component=i,
+                type='bar',
+                message='Bar')
             yield channel.sstore.store_status('channel-id', status)
-            components[str(i)] = json.loads(status.to_json())
+            components[str(i)] = api_from_status('channel-id', status)
 
-        status = TransportStatus(status='degraded', component=5)
+        status = TransportStatus(
+            status='degraded',
+            component=5,
+            type='bar',
+            message='Bar')
         yield channel.sstore.store_status('channel-id', status)
-        components['5'] = json.loads(status.to_json())
+        components['5'] = api_from_status('channel-id', status)
 
-        status = TransportStatus(status='down', component=6)
+        status = TransportStatus(
+            status='down',
+            component=6,
+            type='bar',
+            message='Bar')
         yield channel.sstore.store_status('channel-id', status)
-        components['6'] = json.loads(status.to_json())
+        components['6'] = api_from_status('channel-id', status)
 
         self.assertEqual((yield channel.status())['status'], {
             'status': 'down',
