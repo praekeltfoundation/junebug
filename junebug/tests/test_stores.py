@@ -1,3 +1,4 @@
+import json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
@@ -288,3 +289,27 @@ class TestStatusStore(JunebugTestBase):
 
         status_other_redis = yield self.redis.hget('channelid:status', 'bar')
         self.assertEqual(status_other_redis, status_other.to_json())
+
+    @inlineCallbacks
+    def test_load_one_status(self):
+        store = yield self.create_store()
+        status = TransportStatus(status='ok', component='foo')
+        yield store.store_status('channelid', status)
+
+        stored_statuses = yield store.get_statuses_dict('channelid')
+
+        self.assertEqual(
+            stored_statuses, {'foo': json.loads(status.to_json())})
+
+    @inlineCallbacks
+    def test_load_many_statuses(self):
+        store = yield self.create_store()
+        expected = {}
+        for i in range(5):
+            status = TransportStatus(status='ok', component=i)
+            yield store.store_status('channelid', status)
+            expected[str(i)] = json.loads(status.to_json())
+
+        stored_statuses = yield store.get_statuses_dict('channelid')
+
+        self.assertEqual(stored_statuses, expected)
