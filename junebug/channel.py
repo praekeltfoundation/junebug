@@ -8,7 +8,8 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
-from junebug.utils import api_from_message, message_from_api
+from junebug.stores import StatusStore
+from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
 
 
@@ -80,6 +81,8 @@ class Channel(object):
         self.application_worker = None
         self.status_application_worker = None
 
+        self.sstore = StatusStore(self.redis)
+
     @property
     def application_id(self):
         return self.APPLICATION_ID % (self.id,)
@@ -141,13 +144,39 @@ class Channel(object):
         yield channel_redis.delete('properties')
         yield self.redis.srem('channels', self.id)
 
+    @inlineCallbacks
     def status(self):
         '''Returns a dict with the configuration and status of the channel'''
         status = deepcopy(self._properties)
         status['id'] = self.id
-        # TODO: Implement channel status
-        status['status'] = {}
-        return status
+        status['status'] = yield self._get_status()
+        returnValue(status)
+
+    @inlineCallbacks
+    def _get_status(self):
+        components = yield self.sstore.get_statuses(self.id)
+        components = dict(
+            (k, api_from_status(self.id, v)) for k, v in components.iteritems()
+        )
+
+        status_values = {
+            'down': 0,
+            'degraded': 1,
+            'ok': 2,
+        }
+
+        try:
+            status = min(
+                (c['status'] for c in components.values()),
+                key=status_values.get)
+        except ValueError:
+            # No statuses
+            returnValue({})
+
+        returnValue({
+            'components': components,
+            'status': status
+        })
 
     @classmethod
     @inlineCallbacks
