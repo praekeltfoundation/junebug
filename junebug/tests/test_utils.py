@@ -11,9 +11,9 @@ from klein import Klein
 from junebug.tests.utils import ToyServer
 from junebug.utils import (
     response, json_body, conjoin, omit,
-    message_from_api, api_from_message, api_from_event)
+    message_from_api, api_from_message, api_from_event, api_from_status)
 
-from vumi.message import TransportUserMessage, TransportEvent
+from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
 
 
 class TestUtils(TestCase):
@@ -280,4 +280,21 @@ class TestUtils(TestCase):
             'message_id': 'msg-21',
             'timestamp': date(2321, 2, 3),
             'event_details': {},
+        })
+
+    def test_api_from_status(self):
+        status = TransportStatus(
+            component='foo',
+            status='ok',
+            type='bar',
+            message='Bar',
+            details={'baz': 'quux'})
+
+        self.assertEqual(api_from_status('channel-23', status), {
+            'channel_id': 'channel-23',
+            'status': 'ok',
+            'component': 'foo',
+            'type': 'bar',
+            'message': 'Bar',
+            'details': {'baz': 'quux'}
         })

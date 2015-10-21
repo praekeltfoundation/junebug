@@ -94,6 +94,17 @@ def api_from_event(channel_id, event):
     }, parser(channel_id, event))
 
 
+def api_from_status(channel_id, status):
+    return {
+        'channel_id': channel_id,
+        'component': status['component'],
+        'status': status['status'],
+        'type': status['type'],
+        'message': status['message'],
+        'details': status['details'],
+    }
+
+
 def _api_from_event_ack(channel_id, event):
     return {
         'event_type': 'submitted',

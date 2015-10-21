@@ -11,7 +11,7 @@ from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
 
-from junebug.utils import api_from_message, api_from_event
+from junebug.utils import api_from_message, api_from_event, api_from_status
 from junebug.stores import (
     InboundMessageStore, OutboundMessageStore, StatusStore)
 
@@ -121,17 +121,6 @@ class MessageForwardingWorker(ApplicationWorker):
         return self.outbounds.load_event_url(self.channel_id, msg_id)
 
 
-def request_failed(resp):
-    return resp.code < 200 or resp.code >= 300
-
-
-def post(url, data):
-    return treq.post(
-        url.encode('utf-8'),
-        data=json.dumps(data, cls=JSONMessageEncoder),
-        headers={'Content-Type': 'application/json'})
-
-
 class ChannelStatusConfig(BaseConfig):
     '''Config for the ChannelStatusWorker'''
     status_connector_name = ConfigText(
@@ -145,6 +134,10 @@ class ChannelStatusConfig(BaseConfig):
     channel_id = ConfigText(
         "The channel id which this worker is consuming statuses for",
         required=True, static=True)
+
+    status_url = ConfigText(
+        "Optional url to POST status events to",
+        default=None, static=True)
 
 
 class ChannelStatusWorker(BaseWorker):
@@ -167,6 +160,32 @@ class ChannelStatusWorker(BaseWorker):
     def teardown_worker(self):
         pass
 
+    @inlineCallbacks
     def consume_status(self, status):
         '''Store the status in redis under the correct component'''
-        return self.store.store_status(self.config['channel_id'], status)
+        yield self.store.store_status(self.config['channel_id'], status)
+
+        if self.config.get('status_url') is not None:
+            yield self.send_status(status)
+
+    @inlineCallbacks
+    def send_status(self, status):
+        data = api_from_status(self.config['channel_id'], status)
+        resp = yield post(self.config['status_url'], data)
+
+        if request_failed(resp):
+            logging.exception(
+                'Error sending status event, received HTTP code %r with '
+                'body %r. Status event: %r'
+                % (resp.code, (yield resp.content()), status))
+
+
+def request_failed(resp):
+    return resp.code < 200 or resp.code >= 300
+
+
+def post(url, data):
+    return treq.post(
+        url.encode('utf-8'),
+        data=json.dumps(data, cls=JSONMessageEncoder),
+        headers={'Content-Type': 'application/json'})

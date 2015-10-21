@@ -246,6 +246,7 @@ class Channel(object):
             'status_connector_name': self.STATUS_QUEUE % self.id,
             'redis_manager': self.config.redis,
             'channel_id': self.id,
+            'status_url': self._properties.get('status_url'),
         }
 
     @property

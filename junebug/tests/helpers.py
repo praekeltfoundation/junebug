@@ -1,11 +1,16 @@
+import json
 from copy import deepcopy
 import logging
 import logging.handlers
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
+
+from klein import Klein
 from txamqp.client import TwistedDelegate
+
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
@@ -37,6 +42,41 @@ class FakeAmqpClient(JunebugAMQClient):
         finally:
             self.channelLock.release()
         returnValue(ch)
+
+
+class RequestLoggingApi(object):
+    app = Klein()
+
+    def __init__(self):
+        self.requests = []
+        self.url = None
+
+    def setup(self):
+        self.port = reactor.listenTCP(
+            0, Site(self.app.resource()), interface='127.0.0.1')
+
+        addr = self.port.getHost()
+        self.url = "http://%s:%s" % (addr.host, addr.port)
+
+    def teardown(self):
+        self.port.stopListening()
+
+    @app.route('/')
+    def log_request(self, request):
+        self.requests.append({
+            'request': request,
+            'body': request.content.read(),
+            })
+        return ''
+
+    @app.route('/bad/')
+    def bad_request(self, request):
+        self.requests.append({
+            'request': request,
+            'body': request.content.read(),
+            })
+        request.setResponseCode(500)
+        return 'test-error-response'
 
 
 class JunebugTestBase(TestCase):
@@ -161,3 +201,28 @@ class JunebugTestBase(TestCase):
         amqp_client = self.api.message_sender.client
         return amqp_client.broker.get_messages(
             'vumi', queue)
+
+    def assert_was_logged(self, msg):
+        self.assertTrue(any(
+            msg in log.getMessage()
+            for log in self.logging_handler.buffer))
+
+    def assert_request(self, req, method=None, body=None, headers=None):
+        if method is not None:
+            self.assertEqual(req['request'].method, 'POST')
+
+        if headers is not None:
+            for name, values in headers.iteritems():
+                self.assertEqual(
+                    req['request'].requestHeaders.getRawHeaders(name),
+                    values)
+
+        if body is not None:
+            self.assertEqual(json.loads(req['body']), body)
+
+    def assert_body_contains(self, req, **fields):
+        body = json.loads(req['body'])
+
+        self.assertEqual(
+            dict((k, v) for k, v in body.iteritems() if k in fields),
+            fields)
