@@ -203,7 +203,7 @@ class JunebugTestBase(TestCase):
             'vumi', queue)
 
     def assert_was_logged(self, msg):
-        return self.assertTrue(any(
+        self.assertTrue(any(
             msg in log.getMessage()
             for log in self.logging_handler.buffer))
 
