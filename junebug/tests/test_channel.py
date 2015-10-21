@@ -1,6 +1,6 @@
 import json
 from twisted.internet.defer import inlineCallbacks
-from vumi.message import TransportUserMessage
+from vumi.message import TransportUserMessage, TransportStatus
 from vumi.transports.telnet import TelnetServerTransport
 
 from junebug.utils import api_from_message, conjoin
@@ -254,7 +254,7 @@ class TestChannel(JunebugTestBase):
             ChannelNotFound)
 
     @inlineCallbacks
-    def test_channel_status(self):
+    def test_channel_status_empty(self):
         properties = self.create_channel_properties()
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport, id='channel-id')
@@ -266,6 +266,84 @@ class TestChannel(JunebugTestBase):
                 'transport_name': channel.id
             })
         }))
+
+    @inlineCallbacks
+    def test_channel_status_single_status(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        status = TransportStatus(status='ok', component='foo')
+        yield channel.sstore.store_status('channel-id', status)
+
+        self.assertEqual((yield channel.status())['status'], {
+            'status': 'ok',
+            'components': {
+                'foo': json.loads(status.to_json()),
+            }
+        })
+
+    @inlineCallbacks
+    def test_channel_multiple_statuses_ok(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        components = {}
+
+        for i in range(5):
+            status = TransportStatus(status='ok', component=i)
+            yield channel.sstore.store_status('channel-id', status)
+            components[str(i)] = json.loads(status.to_json())
+
+        self.assertEqual((yield channel.status())['status'], {
+            'status': 'ok',
+            'components': components
+        })
+
+    @inlineCallbacks
+    def test_channel_multiple_statuses_degraded(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        components = {}
+
+        for i in range(5):
+            status = TransportStatus(status='ok', component=i)
+            yield channel.sstore.store_status('channel-id', status)
+            components[str(i)] = json.loads(status.to_json())
+
+        status = TransportStatus(status='degraded', component=5)
+        yield channel.sstore.store_status('channel-id', status)
+        components['5'] = json.loads(status.to_json())
+
+        self.assertEqual((yield channel.status())['status'], {
+            'status': 'degraded',
+            'components': components
+        })
+
+    @inlineCallbacks
+    def test_channel_multiple_statuses_down(self):
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id='channel-id')
+
+        components = {}
+
+        for i in range(5):
+            status = TransportStatus(status='ok', component=i)
+            yield channel.sstore.store_status('channel-id', status)
+            components[str(i)] = json.loads(status.to_json())
+
+        status = TransportStatus(status='degraded', component=5)
+        yield channel.sstore.store_status('channel-id', status)
+        components['5'] = json.loads(status.to_json())
+
+        status = TransportStatus(status='down', component=6)
+        yield channel.sstore.store_status('channel-id', status)
+        components['6'] = json.loads(status.to_json())
+
+        self.assertEqual((yield channel.status())['status'], {
+            'status': 'down',
+            'components': components
+        })
 
     @inlineCallbacks
     def test_get_all_channels(self):
