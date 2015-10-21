@@ -137,7 +137,7 @@ class ChannelStatusConfig(BaseConfig):
 
     status_url = ConfigText(
         "Optional url to POST status events to",
-        static=True)
+        default=None, static=True)
 
 
 class ChannelStatusWorker(BaseWorker):
@@ -165,7 +165,7 @@ class ChannelStatusWorker(BaseWorker):
         '''Store the status in redis under the correct component'''
         yield self.store.store_status(self.config['channel_id'], status)
 
-        if 'status_url' in self.config:
+        if self.config.get('status_url') is not None:
             yield self.send_status(status)
 
     @inlineCallbacks
