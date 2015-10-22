@@ -191,9 +191,9 @@ class JunebugTestBase(TestCase):
     def stop_server(self):
         yield self.service.stopService()
         for service in self.service:
-            yield self.service.removeService(service)
+            service.disownServiceParent()
         for service in self.service.namedServices.values():
-            yield self.service.removeService(service)
+            service.disownServiceParent()
 
     def get_message_sender(self):
         '''Creates a new MessageSender object, with a fake amqp client'''
