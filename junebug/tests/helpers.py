@@ -168,9 +168,9 @@ class JunebugTestBase(TestCase):
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
+        self.service.api = self.api
 
-        redis = yield self.persistencehelper.get_redis_manager()
-        self.api = JunebugApi(self.service, config)
+        redis = yield self.get_redis()
         yield self.api.setup(redis, self.get_message_sender())
 
         self.config = self.api.config
@@ -182,9 +182,20 @@ class JunebugTestBase(TestCase):
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),
             interface='127.0.0.1')
-        self.addCleanup(port.stopListening)
+        self.service._port = port
+        self.addCleanup(self.stop_server)
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
+
+    @inlineCallbacks
+    def stop_server(self):
+        yield self.service.stopService()
+        for service in self.service.services:
+            yield service.stopService()
+        self.service.services = []
+        for service in self.service.namedServices.values():
+            yield service.stopService()
+        self.service.namedServices = {}
 
     def get_message_sender(self):
         '''Creates a new MessageSender object, with a fake amqp client'''
