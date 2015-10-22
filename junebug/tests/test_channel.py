@@ -416,11 +416,7 @@ class TestChannel(JunebugTestBase):
         channel2 = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
         self.assertTrue(channel2.id in self.service.namedServices)
-        channel1 = yield Channel.from_id(
-            self.redis, self.config, channel1.id, self.service)
-        yield channel1.stop()
         yield channel2.stop()
-        self.assertFalse(channel1.id in self.service.namedServices)
         self.assertFalse(channel2.id in self.service.namedServices)
         yield Channel.start_all_channels(
             self.redis, self.config, self.service)

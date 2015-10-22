@@ -206,9 +206,7 @@ class Channel(object):
     def start_all_channels(cls, redis, config, parent):
         '''Ensures that all of the stored channels are running'''
         for id in (yield cls.get_all(redis)):
-            try:
-                yield cls.from_id(redis, config, id, parent)
-            except KeyError:
+            if id not in parent.namedServices:
                 properties = json.loads((
                     yield redis.get('%s:properties' % id)))
                 channel = cls(redis, config, properties, id)
