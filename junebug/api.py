@@ -1,3 +1,4 @@
+import json
 from klein import Klein
 import logging
 from werkzeug.exceptions import HTTPException
@@ -50,6 +51,17 @@ class JunebugApi(object):
 
         self.outbounds = OutboundMessageStore(
             self.redis, self.config.outbound_message_ttl)
+
+        yield self._start_stored_channels()
+
+    @inlineCallbacks
+    def _start_stored_channels(self):
+        ids = yield Channel.get_all(self.redis)
+        for id in ids:
+            properties = yield self.redis.get('%s:properties' % id)
+            properties = json.loads(properties)
+            channel = Channel(self.redis, self.config, properties, id)
+            yield channel.start(self.service)
 
     @inlineCallbacks
     def teardown(self):
