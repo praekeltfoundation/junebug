@@ -190,12 +190,10 @@ class JunebugTestBase(TestCase):
     @inlineCallbacks
     def stop_server(self):
         yield self.service.stopService()
-        for service in self.service.services:
-            yield service.stopService()
-        self.service.services = []
+        for service in self.service:
+            yield self.service.removeService(service)
         for service in self.service.namedServices.values():
-            yield service.stopService()
-        self.service.namedServices = {}
+            yield self.service.removeService(service)
 
     def get_message_sender(self):
         '''Creates a new MessageSender object, with a fake amqp client'''
