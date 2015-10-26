@@ -123,10 +123,6 @@ class MessageForwardingWorker(ApplicationWorker):
 
 class ChannelStatusConfig(BaseConfig):
     '''Config for the ChannelStatusWorker'''
-    status_connector_name = ConfigText(
-        "The name of the connector where the statuses will be published to",
-        required=True, static=True)
-
     redis_manager = ConfigDict(
         "Redis config.",
         required=True, static=True)
@@ -149,7 +145,7 @@ class ChannelStatusWorker(BaseWorker):
     @inlineCallbacks
     def setup_connectors(self):
         connector = yield self.setup_receive_status_connector(
-            self.config['status_connector_name'])
+            self.config['channel_id'])
         connector.set_status_handler(self.consume_status)
 
     @inlineCallbacks
