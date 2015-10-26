@@ -124,7 +124,6 @@ class TestChannel(JunebugTestBase):
 
         self.assertEqual(worker.config, {
             'redis_manager': channel.config.redis,
-            'status_connector_name': '%s.status' % channel.id,
             'channel_id': channel.id,
             'status_url': None,
         })
