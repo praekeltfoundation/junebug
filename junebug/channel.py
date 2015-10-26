@@ -56,7 +56,6 @@ allowed_message_fields = [
 
 class Channel(object):
     OUTBOUND_QUEUE = '%s.outbound'
-    STATUS_QUEUE = '%s.status'
     APPLICATION_ID = 'application:%s'
     STATUS_APPLICATION_ID = 'status:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
@@ -246,7 +245,6 @@ class Channel(object):
     @property
     def _status_application_config(self):
         return {
-            'status_connector_name': self.STATUS_QUEUE % self.id,
             'redis_manager': self.config.redis,
             'channel_id': self.id,
             'status_url': self._properties.get('status_url'),

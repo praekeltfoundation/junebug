@@ -318,7 +318,6 @@ class TestChannelStatusWorker(JunebugTestBase):
         self.addCleanup(persistencehelper.cleanup)
 
         config = conjoin(persistencehelper.mk_config({
-            'status_connector_name': 'testchannel:status',
             'channel_id': 'testchannel',
         }), config)
 
