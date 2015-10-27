@@ -164,13 +164,16 @@ class JunebugTestBase(TestCase):
     def start_server(self):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
+        # TODO: This setup is very manual, because we don't call
+        # service.startService. This must be fixed to close mirror the real
+        # program with our tests.
         config = yield self.create_channel_config()
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
+        self.service.api = self.api
 
-        redis = yield self.persistencehelper.get_redis_manager()
-        self.api = JunebugApi(self.service, config)
+        redis = yield self.get_redis()
         yield self.api.setup(redis, self.get_message_sender())
 
         self.config = self.api.config
@@ -182,9 +185,21 @@ class JunebugTestBase(TestCase):
         port = reactor.listenTCP(
             0, Site(self.api.app.resource()),
             interface='127.0.0.1')
-        self.addCleanup(port.stopListening)
+        self.service._port = port
+        self.addCleanup(self.stop_server)
         addr = port.getHost()
         self.url = "http://%s:%s" % (addr.host, addr.port)
+
+    @inlineCallbacks
+    def stop_server(self):
+        # TODO: This teardown is very messy, because we don't actually call
+        # service.startService. This needs to be fixed in order to ensure that
+        # our tests are mirroring the real program closely.
+        yield self.service.stopService()
+        for service in self.service:
+            service.disownServiceParent()
+        for service in self.service.namedServices.values():
+            service.disownServiceParent()
 
     def get_message_sender(self):
         '''Creates a new MessageSender object, with a fake amqp client'''

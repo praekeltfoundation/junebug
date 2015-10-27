@@ -200,6 +200,17 @@ class Channel(object):
         channels = yield redis.smembers('channels')
         returnValue(channels)
 
+    @classmethod
+    @inlineCallbacks
+    def start_all_channels(cls, redis, config, parent):
+        '''Ensures that all of the stored channels are running'''
+        for id in (yield cls.get_all(redis)):
+            if id not in parent.namedServices:
+                properties = json.loads((
+                    yield redis.get('%s:properties' % id)))
+                channel = cls(redis, config, properties, id)
+                yield channel.start(parent)
+
     @inlineCallbacks
     def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''

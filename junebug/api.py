@@ -51,6 +51,8 @@ class JunebugApi(object):
         self.outbounds = OutboundMessageStore(
             self.redis, self.config.outbound_message_ttl)
 
+        yield Channel.start_all_channels(self.redis, self.config, self.service)
+
     @inlineCallbacks
     def teardown(self):
         yield self.redis.close_manager()

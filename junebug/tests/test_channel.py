@@ -384,7 +384,7 @@ class TestChannel(JunebugTestBase):
         })
 
     @inlineCallbacks
-    def test_get_all_channels(self):
+    def test_get_all(self):
         channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set())
 
@@ -397,6 +397,30 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport)
         channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set([channel1.id, channel2.id]))
+
+    @inlineCallbacks
+    def test_start_all_channels(self):
+        yield Channel.start_all_channels(
+            self.redis, self.config, self.service)
+
+        channel1 = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        self.assertTrue(channel1.id in self.service.namedServices)
+        yield channel1.stop()
+        self.assertFalse(channel1.id in self.service.namedServices)
+        yield Channel.start_all_channels(
+            self.redis, self.config, self.service)
+        self.assertTrue(channel1.id in self.service.namedServices)
+
+        channel2 = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport)
+        self.assertTrue(channel2.id in self.service.namedServices)
+        yield channel2.stop()
+        self.assertFalse(channel2.id in self.service.namedServices)
+        yield Channel.start_all_channels(
+            self.redis, self.config, self.service)
+        self.assertTrue(channel1.id in self.service.namedServices)
+        self.assertTrue(channel2.id in self.service.namedServices)
 
     @inlineCallbacks
     def test_convert_unicode(self):

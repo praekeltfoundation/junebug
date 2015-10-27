@@ -59,6 +59,35 @@ class TestJunebugApi(JunebugTestBase):
                 })
 
     @inlineCallbacks
+    def test_startup_single_channel(self):
+        properties = self.create_channel_properties()
+        resp = yield self.post('/channels/', properties)
+        id = (yield resp.json())['result']['id']
+
+        yield self.stop_server()
+        self.assertFalse(id in self.service.namedServices)
+
+        yield self.start_server()
+        self.assertTrue(id in self.service.namedServices)
+
+    @inlineCallbacks
+    def test_startup_multiple_channel(self):
+        ids = []
+        for i in range(5):
+            properties = self.create_channel_properties()
+            resp = yield self.post('/channels/', properties)
+            id = (yield resp.json())['result']['id']
+            ids.append(id)
+
+        yield self.stop_server()
+        for id in ids:
+            self.assertFalse(id in self.service.namedServices)
+
+        yield self.start_server()
+        for id in ids:
+            self.assertTrue(id in self.service.namedServices)
+
+    @inlineCallbacks
     def test_get_channel_list(self):
         redis = yield self.get_redis()
         properties = self.create_channel_properties()
