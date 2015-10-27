@@ -189,6 +189,9 @@ class JunebugTestBase(TestCase):
 
     @inlineCallbacks
     def stop_server(self):
+        # TODO: This teardown is very messy, because we don't actually call
+        # service.startService. This needs to be fixed in order to ensure that
+        # our tests are mirroring the real program closely.
         yield self.service.stopService()
         for service in self.service:
             service.disownServiceParent()
