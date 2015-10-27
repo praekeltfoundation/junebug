@@ -164,6 +164,9 @@ class JunebugTestBase(TestCase):
     def start_server(self):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
+        # TODO: This setup is very manual, because we don't call
+        # service.startService. This must be fixed to close mirror the real
+        # program with our tests.
         config = yield self.create_channel_config()
         self.service = JunebugService(config)
         self.api = JunebugApi(
