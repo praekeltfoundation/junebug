@@ -145,13 +145,14 @@ class ChannelStatusWorker(BaseWorker):
     @inlineCallbacks
     def setup_connectors(self):
         connector = yield self.setup_receive_status_connector(
-            self.config['channel_id'])
+            "%s.status" % (self.config['channel_id'],))
         connector.set_status_handler(self.consume_status)
 
     @inlineCallbacks
     def setup_worker(self):
         redis = yield TxRedisManager.from_config(self.config['redis_manager'])
         self.store = StatusStore(redis, ttl=None)
+        yield self.unpause_connectors()
 
     def teardown_worker(self):
         pass
