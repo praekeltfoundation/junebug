@@ -1,18 +1,23 @@
 class JunebugPlugin(object):
     '''Base class for all Junebug plugins'''
 
-    @classmethod
-    def channel_started(cls, channel):
+    def start_plugin(self, config):
+        '''Can be overridden with any required startup code for the plugin.
+        Can return a deferred.
+
+        config - Config that Junebug was started with.'''
+        pass
+
+    def channel_started(self, channel):
         '''Called whenever a channel is started. Should be implemented by the
-        plugin.
+        plugin. Can return a deferred.
 
         channel - The channel that has been started.'''
-        raise NotImplementedError()
+        pass
 
-    @classmethod
-    def channel_stopped(cls, channel):
+    def channel_stopped(self, channel):
         '''Called whenever a channel is stopped. Should be implemented by the
-        plugin.
+        plugin. Can return a deferred.
 
         channel - The channel that has been stopped.'''
-        raise NotImplementedError()
+        pass
