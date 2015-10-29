@@ -96,14 +96,14 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [])
 
-        yield Channel(redis, config, properties, u'test-channel-1').save()
+        yield Channel(redis, config, properties, id=u'test-channel-1').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
             u'test-channel-1',
         ])
 
-        yield Channel(redis, config, properties, u'test-channel-2').save()
+        yield Channel(redis, config, properties, id=u'test-channel-2').save()
 
         resp = yield self.get('/channels/')
         yield self.assert_response(resp, http.OK, 'channels listed', [
@@ -192,7 +192,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties()
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, u'test-channel')
+        channel = Channel(redis, config, properties, id=u'test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.get('/channels/test-channel')
@@ -220,7 +220,7 @@ class TestJunebugApi(JunebugTestBase):
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
 
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -240,7 +240,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties()
         config = yield self.create_channel_config()
 
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -277,7 +277,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_delete_channel(self):
         config = yield self.create_channel_config()
         properties = self.create_channel_properties()
-        channel = Channel(self.redis, config, properties, 'test-channel')
+        channel = Channel(self.redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
 
@@ -324,7 +324,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties()
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {
@@ -354,7 +354,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties()
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {
@@ -482,7 +482,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties(character_limit=100)
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {
@@ -507,7 +507,7 @@ class TestJunebugApi(JunebugTestBase):
             character_limit=len(content))
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {
@@ -529,7 +529,7 @@ class TestJunebugApi(JunebugTestBase):
         properties = self.create_channel_properties(character_limit=10)
         config = yield self.create_channel_config()
         redis = yield self.get_redis()
-        channel = Channel(redis, config, properties, 'test-channel')
+        channel = Channel(redis, config, properties, id='test-channel')
         yield channel.save()
         yield channel.start(self.service)
         resp = yield self.post('/channels/test-channel/messages/', {

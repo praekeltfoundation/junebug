@@ -4,6 +4,7 @@ from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
 from vumi.persist.txredis_manager import TxRedisManager
+from vumi.utils import load_class_by_string
 
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
@@ -51,7 +52,15 @@ class JunebugApi(object):
         self.outbounds = OutboundMessageStore(
             self.redis, self.config.outbound_message_ttl)
 
-        yield Channel.start_all_channels(self.redis, self.config, self.service)
+        self.plugins = []
+        for plugin_config in self.config.plugins:
+            cls = load_class_by_string(plugin_config['type'])
+            plugin = cls()
+            yield plugin.start_plugin(plugin_config, self.config)
+            self.plugins.append(plugin)
+
+        yield Channel.start_all_channels(
+            self.redis, self.config, self.service, self.plugins)
 
     @inlineCallbacks
     def teardown(self):
@@ -123,7 +132,7 @@ class JunebugApi(object):
     def create_channel(self, request, body):
         '''Create a channel'''
         channel = Channel(
-            self.redis, self.config, body)
+            self.redis, self.config, body, self.plugins)
         yield channel.save()
         yield channel.start(self.service)
         returnValue(response(
@@ -134,7 +143,7 @@ class JunebugApi(object):
     def get_channel(self, request, channel_id):
         '''Return the channel configuration and a nested status object'''
         channel = yield Channel.from_id(
-            self.redis, self.config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service, self.plugins)
         resp = yield channel.status()
         returnValue(response(
             request, 'channel found', resp))
@@ -169,7 +178,7 @@ class JunebugApi(object):
     def modify_channel(self, request, body, channel_id):
         '''Mondify the channel configuration'''
         channel = yield Channel.from_id(
-            self.redis, self.config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service, self.plugins)
         resp = yield channel.update(body)
         returnValue(response(
             request, 'channel updated', resp))
@@ -179,7 +188,7 @@ class JunebugApi(object):
     def delete_channel(self, request, channel_id):
         '''Delete the channel'''
         channel = yield Channel.from_id(
-            self.redis, self.config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service, self.plugins)
         yield channel.stop()
         yield channel.delete()
         returnValue(response(
@@ -218,7 +227,7 @@ class JunebugApi(object):
                 'Only one of "from" and "reply_to" may be specified')
 
         channel = yield Channel.from_id(
-            self.redis, self.config, channel_id, self.service)
+            self.redis, self.config, channel_id, self.service, self.plugins)
 
         if 'to' in body:
             msg = yield channel.send_message(
