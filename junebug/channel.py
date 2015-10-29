@@ -61,7 +61,7 @@ class Channel(object):
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
     STATUS_APPLICATION_CLS_NAME = 'junebug.workers.ChannelStatusWorker'
 
-    def __init__(self, redis_manager, config, properties, id=None):
+    def __init__(self, redis_manager, config, properties, plugins=[], id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
         which a sub manager is created using the channel id. If the channel id
         is not supplied, a UUID one is generated. Call ``save`` to save the
@@ -81,6 +81,7 @@ class Channel(object):
         self.status_application_worker = None
 
         self.sstore = StatusStore(self.redis)
+        self.plugins = plugins
 
     @property
     def application_id(self):
@@ -94,12 +95,15 @@ class Channel(object):
     def character_limit(self):
         return self._properties.get('character_limit')
 
+    @inlineCallbacks
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
         self._start_transport(service, transport_worker)
         self._start_application(service)
         self._start_status_application(service)
+        for plugin in self.plugins:
+            yield plugin.channel_started(self)
 
     @inlineCallbacks
     def stop(self):
@@ -107,6 +111,8 @@ class Channel(object):
         yield self._stop_application()
         yield self._stop_status_application()
         yield self._stop_transport()
+        for plugin in self.plugins:
+            yield plugin.channel_stopped(self)
 
     @inlineCallbacks
     def save(self):
@@ -179,7 +185,7 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def from_id(cls, redis, config, id, parent):
+    def from_id(cls, redis, config, id, parent, plugins=[]):
         '''Creates a channel by loading the data from redis, given the
         channel's id, and the parent service of the channel'''
         channel_redis = yield redis.sub_manager(id)
@@ -188,7 +194,7 @@ class Channel(object):
             raise ChannelNotFound()
         properties = json.loads(properties)
 
-        obj = cls(redis, config, properties, id)
+        obj = cls(redis, config, properties, plugins, id=id)
         obj._restore(parent)
 
         returnValue(obj)
@@ -202,13 +208,13 @@ class Channel(object):
 
     @classmethod
     @inlineCallbacks
-    def start_all_channels(cls, redis, config, parent):
+    def start_all_channels(cls, redis, config, parent, plugins=[]):
         '''Ensures that all of the stored channels are running'''
         for id in (yield cls.get_all(redis)):
             if id not in parent.namedServices:
                 properties = json.loads((
                     yield redis.get('%s:properties' % id)))
-                channel = cls(redis, config, properties, id)
+                channel = cls(redis, config, properties, plugins, id=id)
                 yield channel.start(parent)
 
     @inlineCallbacks
