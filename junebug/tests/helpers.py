@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -19,6 +19,7 @@ from vumi.tests.helpers import PersistenceHelper
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
+from junebug.plugin import JunebugPlugin
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 
@@ -241,3 +242,21 @@ class JunebugTestBase(TestCase):
         self.assertEqual(
             dict((k, v) for k, v in body.iteritems() if k in fields),
             fields)
+
+
+class FakeJunebugPlugin(JunebugPlugin):
+    def _add_call(self, func_name, *args):
+        self.calls.append((func_name, args))
+
+    def start_plugin(self, config):
+        self.calls = []
+        self._add_call('start_plugin', config)
+        return succeed(None)
+
+    def channel_started(self, channel):
+        self._add_call('channel_started', channel)
+        return succeed(None)
+
+    def channel_stopped(self, channel):
+        self._add_call('channel_stopped', channel)
+        return succeed(None)
