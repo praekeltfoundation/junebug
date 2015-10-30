@@ -1,4 +1,5 @@
 import yaml
+import json
 import logging
 import os.path
 from twisted.internet.defer import inlineCallbacks
@@ -228,6 +229,29 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-rch', 'true'])
         self.assertEqual(config.replace_channels, True)
 
+    def test_parse_arguments_plugins(self):
+        '''Each plugin config is specified by "--plugin" or "-pl"'''
+        config = parse_arguments([])
+        self.assertEqual(config.plugins, [])
+
+        config = parse_arguments(['--plugin', json.dumps({'type': 'foo.bar'})])
+        self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
+
+        config = parse_arguments([
+            '--plugin', json.dumps({'type': 'foo.bar'}),
+            '--plugin', json.dumps({'type': 'bar.foo'})])
+        self.assertEqual(sorted(config.plugins), [
+            {'type': 'bar.foo'}, {'type': 'foo.bar'}])
+
+        config = parse_arguments(['-pl', json.dumps({'type': 'foo.bar'})])
+        self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
+
+        config = parse_arguments([
+            '-pl', json.dumps({'type': 'foo.bar'}),
+            '-pl', json.dumps({'type': 'bar.foo'})])
+        self.assertEqual(sorted(config.plugins), [
+            {'type': 'bar.foo'}, {'type': 'foo.bar'}])
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -252,6 +276,7 @@ class TestCommandLine(JunebugTestBase):
                 'inbound_message_ttl': 80,
                 'outbound_message_ttl': 90,
                 'channels': {'foo': 'bar'},
+                'plugins': [{'type': 'foo.bar'}],
             }
         })
 
@@ -271,6 +296,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -288,6 +314,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -310,6 +337,7 @@ class TestCommandLine(JunebugTestBase):
                     'username': 'admin',
                     'password': 'nimda',
                 },
+                'plugins': [{'type': 'foo.bar'}],
             }
         })
 
@@ -327,6 +355,7 @@ class TestCommandLine(JunebugTestBase):
             '-amqpvh', '/soho',
             '-amqpu', 'koenji',
             '-amqppass', 'kodama',
+            '-pl', json.dumps({'type': 'bar.foo'}),
         ])
 
         self.assertEqual(config.interface, 'zuulcathost')
@@ -341,6 +370,10 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.amqp['port'], 2112)
         self.assertEqual(config.amqp['username'], 'koenji')
         self.assertEqual(config.amqp['password'], 'kodama')
+        self.assertEqual(sorted(config.plugins), [
+            {'type': 'bar.foo'},
+            {'type': 'foo.bar'}
+        ])
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename

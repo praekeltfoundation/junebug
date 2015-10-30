@@ -129,14 +129,15 @@ class JunebugTestBase(TestCase):
     @inlineCallbacks
     def create_channel(
             self, service, redis, transport_class,
-            properties=default_channel_properties, id=None, config=None):
+            properties=default_channel_properties, id=None, config=None,
+            plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         properties = deepcopy(properties)
         if config is None:
             config = yield self.create_channel_config()
         channel = Channel(
-            redis, config, properties, id=id)
+            redis, config, properties, id=id, plugins=plugins)
         properties['config']['transport_name'] = channel.id
         yield channel.start(self.service)
         yield channel.save()
@@ -162,13 +163,14 @@ class JunebugTestBase(TestCase):
         returnValue(self.redis)
 
     @inlineCallbacks
-    def start_server(self):
+    def start_server(self, config=None):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         # TODO: This setup is very manual, because we don't call
         # service.startService. This must be fixed to close mirror the real
         # program with our tests.
-        config = yield self.create_channel_config()
+        if config is None:
+            config = yield self.create_channel_config()
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
@@ -248,9 +250,13 @@ class FakeJunebugPlugin(JunebugPlugin):
     def _add_call(self, func_name, *args):
         self.calls.append((func_name, args))
 
-    def start_plugin(self, config):
+    def start_plugin(self, config, junebug_config):
         self.calls = []
-        self._add_call('start_plugin', config)
+        self._add_call('start_plugin', config, junebug_config)
+        return succeed(None)
+
+    def stop_plugin(self):
+        self._add_call('stop_plugin')
         return succeed(None)
 
     def channel_started(self, channel):

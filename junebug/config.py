@@ -1,5 +1,6 @@
 from confmodel import Config
-from confmodel.fields import ConfigBool, ConfigText, ConfigInt, ConfigDict
+from confmodel.fields import (
+    ConfigBool, ConfigText, ConfigInt, ConfigDict, ConfigList)
 
 
 class JunebugConfig(Config):
@@ -51,3 +52,8 @@ class JunebugConfig(Config):
         "If `True`, replaces the default channels with `channels`. If `False`,"
         " `channels` is added to the default channels.",
         default=False)
+
+    plugins = ConfigList(
+        "A list of dictionaries describing all of the enabled plugins. Each "
+        "item should have a `type` key, with the full python class name of "
+        "the plugin.", default=[])
