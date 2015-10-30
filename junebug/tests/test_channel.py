@@ -7,7 +7,7 @@ from junebug.utils import api_from_message, api_from_status, conjoin
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
-from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
 
 
 class TestChannel(JunebugTestBase):
@@ -162,6 +162,35 @@ class TestChannel(JunebugTestBase):
         err = yield self.assertFailure(channel.start(None), InvalidChannelType)
         self.assertTrue(all(
             s in err.message for s in ('xmpp', 'telnet', 'foo')))
+
+    @inlineCallbacks
+    def test_start_channel_plugins_called(self):
+        '''Starting a channel should call `channel_started` on all plugins'''
+        plugin = FakeJunebugPlugin()
+        plugin.calls = []
+
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, plugins=[plugin])
+
+        [(name, [plugin_channel])] = plugin.calls
+        self.assertEqual(name, 'channel_started')
+        self.assertEqual(plugin_channel, channel)
+
+    @inlineCallbacks
+    def test_stop_channel_plugins_called(self):
+        '''Stopping a channel should call `channel_stopped` on all plugins'''
+        plugin = FakeJunebugPlugin()
+        plugin.calls = []
+
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, plugins=[plugin])
+        plugin.calls = []
+
+        yield channel.stop()
+
+        [(name, [plugin_channel])] = plugin.calls
+        self.assertEqual(name, 'channel_stopped')
+        self.assertEqual(plugin_channel, channel)
 
     @inlineCallbacks
     def test_update_channel_config(self):

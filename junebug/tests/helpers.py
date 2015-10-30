@@ -129,14 +129,15 @@ class JunebugTestBase(TestCase):
     @inlineCallbacks
     def create_channel(
             self, service, redis, transport_class,
-            properties=default_channel_properties, id=None, config=None):
+            properties=default_channel_properties, id=None, config=None,
+            plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         properties = deepcopy(properties)
         if config is None:
             config = yield self.create_channel_config()
         channel = Channel(
-            redis, config, properties, id=id)
+            redis, config, properties, id=id, plugins=plugins)
         properties['config']['transport_name'] = channel.id
         yield channel.start(self.service)
         yield channel.save()
