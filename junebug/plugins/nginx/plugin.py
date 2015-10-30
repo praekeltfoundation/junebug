@@ -1,9 +1,15 @@
 from os import path
+from distutils.dir_util import mkpath
+from urlparse import urljoin
 
 from confmodel import Config
 from confmodel.fields import ConfigText
 
 from junebug.plugin import JunebugPlugin
+from junebug.utils import channel_public_http_properties
+
+
+DIRNAME = path.dirname(__file__,)
 
 
 class NginxPluginConfig(Config):
@@ -22,8 +28,12 @@ class NginxPluginConfig(Config):
         required=True, static=True)
 
     vhost_template = ConfigText(
-        "Path to the template file to use for the vhost file",
-        default='%s/vhost.template' % (path.dirname(__file__,)), static=True)
+        "Path to the template file to use for the vhost config",
+        default='%s/vhost.template' % (DIRNAME,), static=True)
+
+    location_template = ConfigText(
+        "Path to the template file to use for each channel's location config",
+        default='%s/location.template' % (DIRNAME,), static=True)
 
 
 class NginxPlugin(JunebugPlugin):
@@ -35,7 +45,18 @@ class NginxPlugin(JunebugPlugin):
     def start_plugin(self, config, junebug_config):
         self.config = NginxPluginConfig(config)
         self.vhost_template = read(self.config.vhost_template)
+        self.location_template = read(self.config.location_template)
         write(self.config.vhost_file, self.get_vhost_config())
+
+    def channel_started(self, channel):
+        properties = channel_public_http_properties(channel._properties)
+
+        if properties is not None and properties['enabled']:
+            mkpath(self.config.locations_dir)
+
+            write(
+                self.get_location_path(channel.id),
+                self.get_location_config(properties))
 
     def get_vhost_config(self):
         return self.vhost_template % self.get_vhost_context()
@@ -43,8 +64,23 @@ class NginxPlugin(JunebugPlugin):
     def get_vhost_context(self):
         return {
             'server_name': self.config.server_name,
-            'includes': path.join(self.config.locations_dir, '*.conf'),
+            'includes': path.join(self.config.locations_dir, '*.conf')
         }
+
+    def get_location_config(self, properties):
+        return self.location_template % self.get_location_context(properties)
+
+    def get_location_context(self, properties):
+        web_path = properties['web_path']
+        base_url = 'http://localhost:%s' % (properties['web_port'],)
+
+        return {
+            'external_path': web_path,
+            'internal_url': urljoin(base_url, web_path)
+        }
+
+    def get_location_path(self, id):
+        return path.join(self.config.locations_dir, "%s.conf" % (id,))
 
 
 def read(filename):
