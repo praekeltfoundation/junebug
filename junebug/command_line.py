@@ -1,5 +1,6 @@
 from copy import deepcopy
 import argparse
+import json
 import logging
 import logging.handlers
 import sys
@@ -76,6 +77,11 @@ def create_parser():
         help='If True, replaces the default channels with `channels`. '
         'If False, adds `channels` to the list of default channels. Defaults'
         ' to False.')
+    parser.add_argument(
+        '--plugin', '-pl', dest='plugins', type=str, action='append',
+        help='Add a plugins to the list of plugins, as a json blob of the '
+        'plugin config. Must contain a `type` key, with the full python class '
+        'path of the plugin')
 
     return parser
 
@@ -129,6 +135,7 @@ def config_from_args(args):
     config['redis'] = parse_redis(config.get('redis', {}), args)
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     parse_channels(args)
+    args['plugins'] = parse_plugins(config.get('plugins', []), args)
     return JunebugConfig(conjoin(config, args))
 
 
@@ -167,6 +174,13 @@ def parse_channels(args):
 
     if len(channels) > 0:
         args['channels'] = channels
+
+
+def parse_plugins(config, args):
+    for plugin in args.get('plugins', []):
+        plugin = json.loads(plugin)
+        config.append(plugin)
+    return config
 
 
 def omit_nones(d):
