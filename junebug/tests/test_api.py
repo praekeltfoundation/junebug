@@ -7,7 +7,7 @@ from vumi.message import TransportEvent, TransportUserMessage
 
 from junebug.channel import Channel
 from junebug.utils import api_from_message
-from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
 from junebug.utils import api_from_event, conjoin, omit
 
 
@@ -57,6 +57,42 @@ class TestJunebugApi(JunebugTestBase):
                     'type': 'Not Found',
                     }]
                 })
+
+    @inlineCallbacks
+    def test_startup_plugins_started(self):
+        '''When the API starts, all the configured plugins should start'''
+        yield self.stop_server()
+        config = yield self.create_channel_config(
+            plugins=[{
+                'type': 'junebug.tests.helpers.FakeJunebugPlugin'
+            }]
+        )
+        yield self.start_server(config=config)
+        [plugin] = self.api.plugins
+
+        self.assertEqual(type(plugin), FakeJunebugPlugin)
+        [(name, [plugin_conf, junebug_conf])] = plugin.calls
+        self.assertEqual(name, 'start_plugin')
+        self.assertEqual(plugin_conf, {
+            'type': 'junebug.tests.helpers.FakeJunebugPlugin'})
+        self.assertEqual(junebug_conf, config)
+
+    @inlineCallbacks
+    def test_shutdown_plugins_stopped(self):
+        '''When the API stops, all the configured plugins should stop'''
+        yield self.stop_server()
+        config = yield self.create_channel_config(
+            plugins=[{
+                'type': 'junebug.tests.helpers.FakeJunebugPlugin'
+            }]
+        )
+        yield self.start_server(config=config)
+        [plugin] = self.api.plugins
+        plugin.calls = []
+        yield self.stop_server()
+
+        [(name, [])] = plugin.calls
+        self.assertEqual(name, 'stop_plugin')
 
     @inlineCallbacks
     def test_startup_single_channel(self):

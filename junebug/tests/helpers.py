@@ -163,13 +163,14 @@ class JunebugTestBase(TestCase):
         returnValue(self.redis)
 
     @inlineCallbacks
-    def start_server(self):
+    def start_server(self, config=None):
         '''Starts a junebug server. Stores the service to "self.service", and
         the url at "self.url"'''
         # TODO: This setup is very manual, because we don't call
         # service.startService. This must be fixed to close mirror the real
         # program with our tests.
-        config = yield self.create_channel_config()
+        if config is None:
+            config = yield self.create_channel_config()
         self.service = JunebugService(config)
         self.api = JunebugApi(
             self.service, config)
