@@ -1,0 +1,4 @@
+server {
+  server_name %(server_name)s;
+  include %(includes)s;
+}
