@@ -13,6 +13,13 @@ class JunebugPlugin(object):
         '''
         pass
 
+    def stop_plugin(self):
+        '''
+        Can be overridden with any required shutdown code for the plugin.
+        Can return a deferred.
+        '''
+        pass
+
     def channel_started(self, channel):
         '''
         Called whenever a channel is started. Should be implemented by the

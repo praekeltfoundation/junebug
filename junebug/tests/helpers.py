@@ -248,9 +248,13 @@ class FakeJunebugPlugin(JunebugPlugin):
     def _add_call(self, func_name, *args):
         self.calls.append((func_name, args))
 
-    def start_plugin(self, config):
+    def start_plugin(self, config, junebug_config):
         self.calls = []
-        self._add_call('start_plugin', config)
+        self._add_call('start_plugin', config, junebug_config)
+        return succeed(None)
+
+    def stop_plugin(self):
+        self._add_call('stop_plugin')
         return succeed(None)
 
     def channel_started(self, channel):

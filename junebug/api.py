@@ -65,6 +65,8 @@ class JunebugApi(object):
     @inlineCallbacks
     def teardown(self):
         yield self.redis.close_manager()
+        for plugin in self.plugins:
+            yield plugin.stop_plugin()
 
     @app.handle_errors(JunebugError)
     def generic_junebug_error(self, request, failure):
