@@ -1,4 +1,4 @@
-from os import path, remove
+from os import path
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
 
@@ -6,7 +6,8 @@ from twisted.internet.defer import inlineCallbacks
 
 from junebug.config import JunebugConfig
 from junebug.tests.helpers import JunebugTestBase
-from junebug.plugins.nginx.plugin import NginxPlugin, read, write
+from junebug.plugins.nginx.plugin import (
+    NginxPlugin, read, write, ensure_removed)
 
 
 class TestNginxPlugin(JunebugTestBase):
@@ -21,7 +22,7 @@ class TestNginxPlugin(JunebugTestBase):
 
     def make_temp_file(self):
         _, filename = mkstemp()
-        self.addCleanup(lambda: remove(filename))
+        self.addCleanup(lambda: ensure_removed(filename))
         return filename
 
     def test_start_plugin_create_vhost_config(self):
@@ -58,6 +59,20 @@ class TestNginxPlugin(JunebugTestBase):
         }, JunebugConfig({}))
 
         self.assertEqual(read(vhost_filename), 'http//www.example.org')
+
+    def test_stop_plugin_remove_vhost_config(self):
+        plugin = NginxPlugin()
+        vhost_filename = self.make_temp_file()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': vhost_filename,
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        self.assertTrue(path.exists(vhost_filename))
+        plugin.stop_plugin()
+        self.assertFalse(path.exists(vhost_filename))
 
     @inlineCallbacks
     def test_channel_started(self):
