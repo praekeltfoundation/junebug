@@ -64,6 +64,11 @@ class NginxPlugin(JunebugPlugin):
 
             self.configured_channels.add(channel.id)
 
+    def channel_stopped(self, channel):
+        if channel.id in self.configured_channels:
+            ensure_removed(self.get_location_path(channel.id))
+            self.configured_channels.remove(channel.id)
+
     def get_vhost_config(self):
         return self.vhost_template % self.get_vhost_context()
 

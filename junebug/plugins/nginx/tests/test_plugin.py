@@ -193,3 +193,70 @@ class TestNginxPlugin(JunebugTestBase):
 
         self.assertFalse(
             path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+    @inlineCallbacks
+    def test_channel_stopped(self):
+        plugin = NginxPlugin()
+        locations_dirname = self.make_temp_dir()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': locations_dirname
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        channel = yield self.create_channel(
+            self.service, self.redis, id='chan4', properties=properties)
+
+        plugin.channel_started(channel)
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+        plugin.channel_stopped(channel)
+
+        self.assertFalse(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+    @inlineCallbacks
+    def test_channel_stopped_irrelevant_channels(self):
+        plugin = NginxPlugin()
+        locations_dirname = self.make_temp_dir()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': locations_dirname
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        chan4 = yield self.create_channel(
+            self.service, self.redis, id='chan4', properties=properties)
+
+        chan5 = yield self.create_channel(
+            self.service, self.redis, id='chan5', properties=properties)
+
+        write(path.join(locations_dirname, 'chan5.conf'), 'foo')
+        plugin.channel_started(chan4)
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan5.conf')))
+
+        plugin.channel_stopped(chan4)
+        plugin.channel_stopped(chan5)
+
+        self.assertFalse(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan5.conf')))
