@@ -12,7 +12,7 @@ from junebug.utils import channel_public_http_properties
 
 
 log = logging.getLogger(__name__)
-DIRNAME = path.dirname(__file__,)
+DIRNAME = path.dirname(__file__)
 
 
 class NginxPluginConfig(Config):
