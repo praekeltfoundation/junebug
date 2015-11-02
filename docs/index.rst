@@ -23,6 +23,7 @@ Contents:
    config-reference
    design
    http_api
+   plugins-reference
 
 
 Indices and tables
