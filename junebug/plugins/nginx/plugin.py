@@ -1,3 +1,5 @@
+import logging
+import subprocess
 from os import path, remove
 from distutils.dir_util import mkpath
 from urlparse import urljoin
@@ -9,6 +11,7 @@ from junebug.plugin import JunebugPlugin
 from junebug.utils import channel_public_http_properties
 
 
+log = logging.getLogger(__name__)
 DIRNAME = path.dirname(__file__,)
 
 
@@ -62,6 +65,8 @@ class NginxPlugin(JunebugPlugin):
                 self.get_location_path(channel.id),
                 self.get_location_config(properties))
 
+            reload_nginx()
+
             self.configured_channels.add(channel.id)
 
     def channel_stopped(self, channel):
@@ -92,6 +97,17 @@ class NginxPlugin(JunebugPlugin):
 
     def get_location_path(self, id):
         return path.join(self.config.locations_dir, "%s.conf" % (id,))
+
+
+def reload_nginx():
+    if in_path('nginx'):
+        subprocess.call(['nginx', '-s', 'reload'])
+    else:
+        log.error('Cannot reload nginx, nginx not found in path')
+
+
+def in_path(name):
+    return True if subprocess.call(['which', name]) == 0 else False
 
 
 def read(filename):

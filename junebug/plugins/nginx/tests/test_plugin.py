@@ -1,3 +1,4 @@
+import subprocess
 from os import path
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
@@ -7,13 +8,24 @@ from twisted.internet.defer import inlineCallbacks
 from junebug.config import JunebugConfig
 from junebug.tests.helpers import JunebugTestBase
 from junebug.plugins.nginx.plugin import (
-    NginxPlugin, read, write, ensure_removed)
+    NginxPlugin, read, write, ensure_removed, in_path)
 
 
 class TestNginxPlugin(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         yield self.start_server()
+
+    def patch_subprocess_call(self, fixtures):
+        calls = []
+
+        def call(call_args):
+            calls.append(call_args)
+            matches = [res for args, res in fixtures if args == call_args]
+            return matches[0] if matches else None
+
+        self.patch(subprocess, 'call', call)
+        return calls
 
     def make_temp_dir(self):
         dirname = mkdtemp()
@@ -193,6 +205,60 @@ class TestNginxPlugin(JunebugTestBase):
 
         self.assertFalse(
             path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+    @inlineCallbacks
+    def test_channel_started_exec_nginx_reload(self):
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+        ))
+
+        plugin = NginxPlugin()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        channel = yield self.create_channel(
+            self.service, self.redis, properties=properties)
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+        plugin.channel_started(channel)
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+
+    @inlineCallbacks
+    def test_channel_started_no_nginx_found(self):
+        self.patch_logger()
+
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 1),
+        ))
+
+        plugin = NginxPlugin()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        channel = yield self.create_channel(
+            self.service, self.redis, properties=properties)
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+        plugin.channel_started(channel)
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+
+        self.assert_was_logged('Cannot reload nginx, nginx not found in path')
 
     @inlineCallbacks
     def test_channel_stopped(self):
