@@ -106,7 +106,7 @@ class NginxPlugin(JunebugPlugin):
 
 def reload_nginx():
     if in_path('nginx'):
-        subprocess.call(['nginx', '-s', 'reload'])
+        subprocess.check_call(['nginx', '-s', 'reload'])
     else:
         log.error('Cannot reload nginx, nginx not found in path')
 
