@@ -3,6 +3,7 @@ import subprocess
 from os import path, remove
 from distutils.dir_util import mkpath
 from urlparse import urljoin
+from pkg_resources import resource_filename
 
 from confmodel import Config
 from confmodel.fields import ConfigText
@@ -12,7 +13,10 @@ from junebug.utils import channel_public_http_properties
 
 
 log = logging.getLogger(__name__)
-DIRNAME = path.dirname(__file__)
+
+
+def resource_path(filename):
+    return resource_filename('junebug.plugins.nginx', filename)
 
 
 class NginxPluginConfig(Config):
@@ -32,11 +36,11 @@ class NginxPluginConfig(Config):
 
     vhost_template = ConfigText(
         "Path to the template file to use for the vhost config",
-        default='%s/vhost.template' % (DIRNAME,), static=True)
+        default=resource_path('vhost.template'), static=True)
 
     location_template = ConfigText(
         "Path to the template file to use for each channel's location config",
-        default='%s/location.template' % (DIRNAME,), static=True)
+        default=resource_path('location.template'), static=True)
 
 
 class NginxPlugin(JunebugPlugin):
