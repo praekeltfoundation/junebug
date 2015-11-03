@@ -55,6 +55,11 @@ class NginxPlugin(JunebugPlugin):
     def stop_plugin(self):
         ensure_removed(self.config.vhost_file)
 
+        for channel_id in self.configured_channels:
+            ensure_removed(self.get_location_path(channel_id))
+
+        self.configured_channels = set()
+
     def channel_started(self, channel):
         properties = channel_public_http_properties(channel._properties)
 

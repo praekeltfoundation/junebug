@@ -8,7 +8,7 @@ from twisted.internet.defer import inlineCallbacks
 from junebug.config import JunebugConfig
 from junebug.tests.helpers import JunebugTestBase
 from junebug.plugins.nginx.plugin import (
-    NginxPlugin, read, write, ensure_removed, in_path)
+    NginxPlugin, read, write, ensure_removed)
 
 
 class TestNginxPlugin(JunebugTestBase):
@@ -85,6 +85,44 @@ class TestNginxPlugin(JunebugTestBase):
         self.assertTrue(path.exists(vhost_filename))
         plugin.stop_plugin()
         self.assertFalse(path.exists(vhost_filename))
+
+    @inlineCallbacks
+    def test_stop_plugin_remove_location_configs(self):
+        plugin = NginxPlugin()
+        locations_dirname = self.make_temp_dir()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': locations_dirname
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        chan4 = yield self.create_channel(
+            self.service, self.redis, id='chan4', properties=properties)
+
+        chan5 = yield self.create_channel(
+            self.service, self.redis, id='chan5', properties=properties)
+
+        plugin.channel_started(chan4)
+        plugin.channel_started(chan5)
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+        self.assertTrue(
+            path.exists(path.join(locations_dirname, 'chan5.conf')))
+
+        plugin.stop_plugin()
+
+        self.assertFalse(
+            path.exists(path.join(locations_dirname, 'chan4.conf')))
+
+        self.assertFalse(
+            path.exists(path.join(locations_dirname, 'chan5.conf')))
 
     @inlineCallbacks
     def test_channel_started(self):
