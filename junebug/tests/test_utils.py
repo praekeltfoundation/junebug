@@ -11,7 +11,8 @@ from klein import Klein
 from junebug.tests.utils import ToyServer
 from junebug.utils import (
     response, json_body, conjoin, omit,
-    message_from_api, api_from_message, api_from_event, api_from_status)
+    message_from_api, api_from_message, api_from_event, api_from_status,
+    channel_public_http_properties)
 
 from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
 
@@ -298,3 +299,99 @@ class TestUtils(TestCase):
             'message': 'Bar',
             'details': {'baz': 'quux'}
         })
+
+    def test_public_http_properties_explicit(self):
+        result = channel_public_http_properties({
+            'web_path': '/baz/quux',
+            'web_port': 2121,
+            'public_http': {
+                'web_path': '/foo/bar',
+                'web_port': 2323,
+            }
+        })
+
+        self.assertEqual(result, {
+            'enabled': True,
+            'web_path': '/foo/bar',
+            'web_port': 2323
+        })
+
+    def test_public_http_properties_explicit_enable(self):
+        result = channel_public_http_properties({
+            'public_http': {
+                'enabled': True,
+                'web_path': '/foo/bar',
+                'web_port': 2323,
+            }
+        })
+
+        self.assertTrue(result['enabled'])
+
+    def test_public_http_properties_explicit_disable(self):
+        result = channel_public_http_properties({
+            'public_http': {
+                'enabled': False,
+                'web_path': '/foo/bar',
+                'web_port': 2323
+            }
+        })
+
+        self.assertFalse(result['enabled'])
+
+    def test_public_http_properties_explicit_no_port(self):
+        result = channel_public_http_properties({
+            'public_http': {'web_path': '/foo/bar'}
+        })
+
+        self.assertEqual(result, None)
+
+    def test_public_http_properties_explicit_no_path(self):
+        result = channel_public_http_properties({
+            'public_http': {'web_port': 2323}
+        })
+
+        self.assertEqual(result, None)
+
+    def test_public_http_properties_explicit_implicit_path(self):
+        result = channel_public_http_properties({
+            'web_path': '/foo/bar',
+            'public_http': {'web_port': 2323}
+        })
+
+        self.assertEqual(result, {
+            'enabled': True,
+            'web_path': '/foo/bar',
+            'web_port': 2323
+        })
+
+    def test_public_http_properties_explicit_implicit_port(self):
+        result = channel_public_http_properties({
+            'web_port': 2323,
+            'public_http': {'web_path': '/foo/bar'}
+        })
+
+        self.assertEqual(result, {
+            'enabled': True,
+            'web_path': '/foo/bar',
+            'web_port': 2323
+        })
+
+    def test_public_http_properties_implicit(self):
+        result = channel_public_http_properties({
+            'web_port': 2323,
+            'web_path': '/foo/bar'
+        })
+
+        self.assertEqual(result, {
+            'enabled': True,
+            'web_path': '/foo/bar',
+            'web_port': 2323
+        })
+
+    def test_public_http_properties_implicit_no_port(self):
+        result = channel_public_http_properties({'web_path': '/foo/bar'})
+        self.assertEqual(result, None)
+
+    def test_public_http_properties_implicit_no_path(self):
+        result = channel_public_http_properties({'web_port': 2323})
+        self.assertEqual(result, None)

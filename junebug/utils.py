@@ -127,3 +127,16 @@ def _api_from_event_dr(channel_id, event):
             'delivered': 'delivery_succeeded',
         }.get(event['delivery_status']),
     }
+
+
+def channel_public_http_properties(properties):
+    results = conjoin({
+        'enabled': True,
+        'web_path': properties.get('web_path'),
+        'web_port': properties.get('web_port'),
+    }, properties.get('public_http', {}))
+
+    if results['web_path'] is None or results['web_port'] is None:
+        return None
+    else:
+        return results

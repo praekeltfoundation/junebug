@@ -15,6 +15,7 @@ from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
+from vumi.transports.telnet import TelnetServerTransport
 
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
@@ -128,11 +129,14 @@ class JunebugTestBase(TestCase):
 
     @inlineCallbacks
     def create_channel(
-            self, service, redis, transport_class,
+            self, service, redis, transport_class=None,
             properties=default_channel_properties, id=None, config=None,
             plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
+        if transport_class is None:
+            transport_class = TelnetServerTransport
+
         properties = deepcopy(properties)
         if config is None:
             config = yield self.create_channel_config()

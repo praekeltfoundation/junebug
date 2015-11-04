@@ -1,0 +1,3 @@
+location %(external_path)s {
+  proxy_pass %(internal_url)s;
+}
