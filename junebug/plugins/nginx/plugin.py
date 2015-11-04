@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def resource_path(filename):
-    return resource_filename('junebug.plugins.nginx', filename)
+    return path.join(path.dirname(__file__), filename)
 
 
 class NginxPluginConfig(Config):
