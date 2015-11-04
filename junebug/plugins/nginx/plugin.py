@@ -3,7 +3,6 @@ import subprocess
 from os import path, remove
 from distutils.dir_util import mkpath
 from urlparse import urljoin
-from pkg_resources import resource_filename
 
 from confmodel import Config
 from confmodel.fields import ConfigText
