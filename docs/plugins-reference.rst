@@ -41,8 +41,13 @@ Maintains configuration for an `nginx`_ virtual host for Junebug to expose http-
 
 .. _nginx: http://nginx.org/
 
-The plugin looks for ``web_path`` and ``web_port`` config fields in each added
-channel's config. ``web_port`` determines the internal tcp port for the server that nginx should proxy requests to. ``web_path`` determines the path to expose the http-channel on (e.g. ``'/foo/bar'``) for the vhost.
+The plugin looks for ``web_path`` and ``web_port`` config fields in each channel config given to :http:post:`/channels/`. ``web_port`` determines the internal tcp port for the server that nginx should proxy requests to. ``web_path`` determines the path to expose the http-channel on (e.g. ``'/foo/bar'``) for the vhost.
+
+The plugin will also look for a ``public_http`` object in each added channel's
+config. ``public_http.web_path`` and ``public_http.web_port`` override
+``web_path`` and ``web_port`` respectively. Additionally, one can disable the
+plugin for a particular channel by setting ``public_http.enabled`` to
+``false``.
 
 Config options:
 
