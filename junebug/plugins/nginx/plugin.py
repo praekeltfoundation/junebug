@@ -3,6 +3,7 @@ import subprocess
 from os import path, remove
 from distutils.dir_util import mkpath
 from urlparse import urljoin
+from pkg_resources import resource_filename
 
 from confmodel import Config
 from confmodel.fields import ConfigText
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def resource_path(filename):
-    return path.join(path.dirname(__file__), filename)
+    return resource_filename('junebug.plugins.nginx', filename)
 
 
 class NginxPluginConfig(Config):
