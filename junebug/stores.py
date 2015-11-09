@@ -1,3 +1,4 @@
+import time
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
@@ -45,6 +46,14 @@ class BaseStore(object):
 
     def load_property(self, id, key):
         return self._redis_op(self.redis.hget, id, key)
+
+    def increment_id(self, id):
+        '''Increments the value stored at `id` by 1.'''
+        return self._redis_op(self.redis.incr, id, 1)
+
+    def get_id(self, id):
+        '''Returns the value stored at `id`.'''
+        return self._redis_op(self.redis.get, id)
 
 
 class InboundMessageStore(BaseStore):
@@ -142,3 +151,46 @@ class StatusStore(BaseStore):
             (k, TransportStatus.from_json(v))
             for k, v in statuses.iteritems()
         ))
+
+
+class MessageRateStore(BaseStore):
+    '''Gets called everytime a message should be counted, and can return the
+    current messages per second.'''
+
+    def get_seconds(self):
+        return time.time()
+
+    def get_key(self, channel_id, label, bucket):
+        return super(MessageRateStore, self).get_key(
+            channel_id, label, str(bucket))
+
+    def _get_current_key(self, channel_id, label, bucket_size):
+        bucket = int(self.get_seconds() / bucket_size)
+        return self.get_key(channel_id, label, bucket)
+
+    def _get_last_key(self, channel_id, label, bucket_size):
+        bucket = int(self.get_seconds() / bucket_size) - 1
+        return self.get_key(channel_id, label, bucket)
+
+    def increment(self, channel_id, label, bucket_size):
+        '''Increments the correct counter. Should be called whenever a message
+        that should be counted is received.
+
+        Note: bucket_size should be kept constant for each channel_id and label
+        combination. Changing bucket sizes results in undefined behaviour.'''
+        key = self._get_current_key(channel_id, label, bucket_size)
+        self.ttl = bucket_size * 2
+        return self.increment_id(key)
+
+    @inlineCallbacks
+    def get_messages_per_second(self, channel_id, label, bucket_size):
+        '''Gets the current message rate in messages per second.
+
+        Note: bucket_size should be kept constant for each channel_id and label
+        combination. Changing bucket sizes results in undefined behaviour.'''
+        key = self._get_last_key(channel_id, label, bucket_size)
+        self.ttl = None
+        rate = yield self.get_id(key)
+        if rate is None:
+            returnValue(0)
+        returnValue(float(rate) / bucket_size)
