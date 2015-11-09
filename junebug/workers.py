@@ -13,7 +13,7 @@ from vumi.worker import BaseConfig, BaseWorker
 
 from junebug.utils import api_from_message, api_from_event, api_from_status
 from junebug.stores import (
-    InboundMessageStore, OutboundMessageStore, StatusStore)
+    InboundMessageStore, OutboundMessageStore, StatusStore, MessageRateStore)
 
 
 class MessageForwardingConfig(ApplicationConfig):
@@ -57,6 +57,8 @@ class MessageForwardingWorker(ApplicationWorker):
         self.outbounds = OutboundMessageStore(
             self.redis, self.config['outbound_ttl'])
 
+        self.message_rate = MessageRateStore(self.redis)
+
     @inlineCallbacks
     def teardown_application(self):
         yield self.redis.close_manager()
@@ -77,6 +79,9 @@ class MessageForwardingWorker(ApplicationWorker):
             logging.exception(
                 'Error sending message, received HTTP code %r with body %r. '
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
+
+        yield self.message_rate.increment(
+            self.channel_id, 'inbound', self.config['message_rate_bucket'])
 
     @inlineCallbacks
     def store_and_forward_event(self, event):
