@@ -5,6 +5,7 @@ import logging.handlers
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -105,6 +106,12 @@ class JunebugTestBase(TestCase):
         self.logging_handler = logging.handlers.MemoryHandler(100)
         logging.getLogger().addHandler(self.logging_handler)
         self.addCleanup(self._cleanup_logging_patch)
+
+    def patch_message_rate_clock(self):
+        '''Patches the message rate clock, and returns the clock'''
+        clock = Clock()
+        self.patch(MessageRateStore, 'get_seconds', lambda _: clock.seconds())
+        return clock
 
     def _cleanup_logging_patch(self):
         self.logging_handler.close()
