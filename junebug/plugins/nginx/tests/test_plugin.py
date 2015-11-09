@@ -125,6 +125,37 @@ class TestNginxPlugin(JunebugTestBase):
             path.exists(path.join(locations_dirname, 'chan5.conf')))
 
     @inlineCallbacks
+    def test_stop_plugin_nginx_reload(self):
+        plugin = NginxPlugin()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        chan4 = yield self.create_channel(
+            self.service, self.redis, id='chan4', properties=properties)
+
+        chan5 = yield self.create_channel(
+            self.service, self.redis, id='chan5', properties=properties)
+
+        plugin.channel_started(chan4)
+        plugin.channel_started(chan5)
+
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+        ))
+
+        plugin.stop_plugin()
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+
+    @inlineCallbacks
     def test_channel_started(self):
         plugin = NginxPlugin()
         locations_dirname = self.make_temp_dir()
@@ -364,3 +395,59 @@ class TestNginxPlugin(JunebugTestBase):
 
         self.assertTrue(
             path.exists(path.join(locations_dirname, 'chan5.conf')))
+
+    @inlineCallbacks
+    def test_channel_stopped_nginx_reload(self):
+        plugin = NginxPlugin()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        channel = yield self.create_channel(
+            self.service, self.redis, properties=properties)
+
+        plugin.channel_started(channel)
+
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+        ))
+
+        plugin.channel_stopped(channel)
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+
+    @inlineCallbacks
+    def test_channel_stopped_irrelevant_channel_nginx_reload(self):
+        plugin = NginxPlugin()
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        properties = self.create_channel_properties(
+            web_path='/foo/bar',
+            web_port=2323)
+
+        chan4 = yield self.create_channel(
+            self.service, self.redis, id='chan4', properties=properties)
+
+        chan5 = yield self.create_channel(
+            self.service, self.redis, id='chan5', properties=properties)
+
+        plugin.channel_started(chan4)
+
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+        ))
+
+        plugin.channel_stopped(chan4)
+        plugin.channel_stopped(chan5)
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
