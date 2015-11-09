@@ -6,7 +6,7 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigDict, ConfigInt, ConfigText
+from vumi.config import ConfigDict, ConfigInt, ConfigText, ConfigFloat
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
@@ -33,6 +33,10 @@ class MessageForwardingConfig(ApplicationConfig):
 
     outbound_ttl = ConfigInt(
         "Maximum time (in seconds) allowed for events to arrive for messages",
+        required=True, static=True)
+
+    message_rate_bucket = ConfigFloat(
+        "Size of the buckets to use (in seconds) when counting message rates",
         required=True, static=True)
 
 

@@ -1,6 +1,6 @@
 from confmodel import Config
 from confmodel.fields import (
-    ConfigBool, ConfigText, ConfigInt, ConfigDict, ConfigList)
+    ConfigBool, ConfigText, ConfigInt, ConfigDict, ConfigList, ConfigFloat)
 
 
 class JunebugConfig(Config):
@@ -57,3 +57,7 @@ class JunebugConfig(Config):
         "A list of dictionaries describing all of the enabled plugins. Each "
         "item should have a `type` key, with the full python class name of "
         "the plugin.", default=[])
+
+    inbound_message_rate_bucket = ConfigFloat(
+        "The size of the buckets (in seconds) used to count the inbound "
+        "message rates.", default=1.0)
