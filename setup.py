@@ -40,4 +40,5 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Internet :: WWW/HTTP',
     ],
+    zip_safe=False
 )
