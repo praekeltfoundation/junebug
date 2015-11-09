@@ -24,6 +24,7 @@ from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
+from junebug.stores import MessageRateStore
 
 
 class FakeAmqpClient(JunebugAMQClient):

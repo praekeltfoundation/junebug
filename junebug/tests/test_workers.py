@@ -292,6 +292,23 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(self.logging_api.requests, [])
         self.assert_was_logged("Discarding unrecognised event %r" % (event,))
 
+    @inlineCallbacks
+    def test_message_rates(self):
+        '''Outbound messages should increase the message send rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield worker.consume_user_message(msg)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'inbound', 1.0)), 1.0)
+
 
 class TestChannelStatusWorker(JunebugTestBase):
     @inlineCallbacks
