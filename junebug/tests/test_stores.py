@@ -111,6 +111,30 @@ class TestBaseStore(JunebugTestBase):
         yield store.get_id('testid3', ttl=3)
         self.assertEqual((yield self.redis.ttl('testid3')), 3)
 
+    @inlineCallbacks
+    def test_none_ttl(self):
+        '''If the ttl for an action is specified as None, no ttl should be
+        set.'''
+        store = yield self.create_store()
+
+        yield store.store_all('testid1', {'foo': 'bar'}, ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.load_all('testid1', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.store_property('testid2', 'foo', 'bar', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.load_property('testid2', 'foo', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.increment_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
+
+        yield store.get_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
+
 
 class TestInboundMessageStore(JunebugTestBase):
     @inlineCallbacks

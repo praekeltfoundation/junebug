@@ -14,6 +14,8 @@ class BaseStore(object):
     :type ttl: integer
     '''
 
+    USE_DEFAULT_TTL = object()
+
     def __init__(self, redis, ttl=None):
         self.redis = redis
         self.ttl = ttl
@@ -21,7 +23,7 @@ class BaseStore(object):
     @inlineCallbacks
     def _redis_op(self, func, id, *args, **kwargs):
         ttl = kwargs.pop('ttl')
-        if ttl is None:
+        if ttl is self.USE_DEFAULT_TTL:
             ttl = self.ttl
         val = yield func(id, *args, **kwargs)
         if ttl is not None:
@@ -32,30 +34,30 @@ class BaseStore(object):
         '''Returns a key given strings'''
         return ':'.join(args)
 
-    def store_all(self, id, properties, ttl=None):
+    def store_all(self, id, properties, ttl=USE_DEFAULT_TTL):
         '''Stores all of the keys and values given in the dict `properties` as
         a hash at the key `id`'''
         return self._redis_op(self.redis.hmset, id, properties, ttl=ttl)
 
-    def store_property(self, id, key, value, ttl=None):
+    def store_property(self, id, key, value, ttl=USE_DEFAULT_TTL):
         '''Stores a single key with a value as a hash at the key `id`'''
         return self._redis_op(self.redis.hset, id, key, value, ttl=ttl)
 
     @inlineCallbacks
-    def load_all(self, id, ttl=None):
+    def load_all(self, id, ttl=USE_DEFAULT_TTL):
         '''Retrieves all the keys and values stored as a hash at the key
         `id`'''
         returnValue((
             yield self._redis_op(self.redis.hgetall, id, ttl=ttl)) or {})
 
-    def load_property(self, id, key, ttl=None):
+    def load_property(self, id, key, ttl=USE_DEFAULT_TTL):
         return self._redis_op(self.redis.hget, id, key, ttl=ttl)
 
-    def increment_id(self, id, ttl=None):
+    def increment_id(self, id, ttl=USE_DEFAULT_TTL):
         '''Increments the value stored at `id` by 1.'''
         return self._redis_op(self.redis.incr, id, 1, ttl=ttl)
 
-    def get_id(self, id, ttl=None):
+    def get_id(self, id, ttl=USE_DEFAULT_TTL):
         '''Returns the value stored at `id`.'''
         return self._redis_op(self.redis.get, id, ttl=ttl)
 
