@@ -14,46 +14,52 @@ class BaseStore(object):
     :type ttl: integer
     '''
 
+    USE_DEFAULT_TTL = object()
+
     def __init__(self, redis, ttl=None):
         self.redis = redis
         self.ttl = ttl
 
     @inlineCallbacks
     def _redis_op(self, func, id, *args, **kwargs):
+        ttl = kwargs.pop('ttl')
+        if ttl is self.USE_DEFAULT_TTL:
+            ttl = self.ttl
         val = yield func(id, *args, **kwargs)
-        if self.ttl is not None:
-            yield self.redis.expire(id, self.ttl)
+        if ttl is not None:
+            yield self.redis.expire(id, ttl)
         returnValue(val)
 
     def get_key(self, *args):
         '''Returns a key given strings'''
         return ':'.join(args)
 
-    def store_all(self, id, properties):
+    def store_all(self, id, properties, ttl=USE_DEFAULT_TTL):
         '''Stores all of the keys and values given in the dict `properties` as
         a hash at the key `id`'''
-        return self._redis_op(self.redis.hmset, id, properties)
+        return self._redis_op(self.redis.hmset, id, properties, ttl=ttl)
 
-    def store_property(self, id, key, value):
+    def store_property(self, id, key, value, ttl=USE_DEFAULT_TTL):
         '''Stores a single key with a value as a hash at the key `id`'''
-        return self._redis_op(self.redis.hset, id, key, value)
+        return self._redis_op(self.redis.hset, id, key, value, ttl=ttl)
 
     @inlineCallbacks
-    def load_all(self, id):
+    def load_all(self, id, ttl=USE_DEFAULT_TTL):
         '''Retrieves all the keys and values stored as a hash at the key
         `id`'''
-        returnValue((yield self._redis_op(self.redis.hgetall, id)) or {})
+        returnValue((
+            yield self._redis_op(self.redis.hgetall, id, ttl=ttl)) or {})
 
-    def load_property(self, id, key):
-        return self._redis_op(self.redis.hget, id, key)
+    def load_property(self, id, key, ttl=USE_DEFAULT_TTL):
+        return self._redis_op(self.redis.hget, id, key, ttl=ttl)
 
-    def increment_id(self, id):
+    def increment_id(self, id, ttl=USE_DEFAULT_TTL):
         '''Increments the value stored at `id` by 1.'''
-        return self._redis_op(self.redis.incr, id, 1)
+        return self._redis_op(self.redis.incr, id, 1, ttl=ttl)
 
-    def get_id(self, id):
+    def get_id(self, id, ttl=USE_DEFAULT_TTL):
         '''Returns the value stored at `id`.'''
-        return self._redis_op(self.redis.get, id)
+        return self._redis_op(self.redis.get, id, ttl=ttl)
 
 
 class InboundMessageStore(BaseStore):
@@ -179,8 +185,7 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_current_key(channel_id, label, bucket_size)
-        self.ttl = bucket_size * 2
-        return self.increment_id(key)
+        return self.increment_id(key, ttl=bucket_size * 2)
 
     @inlineCallbacks
     def get_messages_per_second(self, channel_id, label, bucket_size):
@@ -189,8 +194,7 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_last_key(channel_id, label, bucket_size)
-        self.ttl = None
-        rate = yield self.get_id(key)
+        rate = yield self.get_id(key, ttl=None)
         if rate is None:
             returnValue(0)
         returnValue(float(rate) / bucket_size)

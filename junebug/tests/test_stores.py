@@ -62,6 +62,8 @@ class TestBaseStore(JunebugTestBase):
         props = yield store.load_all('testid')
         self.assertEqual(properties, props)
 
+        self.assertEqual((yield self.redis.ttl('testid')), 60)
+
     @inlineCallbacks
     def test_load_property(self):
         '''Loads a single property from redis'''
@@ -73,6 +75,8 @@ class TestBaseStore(JunebugTestBase):
 
         self.assertEqual(val, 'bar')
 
+        self.assertEqual((yield self.redis.ttl('testid')), 60)
+
     @inlineCallbacks
     def test_load_property_empty(self):
         '''Loads None if property doesn't exist in redis'''
@@ -81,6 +85,54 @@ class TestBaseStore(JunebugTestBase):
         val = yield store.load_property('testid', 'foo')
 
         self.assertEqual(val, None)
+
+    @inlineCallbacks
+    def test_override_ttl(self):
+        '''If a ttl for an action is specified, it should override the default
+        ttl'''
+        store = yield self.create_store(ttl=1)
+
+        yield store.store_all('testid1', {'foo': 'bar'}, ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid1')), 2)
+
+        yield store.load_all('testid1', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid1')), 3)
+
+        yield store.store_property('testid2', 'foo', 'bar', ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid2')), 2)
+
+        yield store.load_property('testid2', 'foo', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid2')), 3)
+
+        yield store.increment_id('testid3', ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid3')), 2)
+
+        yield store.get_id('testid3', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid3')), 3)
+
+    @inlineCallbacks
+    def test_none_ttl(self):
+        '''If the ttl for an action is specified as None, no ttl should be
+        set.'''
+        store = yield self.create_store()
+
+        yield store.store_all('testid1', {'foo': 'bar'}, ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.load_all('testid1', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.store_property('testid2', 'foo', 'bar', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.load_property('testid2', 'foo', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.increment_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
+
+        yield store.get_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
 
 
 class TestInboundMessageStore(JunebugTestBase):
