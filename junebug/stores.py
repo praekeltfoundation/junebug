@@ -183,8 +183,7 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_current_key(channel_id, label, bucket_size)
-        self.ttl = bucket_size * 2
-        return self.increment_id(key)
+        return self.increment_id(key, ttl=bucket_size * 2)
 
     @inlineCallbacks
     def get_messages_per_second(self, channel_id, label, bucket_size):
@@ -193,7 +192,6 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_last_key(channel_id, label, bucket_size)
-        self.ttl = None
         rate = yield self.get_id(key)
         if rate is None:
             returnValue(0)
