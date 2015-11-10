@@ -384,6 +384,24 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, None)
 
     @inlineCallbacks
+    def test_send_message_message_rate(self):
+        '''Sending a message should increment the message rate counter'''
+        clock = yield self.patch_message_rate_clock()
+        channel = Channel(
+            (yield self.get_redis()), (yield self.create_channel_config()),
+            self.create_channel_properties(), id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None})
+        clock.advance(channel.config.metric_window)
+
+        rate = yield self.api.message_rate.get_messages_per_second(
+            'test-channel', 'outbound', channel.config.metric_window)
+        self.assertEqual(rate, 1.0 / channel.config.metric_window)
+
+    @inlineCallbacks
     def test_send_message_event_url(self):
         '''Sending a message with a specified event url should store the event
         url for sending events in the future'''
