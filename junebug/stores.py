@@ -194,7 +194,7 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_last_key(channel_id, label, bucket_size)
-        rate = yield self.get_id(key)
+        rate = yield self.get_id(key, ttl=None)
         if rate is None:
             returnValue(0)
         returnValue(float(rate) / bucket_size)
