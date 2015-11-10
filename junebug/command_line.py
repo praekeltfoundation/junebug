@@ -82,6 +82,10 @@ def create_parser():
         help='Add a plugins to the list of plugins, as a json blob of the '
         'plugin config. Must contain a `type` key, with the full python class '
         'path of the plugin')
+    parser.add_argument(
+        '--metric-window', '-mw', type=float,
+        dest='metric_window', help='The size of each bucket '
+        '(in seconds) to use for metrics. Defaults to 10 seconds.')
 
     return parser
 

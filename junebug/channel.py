@@ -259,6 +259,7 @@ class Channel(object):
             'redis_manager': self.config.redis,
             'inbound_ttl': self.config.inbound_message_ttl,
             'outbound_ttl': self.config.outbound_message_ttl,
+            'metric_window': self.config.metric_window,
         }
 
     @property

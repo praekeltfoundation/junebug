@@ -6,14 +6,14 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigDict, ConfigInt, ConfigText
+from vumi.config import ConfigDict, ConfigInt, ConfigText, ConfigFloat
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
 
 from junebug.utils import api_from_message, api_from_event, api_from_status
 from junebug.stores import (
-    InboundMessageStore, OutboundMessageStore, StatusStore)
+    InboundMessageStore, OutboundMessageStore, StatusStore, MessageRateStore)
 
 
 class MessageForwardingConfig(ApplicationConfig):
@@ -35,6 +35,10 @@ class MessageForwardingConfig(ApplicationConfig):
         "Maximum time (in seconds) allowed for events to arrive for messages",
         required=True, static=True)
 
+    metric_window = ConfigFloat(
+        "Size of the buckets to use (in seconds) for metrics",
+        required=True, static=True)
+
 
 class MessageForwardingWorker(ApplicationWorker):
     '''This application worker consumes vumi messages placed on a configured
@@ -52,6 +56,8 @@ class MessageForwardingWorker(ApplicationWorker):
 
         self.outbounds = OutboundMessageStore(
             self.redis, self.config['outbound_ttl'])
+
+        self.message_rate = MessageRateStore(self.redis)
 
     @inlineCallbacks
     def teardown_application(self):
@@ -73,6 +79,9 @@ class MessageForwardingWorker(ApplicationWorker):
             logging.exception(
                 'Error sending message, received HTTP code %r with body %r. '
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
+
+        yield self.message_rate.increment(
+            self.channel_id, 'inbound', self.config['metric_window'])
 
     @inlineCallbacks
     def store_and_forward_event(self, event):

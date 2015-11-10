@@ -1,5 +1,4 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.task import Clock
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
 from junebug.stores import (
@@ -373,24 +372,15 @@ class TestMessageRateStore(JunebugTestBase):
     def create_store(self, **kw):
         '''
         Creates and returns a new message rate store.
-
-        returns (clock, store), where `clock` is the clock that the message
-        store is using for timing, and `store` is the message store.
         '''
         redis = yield self.get_redis()
-        store = MessageRateStore(redis, **kw)
-        clock = Clock()
-
-        def get_seconds():
-            return clock.seconds()
-
-        store.get_seconds = get_seconds
-        returnValue((clock, store))
+        returnValue(MessageRateStore(redis, **kw))
 
     @inlineCallbacks
     def test_get_rate_no_messages(self):
         '''If no messages have been sent, the message rate should be 0.'''
-        clock, store = yield self.create_store()
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
         clock.advance(10)
         rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
         self.assertEqual(rate, 0)
@@ -399,7 +389,8 @@ class TestMessageRateStore(JunebugTestBase):
     def test_get_rate_single_message(self):
         '''If there is a single message in the last time bucket, the message
         rate should be 1/bucket_length'''
-        clock, store = yield self.create_store()
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
         yield store.increment('channelid', 'inbound', 10)
         clock.advance(10)
         rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
@@ -409,7 +400,8 @@ class TestMessageRateStore(JunebugTestBase):
     def test_get_rate_multiple_messages(self):
         '''If there are n messages in the last time bucket, the message
         rate should be n/bucket_length'''
-        clock, store = yield self.create_store()
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
         N = 15
 
         for i in range(N):
@@ -424,7 +416,8 @@ class TestMessageRateStore(JunebugTestBase):
         '''If there are n messages in the last time bucket, the message
         rate should be n/bucket_length, independant of the amount of messages
         in the current bucket.'''
-        clock, store = yield self.create_store()
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
         N = 15
         M = 6
 
@@ -442,7 +435,8 @@ class TestMessageRateStore(JunebugTestBase):
     @inlineCallbacks
     def test_old_redis_keys_are_expired(self):
         '''Redis keys that are no longer required should be expired.'''
-        clock, store = yield self.create_store()
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
 
         self.redis._client.clock = clock
 
