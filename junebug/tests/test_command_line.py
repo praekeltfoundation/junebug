@@ -255,7 +255,7 @@ class TestCommandLine(JunebugTestBase):
     def test_parse_arguments_metric_window(self):
         '''The metric window can be specified by "--metric-window" or "-mw"'''
         config = parse_arguments([])
-        self.assertEqual(config.metric_window, 1.0)
+        self.assertEqual(config.metric_window, 10.0)
 
         config = parse_arguments(['--metric-window', '2.0'])
         self.assertEqual(config.metric_window, 2.0)

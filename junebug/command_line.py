@@ -85,7 +85,7 @@ def create_parser():
     parser.add_argument(
         '--metric-window', '-mw', type=float,
         dest='metric_window', help='The size of each bucket '
-        '(in seconds) to use for metrics. Defaults to 1 second.')
+        '(in seconds) to use for metrics. Defaults to 10 seconds.')
 
     return parser
 

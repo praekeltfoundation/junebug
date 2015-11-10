@@ -59,4 +59,4 @@ class JunebugConfig(Config):
         "the plugin.", default=[])
 
     metric_window = ConfigFloat(
-        "The size of the buckets (in seconds) used for metrics.", default=1.0)
+        "The size of the buckets (in seconds) used for metrics.", default=10.0)
