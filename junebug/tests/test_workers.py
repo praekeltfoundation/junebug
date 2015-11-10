@@ -44,7 +44,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'mo_message_url': self.url.decode('utf-8'),
             'inbound_ttl': 60,
             'outbound_ttl': 60 * 60 * 24 * 2,
-            'message_rate_bucket': 1.0,
+            'metric_window': 1.0,
         }), config)
 
         worker = yield app_helper.get_application(config)

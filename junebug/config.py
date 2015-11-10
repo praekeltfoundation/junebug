@@ -58,6 +58,5 @@ class JunebugConfig(Config):
         "item should have a `type` key, with the full python class name of "
         "the plugin.", default=[])
 
-    inbound_message_rate_bucket = ConfigFloat(
-        "The size of the buckets (in seconds) used to count the inbound "
-        "message rates.", default=1.0)
+    metric_window = ConfigFloat(
+        "The size of the buckets (in seconds) used for metrics.", default=1.0)

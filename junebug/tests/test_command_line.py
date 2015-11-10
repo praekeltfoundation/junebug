@@ -252,6 +252,17 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(sorted(config.plugins), [
             {'type': 'bar.foo'}, {'type': 'foo.bar'}])
 
+    def test_parse_arguments_metric_window(self):
+        '''The metric window can be specified by "--metric-window" or "-mw"'''
+        config = parse_arguments([])
+        self.assertEqual(config.metric_window, 1.0)
+
+        config = parse_arguments(['--metric-window', '2.0'])
+        self.assertEqual(config.metric_window, 2.0)
+
+        config = parse_arguments(['-mw', '2.0'])
+        self.assertEqual(config.metric_window, 2.0)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -277,7 +288,7 @@ class TestCommandLine(JunebugTestBase):
                 'outbound_message_ttl': 90,
                 'channels': {'foo': 'bar'},
                 'plugins': [{'type': 'foo.bar'}],
-                'inbound_message_rate_bucket': 2.0,
+                'metric_window': 2.0,
             }
         })
 
@@ -298,7 +309,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
-        self.assertEqual(config.inbound_message_rate_bucket, 2.0)
+        self.assertEqual(config.metric_window, 2.0)
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -317,7 +328,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
-        self.assertEqual(config.inbound_message_rate_bucket, 2.0)
+        self.assertEqual(config.metric_window, 2.0)
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -341,7 +352,7 @@ class TestCommandLine(JunebugTestBase):
                     'password': 'nimda',
                 },
                 'plugins': [{'type': 'foo.bar'}],
-                'inbound_message_rate_bucket': 2.0,
+                'metric_window': 2.0,
             }
         })
 
@@ -360,7 +371,7 @@ class TestCommandLine(JunebugTestBase):
             '-amqpu', 'koenji',
             '-amqppass', 'kodama',
             '-pl', json.dumps({'type': 'bar.foo'}),
-            '-ibucket', '3.0',
+            '-mw', '3.0',
         ])
 
         self.assertEqual(config.interface, 'zuulcathost')
@@ -379,7 +390,7 @@ class TestCommandLine(JunebugTestBase):
             {'type': 'bar.foo'},
             {'type': 'foo.bar'}
         ])
-        self.assertEqual(config.inbound_message_rate_bucket, 3.0)
+        self.assertEqual(config.metric_window, 3.0)
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename

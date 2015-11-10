@@ -83,9 +83,9 @@ def create_parser():
         'plugin config. Must contain a `type` key, with the full python class '
         'path of the plugin')
     parser.add_argument(
-        '--inbound-message-rate-bucket', '-ibucket', type=float,
-        dest='inbound_message_rate_bucket', help='The size of each bucket '
-        '(in seconds) to use for inbound message rates. Defaults to 1 second.')
+        '--metric-window', '-mw', type=float,
+        dest='metric_window', help='The size of each bucket '
+        '(in seconds) to use for metrics. Defaults to 1 second.')
 
     return parser
 

@@ -108,7 +108,7 @@ class TestChannel(JunebugTestBase):
             'redis_manager': channel.config.redis,
             'inbound_ttl': channel.config.inbound_message_ttl,
             'outbound_ttl': channel.config.outbound_message_ttl,
-            'message_rate_bucket': 1.0,
+            'metric_window': 1.0,
         })
 
     @inlineCallbacks

@@ -35,8 +35,8 @@ class MessageForwardingConfig(ApplicationConfig):
         "Maximum time (in seconds) allowed for events to arrive for messages",
         required=True, static=True)
 
-    message_rate_bucket = ConfigFloat(
-        "Size of the buckets to use (in seconds) when counting message rates",
+    metric_window = ConfigFloat(
+        "Size of the buckets to use (in seconds) for metrics",
         required=True, static=True)
 
 
@@ -81,7 +81,7 @@ class MessageForwardingWorker(ApplicationWorker):
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
 
         yield self.message_rate.increment(
-            self.channel_id, 'inbound', self.config['message_rate_bucket'])
+            self.channel_id, 'inbound', self.config['metric_window'])
 
     @inlineCallbacks
     def store_and_forward_event(self, event):
