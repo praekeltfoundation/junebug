@@ -76,6 +76,12 @@ Channels
    :param dict components:
       An object showing the most recent status event for each component.
 
+   :param float inbound_message_rate:
+      The inbound messages per second for the channel.
+
+   :param float outbound_message_rate:
+      The outbound messages per second for the channel.
+
    **Example response**:
 
    .. sourcecode:: json
@@ -117,7 +123,9 @@ Channels
                    reasons: [],
                    details: {}
                 }
-            }
+            },
+            inbound_message_rate: 1.75,
+            outbound_message_rate: 7.11
           }
         }
       }
