@@ -80,8 +80,7 @@ class MessageForwardingWorker(ApplicationWorker):
                 'Error sending message, received HTTP code %r with body %r. '
                 'Message: %r' % (resp.code, (yield resp.content()), msg))
 
-        yield self.message_rate.increment(
-            self.channel_id, 'inbound', self.config['metric_window'])
+        yield self._increment_metric('inbound')
 
     @inlineCallbacks
     def store_and_forward_event(self, event):
@@ -89,6 +88,24 @@ class MessageForwardingWorker(ApplicationWorker):
         URL.'''
         yield self._store_event(event)
         yield self._forward_event(event)
+        yield self._count_event(event)
+
+    def _increment_metric(self, label):
+        return self.message_rate.increment(
+            self.channel_id, label, self.config['metric_window'])
+
+    def _count_event(self, event):
+        if event['event_type'] == 'ack':
+            return self._increment_metric('submitted')
+        if event['event_type'] == 'nack':
+            return self._increment_metric('rejected')
+        if event['event_type'] == 'delivery_report':
+            if event['delivery_status'] == 'pending':
+                return self._increment_metric('delivery_pending')
+            if event['delivery_status'] == 'failed':
+                return self._increment_metric('delivery_failed')
+            if event['delivery_status'] == 'delivered':
+                return self._increment_metric('delivery_succeeded')
 
     def _store_event(self, event):
         '''Stores the event in the message store'''
