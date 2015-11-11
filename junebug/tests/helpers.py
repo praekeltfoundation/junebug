@@ -257,6 +257,22 @@ class JunebugTestBase(TestCase):
             dict((k, v) for k, v in body.iteritems() if k in fields),
             fields)
 
+    def generate_status(
+            self, level=None, components={}, inbound_message_rate=0,
+            outbound_message_rate=0):
+        '''Generates a status that the http API would respond with, given the
+        same parameters'''
+        return {
+            'status': level,
+            'components': components,
+            'inbound_message_rate': inbound_message_rate,
+            'outbound_message_rate': outbound_message_rate,
+        }
+
+    def assert_status(self, status, **kwargs):
+        '''Assert that the current channel status is correct'''
+        self.assertEqual(status, self.generate_status(**kwargs))
+
 
 class FakeJunebugPlugin(JunebugPlugin):
     def _add_call(self, func_name, *args):

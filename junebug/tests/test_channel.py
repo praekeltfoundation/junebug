@@ -204,7 +204,7 @@ class TestChannel(JunebugTestBase):
 
         self.assertEqual(update, conjoin(properties, {
             'foo': 'bar',
-            'status': {},
+            'status': self.generate_status(),
             'id': channel.id,
             'config': conjoin(properties['config'], {
                 'transport_name': channel.id
@@ -300,7 +300,7 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, TelnetServerTransport, id='channel-id')
 
         self.assertEqual((yield channel.status()), conjoin(properties, {
-            'status': {},
+            'status': self.generate_status(),
             'id': 'channel-id',
             'config': conjoin(properties['config'], {
                 'transport_name': channel.id
@@ -319,12 +319,9 @@ class TestChannel(JunebugTestBase):
             message='Bar')
         yield channel.sstore.store_status('channel-id', status)
 
-        self.assertEqual((yield channel.status())['status'], {
-            'status': 'ok',
-            'components': {
-                'foo': api_from_status('channel-id', status),
-            }
-        })
+        self.assert_status((yield channel.status())['status'], components={
+            'foo': api_from_status('channel-id', status),
+            }, level='ok')
 
     @inlineCallbacks
     def test_channel_multiple_statuses_ok(self):
@@ -342,10 +339,9 @@ class TestChannel(JunebugTestBase):
             yield channel.sstore.store_status('channel-id', status)
             components[str(i)] = api_from_status('channel-id', status)
 
-        self.assertEqual((yield channel.status())['status'], {
-            'status': 'ok',
-            'components': components
-        })
+        self.assert_status(
+            (yield channel.status())['status'], level='ok',
+            components=components)
 
     @inlineCallbacks
     def test_channel_multiple_statuses_degraded(self):
@@ -371,10 +367,9 @@ class TestChannel(JunebugTestBase):
         yield channel.sstore.store_status('channel-id', status)
         components['5'] = api_from_status('channel-id', status)
 
-        self.assertEqual((yield channel.status())['status'], {
-            'status': 'degraded',
-            'components': components
-        })
+        self.assert_status(
+            (yield channel.status())['status'], level='degraded',
+            components=components)
 
     @inlineCallbacks
     def test_channel_multiple_statuses_down(self):
@@ -408,10 +403,9 @@ class TestChannel(JunebugTestBase):
         yield channel.sstore.store_status('channel-id', status)
         components['6'] = api_from_status('channel-id', status)
 
-        self.assertEqual((yield channel.status())['status'], {
-            'status': 'down',
-            'components': components
-        })
+        self.assert_status(
+            (yield channel.status())['status'], level='down',
+            components=components)
 
     @inlineCallbacks
     def test_get_all(self):
