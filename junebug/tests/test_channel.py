@@ -614,3 +614,88 @@ class TestChannel(JunebugTestBase):
         self.assert_status(
             (yield channel.status())['status'],
             outbound_message_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_submitted_event_rate(self):
+        '''When submitted events are being received, it should affect the
+        submitted event rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'submitted', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            submitted_event_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_rejected_event_rate(self):
+        '''When rejected events are being received, it should affect the
+        rejected event rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'rejected', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            rejected_event_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_delivery_succeeded_rate(self):
+        '''When delivery_succeeded events are being received, it should affect
+        the delivery succeeded event rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'delivery_succeeded', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            delivery_succeeded_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_delivery_failed_rate(self):
+        '''When delivery_failed events are being received, it should affect
+        the delivery failed event rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'delivery_failed', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            delivery_failed_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_delivery_pending_rate(self):
+        '''When delivery_pending events are being received, it should affect
+        the delivery pending event rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'delivery_pending', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            delivery_pending_rate=1.0/channel.config.metric_window)

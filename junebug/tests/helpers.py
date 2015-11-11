@@ -259,7 +259,9 @@ class JunebugTestBase(TestCase):
 
     def generate_status(
             self, level=None, components={}, inbound_message_rate=0,
-            outbound_message_rate=0):
+            outbound_message_rate=0, submitted_event_rate=0,
+            rejected_event_rate=0, delivery_succeeded_rate=0,
+            delivery_failed_rate=0, delivery_pending_rate=0):
         '''Generates a status that the http API would respond with, given the
         same parameters'''
         return {
@@ -267,6 +269,11 @@ class JunebugTestBase(TestCase):
             'components': components,
             'inbound_message_rate': inbound_message_rate,
             'outbound_message_rate': outbound_message_rate,
+            'submitted_event_rate': submitted_event_rate,
+            'rejected_event_rate': rejected_event_rate,
+            'delivery_succeeded_rate': delivery_succeeded_rate,
+            'delivery_failed_rate': delivery_failed_rate,
+            'delivery_pending_rate': delivery_pending_rate,
         }
 
     def assert_status(self, status, **kwargs):

@@ -193,6 +193,16 @@ class Channel(object):
                 yield self._get_message_rate('inbound')),
             'outbound_message_rate': (
                 yield self._get_message_rate('outbound')),
+            'submitted_event_rate': (
+                yield self._get_message_rate('submitted')),
+            'rejected_event_rate': (
+                yield self._get_message_rate('rejected')),
+            'delivery_succeeded_rate': (
+                yield self._get_message_rate('delivery_succeeded')),
+            'delivery_failed_rate': (
+                yield self._get_message_rate('delivery_failed')),
+            'delivery_pending_rate': (
+                yield self._get_message_rate('delivery_pending')),
         })
 
     @classmethod
