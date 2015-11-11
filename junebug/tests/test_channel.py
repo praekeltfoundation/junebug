@@ -580,3 +580,37 @@ class TestChannel(JunebugTestBase):
             'channel-id', msg['message_id'])
 
         self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_channel_status_inbound_message_rates(self):
+        '''When inbound messages are being receive, it should affect the
+        inbound message rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'inbound', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            inbound_message_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_channel_status_outbound_message_rates(self):
+        '''When outbound messages are being sent, it should affect the
+        outbound message rate reported by the status'''
+        clock = self.patch_message_rate_clock()
+        channel = yield self.create_channel(
+            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+
+        yield self.api.message_rate.increment(
+            channel.id, 'outbound', channel.config.metric_window)
+
+        clock.advance(channel.config.metric_window)
+
+        self.assert_status(
+            (yield channel.status())['status'],
+            outbound_message_rate=1.0/channel.config.metric_window)

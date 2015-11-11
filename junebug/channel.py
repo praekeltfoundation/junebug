@@ -8,7 +8,7 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
-from junebug.stores import StatusStore
+from junebug.stores import StatusStore, MessageRateStore
 from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
 
@@ -85,6 +85,8 @@ class Channel(object):
         self.sstore = StatusStore(self.redis)
         self.plugins = plugins
 
+        self.message_rates = MessageRateStore(self.redis)
+
     @property
     def application_id(self):
         return self.APPLICATION_ID % (self.id,)
@@ -159,6 +161,10 @@ class Channel(object):
         status['status'] = yield self._get_status()
         returnValue(status)
 
+    def _get_message_rate(self, label):
+        return self.message_rates.get_messages_per_second(
+            self.id, label, self.config.metric_window)
+
     @inlineCallbacks
     def _get_status(self):
         components = yield self.sstore.get_statuses(self.id)
@@ -178,11 +184,15 @@ class Channel(object):
                 key=status_values.get)
         except ValueError:
             # No statuses
-            returnValue({})
+            status = None
 
         returnValue({
             'components': components,
-            'status': status
+            'status': status,
+            'inbound_message_rate': (
+                yield self._get_message_rate('inbound')),
+            'outbound_message_rate': (
+                yield self._get_message_rate('outbound')),
         })
 
     @classmethod
