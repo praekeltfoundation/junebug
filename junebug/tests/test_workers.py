@@ -311,7 +311,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
     @inlineCallbacks
     def test_submitted_event_rates(self):
-        '''Ackknowledge events should increase the submitted event rates.'''
+        '''Acknowledge events should increase the submitted event rates.'''
         clock = self.patch_message_rate_clock()
 
         worker = yield self.get_worker({
