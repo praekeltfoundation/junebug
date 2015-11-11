@@ -82,6 +82,21 @@ Channels
    :param float outbound_message_rate:
       The outbound messages per second for the channel.
 
+   :param float submitted_event_rate:
+      The submitted events per second for the channel.
+
+   :param float rejected_event_rate:
+      The rejected events per second for the channel.
+
+   :param float delivery_succeeded_rate:
+      The delivery succeeded events per second for the channel.
+
+   :param float delivery_failed_rate:
+      The delivery failed events per second for the channel.
+
+   :param float delivery_pending_rate:
+      The delivery pending events per second for the channel.
+
    **Example response**:
 
    .. sourcecode:: json
@@ -125,7 +140,12 @@ Channels
                 }
             },
             inbound_message_rate: 1.75,
-            outbound_message_rate: 7.11
+            outbound_message_rate: 7.11,
+            submitted_event_rate: 6.2,
+            rejected_event_rate: 2.13,
+            delivery_succeeded_rate: 5.44,
+            delivery_failed_rate: 1.27,
+            delivery_pending_rate: 4.32
           }
         }
       }
