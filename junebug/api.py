@@ -11,7 +11,8 @@ from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
-from junebug.stores import InboundMessageStore, OutboundMessageStore
+from junebug.stores import (
+    InboundMessageStore, MessageRateStore, OutboundMessageStore)
 
 logging = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ class JunebugApi(object):
 
         self.outbounds = OutboundMessageStore(
             self.redis, self.config.outbound_message_ttl)
+
+        self.message_rate = MessageRateStore(self.redis)
 
         self.plugins = []
         for plugin_config in self.config.plugins:
@@ -237,6 +240,9 @@ class JunebugApi(object):
         else:
             msg = yield channel.send_reply_message(
                 self.message_sender, self.outbounds, self.inbounds, body)
+
+        yield self.message_rate.increment(
+            channel_id, 'outbound', self.config.metric_window)
 
         returnValue(response(request, 'message sent', msg))
 
