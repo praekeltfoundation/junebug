@@ -154,7 +154,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel created',
-            conjoin(properties, {'status': {}}),
+            conjoin(properties, {'status': self.generate_status()}),
             ignore=['id'])
 
     @inlineCallbacks
@@ -235,7 +235,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel found', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
             }))
 
@@ -265,7 +265,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel updated', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
                 'metadata': {'foo': 'bar'},
             }))
@@ -285,7 +285,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel updated', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
             }))
 
