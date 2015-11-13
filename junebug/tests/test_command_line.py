@@ -263,6 +263,40 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-mw', '2.0'])
         self.assertEqual(config.metric_window, 2.0)
 
+    def test_parse_arguments_logging_path(self):
+        '''The logging path can be specified by "--logging-path" or "-lp"'''
+        config = parse_arguments([])
+        self.assertEqual(config.logging_path, 'logs/')
+
+        config = parse_arguments(['--logging-path', 'other-logs/'])
+        self.assertEqual(config.logging_path, 'other-logs/')
+
+        config = parse_arguments(['-lp', 'other-logs/'])
+        self.assertEqual(config.logging_path, 'other-logs/')
+
+    def test_parse_arguments_log_rotate_size(self):
+        '''The log rotate size can be specified by "--log-rotate-size" or
+        "-lrs"'''
+        config = parse_arguments([])
+        self.assertEqual(config.log_rotate_size, 1000000)
+
+        config = parse_arguments(['--log-rotate-size', '7'])
+        self.assertEqual(config.log_rotate_size, 7)
+
+        config = parse_arguments(['-lrs', '7'])
+        self.assertEqual(config.log_rotate_size, 7)
+
+    def test_parse_arguments_max_log_files(self):
+        '''The max log files can be specified by "--max-log-files" or "-mlf"'''
+        config = parse_arguments([])
+        self.assertEqual(config.max_log_files, None)
+
+        config = parse_arguments(['--max-log-files', '2'])
+        self.assertEqual(config.max_log_files, 2)
+
+        config = parse_arguments(['-mlf', '2'])
+        self.assertEqual(config.max_log_files, 2)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -289,6 +323,9 @@ class TestCommandLine(JunebugTestBase):
                 'channels': {'foo': 'bar'},
                 'plugins': [{'type': 'foo.bar'}],
                 'metric_window': 2.0,
+                'logging_path': 'other-logs/',
+                'log_rotate_size': 2,
+                'max_log_files': 3,
             }
         })
 
@@ -310,6 +347,9 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.channels, {'foo': 'bar'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
+        self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.log_rotate_size, 2)
+        self.assertEqual(config.max_log_files, 3)
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -329,6 +369,9 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.channels, {'foo': 'bar'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
+        self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.log_rotate_size, 2)
+        self.assertEqual(config.max_log_files, 3)
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -353,6 +396,9 @@ class TestCommandLine(JunebugTestBase):
                 },
                 'plugins': [{'type': 'foo.bar'}],
                 'metric_window': 2.0,
+                'logging_path': 'other-logs/',
+                'log_rotate_size': 2,
+                'max_log_files': 3,
             }
         })
 
@@ -372,6 +418,9 @@ class TestCommandLine(JunebugTestBase):
             '-amqppass', 'kodama',
             '-pl', json.dumps({'type': 'bar.foo'}),
             '-mw', '3.0',
+            '-lp', 'my-logs/',
+            '-lrs', '100',
+            '-mlf', '10',
         ])
 
         self.assertEqual(config.interface, 'zuulcathost')
@@ -391,6 +440,9 @@ class TestCommandLine(JunebugTestBase):
             {'type': 'foo.bar'}
         ])
         self.assertEqual(config.metric_window, 3.0)
+        self.assertEqual(config.logging_path, 'my-logs/')
+        self.assertEqual(config.log_rotate_size, 100)
+        self.assertEqual(config.max_log_files, 10)
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename

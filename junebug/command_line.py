@@ -86,6 +86,18 @@ def create_parser():
         '--metric-window', '-mw', type=float,
         dest='metric_window', help='The size of each bucket '
         '(in seconds) to use for metrics. Defaults to 10 seconds.')
+    parser.add_argument(
+        '--logging-path', '-lp', type=str,
+        dest='logging_path', help='The path to place log files for each '
+        'channel. Defaults to `logs/`')
+    parser.add_argument(
+        '--log-rotate-size', '-lrs', type=str,
+        dest='log_rotate_size', help='The maximum size (in bytes) for each '
+        'log file before it gets rotated. Defaults to 1000000.')
+    parser.add_argument(
+        '--max-log-files', '-mlf', type=str,
+        dest='max_log_files', help='The maximum number of log files to '
+        'keep before deleting old files. Defaults to unlimited log files.')
 
     return parser
 

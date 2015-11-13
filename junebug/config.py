@@ -60,3 +60,14 @@ class JunebugConfig(Config):
 
     metric_window = ConfigFloat(
         "The size of the buckets (in seconds) used for metrics.", default=10.0)
+
+    logging_path = ConfigText(
+        "The path to place log files in.", default="logs/")
+
+    log_rotate_size = ConfigInt(
+        "The maximum size (in bytes) of a log file before it gets rotated.",
+        default=1000000)
+
+    max_log_files = ConfigInt(
+        "The maximum amount of log files allowed before old files start to "
+        "get deleted.", default=None)
