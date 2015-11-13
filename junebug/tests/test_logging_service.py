@@ -120,6 +120,13 @@ class TestSentryLogObserver(VumiTestCase):
             'level': logging.INFO
         })
 
+    def test_log_debug(self):
+        '''Logging a debug level log should not generate a log, since it is
+        below the minimum log level.'''
+        self.obs({'message': ["a"], 'system': 'foo',
+                  'logLevel': logging.DEBUG})
+        self.assertEqual(len(self.logfile.logs), 0)
+
 
 class TestJunebugLoggerSerivce(VumiTestCase):
 
