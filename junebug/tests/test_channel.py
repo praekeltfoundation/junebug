@@ -55,12 +55,18 @@ class TestChannel(JunebugTestBase):
 
     @inlineCallbacks
     def test_start_channel_transport(self):
+        '''Starting the channel should start the transport, as well as the
+        logging service for that transport.'''
         channel = yield self.create_channel(
             self.service, self.redis, TelnetServerTransport)
 
-        self.assertEqual(
-            self.service.namedServices[channel.id],
-            channel.transport_worker)
+        worker = self.service.getServiceNamed(channel.id)
+        self.assertEqual(worker, channel.transport_worker)
+        self.assertTrue(isinstance(worker, TelnetServerTransport))
+
+        logging_worker = worker.getServiceNamed('Junebug Worker Logger')
+        self.assertTrue(
+            isinstance(logging_worker, channel.JUNEBUG_LOGGING_SERVICE_CLS))
 
     @inlineCallbacks
     def test_transport_class_name_default(self):
