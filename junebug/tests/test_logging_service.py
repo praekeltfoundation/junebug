@@ -127,6 +127,14 @@ class TestSentryLogObserver(VumiTestCase):
                   'logLevel': logging.DEBUG})
         self.assertEqual(len(self.logfile.logs), 0)
 
+    def test_log_with_context_sentinel(self):
+        '''If the context sentinel has been set for a log, it should not be
+        logged again.'''
+        event = {'message': ["a"], 'system': 'foo'}
+        event.update(self.obs.log_context)
+        self.obs(event)
+        self.assertEqual(len(self.logfile.logs), 0)
+
 
 class TestJunebugLoggerSerivce(VumiTestCase):
 
