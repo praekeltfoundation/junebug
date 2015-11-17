@@ -162,6 +162,9 @@ class TestJunebugLoggerService(JunebugTestBase):
     def test_logging(self):
         '''The logging service should write logs to the logfile when the
         service is running.'''
+        self.logger.msg("Hello")
+        self.assertFalse(hasattr(self.service, 'logfile'))
+
         yield self.service.startService()
         logfile = self.service.logfile
         self.logger.msg("Hello", logLevel=logging.WARN)
