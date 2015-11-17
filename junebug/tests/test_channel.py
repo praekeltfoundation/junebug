@@ -238,6 +238,19 @@ class TestChannel(JunebugTestBase):
 
         channel = yield self.create_channel(
             self.service, self.redis, plugins=[plugin])
+
+        [(name, [plugin_channel])] = plugin.calls
+        self.assertEqual(name, 'channel_started')
+        self.assertEqual(plugin_channel, channel)
+
+    @inlineCallbacks
+    def test_stop_channel_plugins_called(self):
+        '''Stopping a channel should call `channel_stopped` on all plugins'''
+        plugin = FakeJunebugPlugin()
+        plugin.calls = []
+
+        channel = yield self.create_channel(
+            self.service, self.redis, plugins=[plugin])
         plugin.calls = []
 
         yield channel.stop()
