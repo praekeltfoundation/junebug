@@ -52,9 +52,8 @@ class TestSentryLogObserver(JunebugTestBase):
 
     def test_logger_for_event(self):
         '''The correct logger name is returned by `logger_for_event`.'''
-        self.assertEqual(self.obs.logger_for_event({'system': 'foo,bar'}),
-                         'foo.bar')
-        self.assertEqual(self.obs.logger_for_event({}), 'worker-1')
+        self.assertEqual(self.obs.logger_for_event(
+            {'system': 'foo,bar'}), 'foo.bar')
 
     def test_log_failure(self):
         '''A failure should be logged with the correct format.'''
