@@ -12,11 +12,12 @@ from twisted.web.server import Site
 from klein import Klein
 from txamqp.client import TwistedDelegate
 
+from vumi import log
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
-from vumi.transports.telnet import TelnetServerTransport
+from vumi.transports import Transport
 
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
@@ -91,7 +92,6 @@ class JunebugTestBase(TestCase):
         'type': 'telnet',
         'config': {
             'twisted_endpoint': 'tcp:0',
-            'worker_name': 'unnamed',
         },
         'mo_url': 'http://foo.bar',
     }
@@ -143,15 +143,24 @@ class JunebugTestBase(TestCase):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
         if transport_class is None:
-            transport_class = TelnetServerTransport
+            transport_class = 'vumi.transports.telnet.TelnetServerTransport'
 
         properties = deepcopy(properties)
         if config is None:
-            config = yield self.create_channel_config()
+            config = yield self.create_channel_config(
+                channels={
+                    'test_channel': transport_class
+                })
+
+        patched_type = properties['type']
+        properties['type'] = 'test_channel'
         channel = Channel(
             redis, config, properties, id=id, plugins=plugins)
-        properties['config']['transport_name'] = channel.id
         yield channel.start(self.service)
+        properties['type'] = patched_type
+
+        properties['config']['transport_name'] = channel.id
+
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)

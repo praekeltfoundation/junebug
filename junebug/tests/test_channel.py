@@ -20,7 +20,7 @@ class TestChannel(JunebugTestBase):
     def test_save_channel(self):
         properties = self.create_channel_properties()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
 
         props = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(props), conjoin(properties, {
@@ -35,7 +35,7 @@ class TestChannel(JunebugTestBase):
     def test_delete_channel(self):
         properties = self.create_channel_properties()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
 
         props = yield self.redis.get('%s:properties' % channel.id)
         self.assertEqual(json.loads(props), conjoin(properties, {
@@ -58,7 +58,7 @@ class TestChannel(JunebugTestBase):
         '''Starting the channel should start the transport, as well as the
         logging service for that transport.'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
 
         worker = self.service.getServiceNamed(channel.id)
         self.assertEqual(worker, channel.transport_worker)
@@ -101,7 +101,7 @@ class TestChannel(JunebugTestBase):
         properties = self.create_channel_properties(mo_url='http://foo.org')
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, properties)
+            self.service, self.redis, properties=properties)
 
         worker = channel.application_worker
         id = channel.application_id
@@ -122,7 +122,7 @@ class TestChannel(JunebugTestBase):
         properties = self.create_channel_properties()
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, properties)
+            self.service, self.redis, properties=properties)
 
         worker = channel.status_application_worker
         id = channel.status_application_id
@@ -140,7 +140,7 @@ class TestChannel(JunebugTestBase):
         properties = self.create_channel_properties(status_url='example.org')
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, properties)
+            self.service, self.redis, properties=properties)
 
         worker = channel.status_application_worker
         self.assertEqual(worker.config['status_url'], 'example.org')
@@ -153,10 +153,9 @@ class TestChannel(JunebugTestBase):
         properties_no_limit = self.create_channel_properties()
 
         channel_limit = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, properties_limit)
+            self.service, self.redis, properties=properties_limit)
         channel_no_limit = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport,
-            properties_no_limit)
+            self.service, self.redis, properties=properties_no_limit)
 
         self.assertEqual(channel_limit.character_limit, 100)
         self.assertEqual(channel_no_limit.character_limit, None)
@@ -164,7 +163,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_create_channel_invalid_type(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         channel._properties['type'] = 'foo'
         err = yield self.assertFailure(channel.start(None), InvalidChannelType)
         self.assertTrue(all(
@@ -177,20 +176,7 @@ class TestChannel(JunebugTestBase):
         plugin.calls = []
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, plugins=[plugin])
-
-        [(name, [plugin_channel])] = plugin.calls
-        self.assertEqual(name, 'channel_started')
-        self.assertEqual(plugin_channel, channel)
-
-    @inlineCallbacks
-    def test_stop_channel_plugins_called(self):
-        '''Stopping a channel should call `channel_stopped` on all plugins'''
-        plugin = FakeJunebugPlugin()
-        plugin.calls = []
-
-        channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, plugins=[plugin])
+            self.service, self.redis, plugins=[plugin])
         plugin.calls = []
 
         yield channel.stop()
@@ -204,7 +190,7 @@ class TestChannel(JunebugTestBase):
         properties = self.create_channel_properties()
 
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
 
         update = yield channel.update({'foo': 'bar'})
 
@@ -220,7 +206,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_update_channel_restart_transport_on_config_change(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         worker1 = channel.transport_worker
 
         self.assertEqual(self.service.namedServices[channel.id], worker1)
@@ -238,7 +224,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_update_channel_restart_application_on_config_change(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         worker1 = channel.application_worker
         id = channel.application_id
 
@@ -256,7 +242,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_stop_channel(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         self.assertEqual(
             self.service.namedServices[channel.id], channel.transport_worker)
 
@@ -273,7 +259,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_create_channel_from_id(self):
         channel1 = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
 
         channel2 = yield self.create_channel_from_id(
             self.redis, {}, channel1.id, self.service)
@@ -303,7 +289,7 @@ class TestChannel(JunebugTestBase):
     def test_channel_status_empty(self):
         properties = self.create_channel_properties()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         self.assertEqual((yield channel.status()), conjoin(properties, {
             'status': self.generate_status(),
@@ -316,7 +302,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_status_single_status(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         status = TransportStatus(
             status='ok',
@@ -332,7 +318,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_multiple_statuses_ok(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         components = {}
 
@@ -352,7 +338,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_multiple_statuses_degraded(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         components = {}
 
@@ -380,7 +366,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_multiple_statuses_down(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         components = {}
 
@@ -419,12 +405,12 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(channels, set())
 
         channel1 = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set([channel1.id]))
 
         channel2 = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         channels = yield Channel.get_all(self.redis)
         self.assertEqual(channels, set([channel1.id, channel2.id]))
 
@@ -434,7 +420,7 @@ class TestChannel(JunebugTestBase):
             self.redis, self.config, self.service)
 
         channel1 = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         self.assertTrue(channel1.id in self.service.namedServices)
         yield channel1.stop()
         self.assertFalse(channel1.id in self.service.namedServices)
@@ -443,7 +429,7 @@ class TestChannel(JunebugTestBase):
         self.assertTrue(channel1.id in self.service.namedServices)
 
         channel2 = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport)
+            self.service, self.redis)
         self.assertTrue(channel2.id in self.service.namedServices)
         yield channel2.stop()
         self.assertFalse(channel2.id in self.service.namedServices)
@@ -455,7 +441,7 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_convert_unicode(self):
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
         resp = channel._convert_unicode({
             u'both': u'unicode',
             u'key': 'unicode',
@@ -479,7 +465,7 @@ class TestChannel(JunebugTestBase):
         '''The send_message function should place the message on the correct
         queue'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
         msg = yield channel.send_message(
             self.message_sender, self.outbounds, {
                 'from': '+1234',
@@ -498,7 +484,7 @@ class TestChannel(JunebugTestBase):
         '''Sending a message with a specified event url should store the event
         url for sending events in the future'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         msg = yield channel.send_message(
             self.message_sender, self.outbounds, {
@@ -517,7 +503,7 @@ class TestChannel(JunebugTestBase):
         '''send_reply_message should place the correct reply message on the
         correct queue'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         in_msg = TransportUserMessage(
             from_addr='+2789',
@@ -551,7 +537,7 @@ class TestChannel(JunebugTestBase):
         '''send_reply_message should raise an error if the inbound message is
         not found'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         self.assertFailure(channel.send_reply_message(
             self.message_sender, self.outbounds, self.inbounds, {
@@ -564,7 +550,7 @@ class TestChannel(JunebugTestBase):
         '''Sending a message with a specified event url should store the event
         url for sending events in the future'''
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id='channel-id')
+            self.service, self.redis, id='channel-id')
 
         in_msg = TransportUserMessage(
             from_addr='+2789',
@@ -593,7 +579,7 @@ class TestChannel(JunebugTestBase):
         inbound message rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'inbound', channel.config.metric_window)
@@ -610,7 +596,7 @@ class TestChannel(JunebugTestBase):
         outbound message rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'outbound', channel.config.metric_window)
@@ -627,7 +613,7 @@ class TestChannel(JunebugTestBase):
         submitted event rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'submitted', channel.config.metric_window)
@@ -644,7 +630,7 @@ class TestChannel(JunebugTestBase):
         rejected event rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'rejected', channel.config.metric_window)
@@ -661,7 +647,7 @@ class TestChannel(JunebugTestBase):
         the delivery succeeded event rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'delivery_succeeded', channel.config.metric_window)
@@ -678,7 +664,7 @@ class TestChannel(JunebugTestBase):
         the delivery failed event rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'delivery_failed', channel.config.metric_window)
@@ -695,7 +681,7 @@ class TestChannel(JunebugTestBase):
         the delivery pending event rate reported by the status'''
         clock = self.patch_message_rate_clock()
         channel = yield self.create_channel(
-            self.service, self.redis, TelnetServerTransport, id=u'channel-id')
+            self.service, self.redis, id=u'channel-id')
 
         yield self.api.message_rate.increment(
             channel.id, 'delivery_pending', channel.config.metric_window)
