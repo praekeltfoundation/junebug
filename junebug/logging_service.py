@@ -50,7 +50,7 @@ class JunebugLogObserver(object):
         system = event.get('system', '-')
         parts = [self.worker_id]
         if system != '-':
-            parts.extend(system.split(','))
+            parts = system.split(',')
         logger = ".".join(parts)
         return logger.lower()
 
@@ -78,6 +78,8 @@ class JunebugLogObserver(object):
 
     def __call__(self, event):
         if self.log_context_sentinel in event:
+            return
+        if self.worker_id not in event.get('system', ''):
             return
         log.callWithContext(self.log_context, self._log_to_file, event)
 

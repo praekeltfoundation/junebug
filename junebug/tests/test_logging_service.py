@@ -53,7 +53,7 @@ class TestSentryLogObserver(JunebugTestBase):
     def test_logger_for_event(self):
         '''The correct logger name is returned by `logger_for_event`.'''
         self.assertEqual(self.obs.logger_for_event({'system': 'foo,bar'}),
-                         'worker-1.foo.bar')
+                         'foo.bar')
         self.assertEqual(self.obs.logger_for_event({}), 'worker-1')
 
     def test_log_failure(self):
@@ -61,14 +61,14 @@ class TestSentryLogObserver(JunebugTestBase):
         e = ValueError("foo error")
         f = Failure(e)
         self.obs({
-            'failure': f, 'system': 'foo', 'isError': 1,
+            'failure': f, 'system': 'worker-1', 'isError': 1,
             'message': [e.message]})
 
         [log] = self.logfile.logs
         self.assert_log(log, {
             'level': JunebugLogObserver.DEFAULT_ERROR_LEVEL,
             'message': 'foo error',
-            'logger': 'worker-1.foo',
+            'logger': 'worker-1',
             'class': repr(ValueError),
             'instance': repr(e),
             'stack': [],
@@ -81,7 +81,9 @@ class TestSentryLogObserver(JunebugTestBase):
             raise ValueError("foo")
         except ValueError:
             f = Failure(*sys.exc_info())
-        self.obs({'failure': f, 'isError': 1, 'message': ['foo']})
+        self.obs({
+            'failure': f, 'isError': 1, 'message': ['foo'],
+            'system': 'worker-1'})
         [log] = self.logfile.logs
         self.assert_log(log, {
             'message': 'foo',
@@ -96,22 +98,23 @@ class TestSentryLogObserver(JunebugTestBase):
     def test_log_warning(self):
         '''Logging an warning level log should generate the correct level log
         message'''
-        self.obs({'message': ["a"], 'system': 'foo',
-                  'logLevel': logging.WARN})
+        self.obs({
+            'message': ["a"], 'system': 'foo', 'logLevel': logging.WARN,
+            'system': 'worker-1'})
         [log] = self.logfile.logs
         self.assert_log(log, {
             'level': logging.WARN,
-            'logger': 'worker-1.foo',
+            'logger': 'worker-1',
             'message': 'a',
         })
 
     def test_log_info(self):
         '''Logging an info level log should generate the correct level log
         message'''
-        self.obs({'message': ["a"], 'system': 'test.log'})
+        self.obs({'message': ["a"], 'system': 'worker-1'})
         [log] = self.logfile.logs
         self.assert_log(log, {
-            'logger': 'worker-1.test.log',
+            'logger': 'worker-1',
             'message': 'a',
             'level': logging.INFO
         })
@@ -119,16 +122,26 @@ class TestSentryLogObserver(JunebugTestBase):
     def test_log_debug(self):
         '''Logging a debug level log should not generate a log, since it is
         below the minimum log level.'''
-        self.obs({'message': ["a"], 'system': 'foo',
+        self.obs({'message': ["a"], 'system': 'worker-1',
                   'logLevel': logging.DEBUG})
         self.assertEqual(len(self.logfile.logs), 0)
 
     def test_log_with_context_sentinel(self):
         '''If the context sentinel has been set for a log, it should not be
         logged again.'''
-        event = {'message': ["a"], 'system': 'foo'}
+        event = {'message': ["a"], 'system': 'worker-1'}
         event.update(self.obs.log_context)
         self.obs(event)
+        self.assertEqual(len(self.logfile.logs), 0)
+
+    def test_log_only_worker_id(self):
+        '''A log should only be created when the worker id is in the system
+        id of the log.'''
+        self.obs({'message': ["a"], 'system': 'worker-1'})
+        self.assertEqual(len(self.logfile.logs), 1)
+        del self.logfile.logs[:]
+
+        self.obs({'message': ["a"], 'system': 'worker-2'})
         self.assertEqual(len(self.logfile.logs), 0)
 
 
@@ -167,7 +180,7 @@ class TestJunebugLoggerService(JunebugTestBase):
 
         yield self.service.startService()
         logfile = self.service.logfile
-        self.logger.msg("Hello", logLevel=logging.WARN)
+        self.logger.msg("Hello", logLevel=logging.WARN, system='worker-id')
         [log] = logfile.logs
 
         self.assert_log(log, {
