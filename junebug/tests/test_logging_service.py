@@ -5,9 +5,9 @@ import sys
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
 from twisted.python.log import LogPublisher
-from vumi.tests.helpers import VumiTestCase
 
 import junebug
+from junebug.tests.helpers import JunebugTestBase
 from junebug.logging_service import JunebugLogObserver, JunebugLoggerService
 
 
@@ -29,10 +29,17 @@ class DummyLogFile(object):
         self.closed_count += 1
 
 
-class TestSentryLogObserver(VumiTestCase):
+class TestSentryLogObserver(JunebugTestBase):
     def setUp(self):
         self.logfile = DummyLogFile(None, None, None, None)
         self.obs = JunebugLogObserver(self.logfile, 'worker-1')
+
+    def assert_log(self, log, expected):
+        '''Assert that a log matches what is expected.'''
+        log = json.loads(log)
+        timestamp = log.pop('timestamp')
+        self.assertTrue(isinstance(timestamp, float))
+        self.assertEqual(log, expected)
 
     def test_level_for_event(self):
         '''The correct logging level is returned by `level_for_event`.'''
@@ -58,10 +65,7 @@ class TestSentryLogObserver(VumiTestCase):
             'message': [e.message]})
 
         [log] = self.logfile.logs
-        log = json.loads(log)
-        log.pop('timestamp')
-
-        self.assertEqual(log, {
+        self.assert_log(log, {
             'level': JunebugLogObserver.DEFAULT_ERROR_LEVEL,
             'message': 'foo error',
             'logger': 'worker-1.foo',
@@ -79,9 +83,7 @@ class TestSentryLogObserver(VumiTestCase):
             f = Failure(*sys.exc_info())
         self.obs({'failure': f, 'isError': 1, 'message': ['foo']})
         [log] = self.logfile.logs
-        log = json.loads(log)
-        log.pop('timestamp')
-        self.assertEqual(log, {
+        self.assert_log(log, {
             'message': 'foo',
             'logger': 'worker-1',
             'level': logging.ERROR,
@@ -97,10 +99,7 @@ class TestSentryLogObserver(VumiTestCase):
         self.obs({'message': ["a"], 'system': 'foo',
                   'logLevel': logging.WARN})
         [log] = self.logfile.logs
-        log = json.loads(log)
-        log.pop('timestamp')
-
-        self.assertEqual(log, {
+        self.assert_log(log, {
             'level': logging.WARN,
             'logger': 'worker-1.foo',
             'message': 'a',
@@ -111,10 +110,7 @@ class TestSentryLogObserver(VumiTestCase):
         message'''
         self.obs({'message': ["a"], 'system': 'test.log'})
         [log] = self.logfile.logs
-        log = json.loads(log)
-        log.pop('timestamp')
-
-        self.assertEqual(log, {
+        self.assert_log(log, {
             'logger': 'worker-1.test.log',
             'message': 'a',
             'level': logging.INFO
@@ -136,13 +132,20 @@ class TestSentryLogObserver(VumiTestCase):
         self.assertEqual(len(self.logfile.logs), 0)
 
 
-class TestJunebugLoggerSerivce(VumiTestCase):
+class TestJunebugLoggerService(JunebugTestBase):
 
     def setUp(self):
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         self.logger = LogPublisher()
         self.service = JunebugLoggerService(
             'worker-id', '/testpath/', 1000000, 7, logger=self.logger)
+
+    def assert_log(self, log, expected):
+        '''Assert that a log matches what is expected.'''
+        log = json.loads(log)
+        timestamp = log.pop('timestamp')
+        self.assertTrue(isinstance(timestamp, float))
+        self.assertEqual(log, expected)
 
     @inlineCallbacks
     def test_logfile_parameters(self):
@@ -159,14 +162,15 @@ class TestJunebugLoggerSerivce(VumiTestCase):
     def test_logging(self):
         '''The logging service should write logs to the logfile when the
         service is running.'''
+        self.logger.msg("Hello")
+        self.assertFalse(hasattr(self.service, 'logfile'))
+
         yield self.service.startService()
         logfile = self.service.logfile
         self.logger.msg("Hello", logLevel=logging.WARN)
         [log] = logfile.logs
-        log = json.loads(log)
-        log.pop('timestamp')
 
-        self.assertEqual(log, {
+        self.assert_log(log, {
             'level': logging.WARN,
             'logger': 'worker-id',
             'message': 'Hello',

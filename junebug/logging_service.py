@@ -84,6 +84,7 @@ class JunebugLogObserver(object):
 
 class JunebugLoggerService(Service):
     '''Service for :class:`junebug.logging.JunebugLogObserver`'''
+    log_observer = None
 
     def __init__(self, worker_id, path, rotate, max_files, logger=None):
         '''
@@ -122,6 +123,4 @@ class JunebugLoggerService(Service):
         return super(JunebugLoggerService, self).stopService()
 
     def registered(self):
-        return (
-            getattr(self, 'log_observer', None) and
-            self.log_observer in self.logger.observers)
+        return self.log_observer in self.logger.observers
