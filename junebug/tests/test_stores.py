@@ -315,7 +315,8 @@ class TestStatusStore(JunebugTestBase):
     def test_store_single_status(self):
         '''The single status is stored under the correct key'''
         store = yield self.create_store()
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
         yield store.store_status('channelid', status)
 
         status_redis = yield self.redis.hget('channelid:status', 'foo')
@@ -328,9 +329,12 @@ class TestStatusStore(JunebugTestBase):
         '''New statuses override old statuses with the same component, but do
         not affect statuses of different components'''
         store = yield self.create_store()
-        status_old = TransportStatus(status='ok', component='foo')
-        status_new = TransportStatus(status='down', component='foo')
-        status_other = TransportStatus(status='ok', component='bar')
+        status_old = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
+        status_new = TransportStatus(
+            status='down', component='foo', type='bar', message='foo')
+        status_other = TransportStatus(
+            status='ok', component='bar', type='bar', message='foo')
 
         yield store.store_status('channelid', status_other)
         yield store.store_status('channelid', status_old)
@@ -345,7 +349,8 @@ class TestStatusStore(JunebugTestBase):
     @inlineCallbacks
     def test_load_one_status(self):
         store = yield self.create_store()
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
         yield store.store_status('channelid', status)
 
         stored_statuses = yield store.get_statuses('channelid')
@@ -358,7 +363,8 @@ class TestStatusStore(JunebugTestBase):
         store = yield self.create_store()
         expected = {}
         for i in range(5):
-            status = TransportStatus(status='ok', component=i)
+            status = TransportStatus(
+                status='ok', component=i, type='bar', message='foo')
             yield store.store_status('channelid', status)
             expected[str(i)] = status
 
