@@ -297,6 +297,12 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-mlf', '2'])
         self.assertEqual(config.max_log_files, 2)
 
+        config = parse_arguments(['--max-log-files', '0'])
+        self.assertEqual(config.max_log_files, None)
+
+        config = parse_arguments(['-mlf', '0'])
+        self.assertEqual(config.max_log_files, None)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
