@@ -3,11 +3,14 @@ from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage, TransportStatus
 from vumi.transports.telnet import TelnetServerTransport
 
+import junebug
 from junebug.utils import api_from_message, api_from_status, conjoin
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
+from junebug.logging_service import JunebugLoggerService
 from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
+from junebug.tests.test_logging_service import DummyLogFile
 
 
 class TestChannel(JunebugTestBase):
@@ -67,6 +70,64 @@ class TestChannel(JunebugTestBase):
         logging_worker = worker.getServiceNamed('Junebug Worker Logger')
         self.assertTrue(
             isinstance(logging_worker, channel.JUNEBUG_LOGGING_SERVICE_CLS))
+
+    @inlineCallbacks
+    def test_start_channel_logging(self):
+        '''When the channel is started, the logging worker should be started
+        along with it.'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        self.assertTrue(isinstance(worker_logger, JunebugLoggerService))
+
+    @inlineCallbacks
+    def test_channel_logging_single_channel(self):
+        '''All logs from a single channel should go to the logging worker.'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        worker_logger.startService()
+        channel.transport_worker.test_log('Test message1')
+        channel.transport_worker.test_log('Test message2')
+        [log1, log2] = worker_logger.logfile.logs
+        self.assertEqual(json.loads(log1)['message'], 'Test message1')
+        self.assertEqual(json.loads(log2)['message'], 'Test message2')
+
+    @inlineCallbacks
+    def test_channel_logging_multiple_channels(self):
+        '''All logs from a single channel should go to the logging worker.'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+        channel1 = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger1 = channel1.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        channel2 = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger2 = channel2.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        worker_logger1.startService()
+        worker_logger2.startService()
+        channel1.transport_worker.test_log('Test message1')
+        channel1.transport_worker.test_log('Test message2')
+        [log1, log2] = worker_logger1.logfile.logs
+        self.assertEqual(json.loads(log1)['message'], 'Test message1')
+        self.assertEqual(json.loads(log2)['message'], 'Test message2')
+
+        channel2.transport_worker.test_log('Test message3')
+        self.assertEqual(len(worker_logger1.logfile.logs), 2)
+        [log3] = worker_logger2.logfile.logs
+        self.assertEqual(json.loads(log3)['message'], 'Test message3')
 
     @inlineCallbacks
     def test_transport_class_name_default(self):

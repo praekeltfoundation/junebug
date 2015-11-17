@@ -12,7 +12,6 @@ from twisted.web.server import Site
 from klein import Klein
 from txamqp.client import TwistedDelegate
 
-from vumi import log
 from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
@@ -82,6 +81,11 @@ class RequestLoggingApi(object):
             })
         request.setResponseCode(500)
         return 'test-error-response'
+
+
+class LoggingTestTransport(Transport):
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
 
 
 class JunebugTestBase(TestCase):
