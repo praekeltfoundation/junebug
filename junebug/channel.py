@@ -8,6 +8,7 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
+from junebug.logging_service import JunebugLoggerService
 from junebug.stores import StatusStore, MessageRateStore
 from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
@@ -62,6 +63,7 @@ class Channel(object):
     STATUS_APPLICATION_ID = 'status:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
     STATUS_APPLICATION_CLS_NAME = 'junebug.workers.ChannelStatusWorker'
+    JUNEBUG_LOGGING_SERVICE_CLS = JunebugLoggerService
 
     def __init__(self, redis_manager, config, properties, plugins=[], id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
@@ -268,6 +270,7 @@ class Channel(object):
         config = self._properties['config']
         config = self._convert_unicode(config)
         config['transport_name'] = self.id
+        config['worker_name'] = self.id
         config['publish_status'] = True
         return config
 
@@ -319,12 +322,17 @@ class Channel(object):
             transport_worker = self._create_transport()
 
         transport_worker.setName(self.id)
+
+        logging_service = self._create_junebug_logger_service()
+        transport_worker.addService(logging_service)
+
         transport_worker.setServiceParent(service)
         self.transport_worker = transport_worker
 
     def _start_application(self, service):
         worker = self._create_application()
         worker.setName(self.application_id)
+
         worker.setServiceParent(service)
         self.application_worker = worker
 
@@ -348,6 +356,11 @@ class Channel(object):
         return self._create_worker(
             self.STATUS_APPLICATION_CLS_NAME,
             self._status_application_config)
+
+    def _create_junebug_logger_service(self):
+        return self.JUNEBUG_LOGGING_SERVICE_CLS(
+            self.id, self.config.logging_path, self.config.log_rotate_size,
+            self.config.max_log_files)
 
     def _create_worker(self, cls_name, config):
         creator = WorkerCreator(self.options)

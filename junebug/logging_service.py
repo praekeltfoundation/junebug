@@ -47,11 +47,8 @@ class JunebugLogObserver(object):
 
     def logger_for_event(self, event):
         '''Get the name of the logger for an event.'''
-        system = event.get('system', '-')
-        parts = [self.worker_id]
-        if system != '-':
-            parts.extend(system.split(','))
-        logger = ".".join(parts)
+        system = event.get('system')
+        logger = ".".join(system.split(','))
         return logger.lower()
 
     def _log_to_file(self, event):
@@ -64,6 +61,7 @@ class JunebugLogObserver(object):
             "logger": self.logger_for_event(event),
             "level": level,
             "timestamp": time.time(),
+            "message": log.textFromEventDict(event),
         }
 
         failure = event.get('failure')
@@ -72,12 +70,12 @@ class JunebugLogObserver(object):
             data['instance'] = repr(failure.value)
             data['stack'] = failure.stack
 
-        data['message'] = log.textFromEventDict(event)
-
         self.logfile.write(json.dumps(data))
 
     def __call__(self, event):
         if self.log_context_sentinel in event:
+            return
+        if self.worker_id not in event.get('system', '').split(','):
             return
         log.callWithContext(self.log_context, self._log_to_file, event)
 
