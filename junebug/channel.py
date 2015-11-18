@@ -358,7 +358,7 @@ class Channel(object):
             self._status_application_config)
 
     def _create_junebug_logger_service(self):
-        return JunebugLoggerService(
+        return self.JUNEBUG_LOGGING_SERVICE_CLS(
             self.id, self.config.logging_path, self.config.log_rotate_size,
             self.config.max_log_files)
 
