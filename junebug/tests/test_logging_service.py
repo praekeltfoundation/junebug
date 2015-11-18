@@ -118,11 +118,14 @@ class TestSentryLogObserver(JunebugTestBase):
     def test_log_only_worker_id(self):
         '''A log should only be created when the worker id is in the system
         id of the log.'''
-        self.obs({'message': ["a"], 'system': 'worker-1'})
+        self.obs({'message': ["a"], 'system': 'worker-1,bar'})
         self.assertEqual(len(self.logfile.logs), 1)
         del self.logfile.logs[:]
 
-        self.obs({'message': ["a"], 'system': 'worker-2'})
+        self.obs({'message': ["a"], 'system': 'worker-2,foo'})
+        self.assertEqual(len(self.logfile.logs), 0)
+
+        self.obs({'message': ["a"], 'system': 'worker-1foo,bar'})
         self.assertEqual(len(self.logfile.logs), 0)
 
 
