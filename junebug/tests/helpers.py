@@ -3,6 +3,7 @@ from copy import deepcopy
 import logging
 import logging.handlers
 
+from twisted.python.logfile import LogFile
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
@@ -29,21 +30,36 @@ from junebug.stores import MessageRateStore
 
 
 class DummyLogFile(object):
-    '''LogFile that just stores logs in memory in `logs`.'''
+    '''LogFile that has a different path to its worker_id'''
     def __init__(
             self, worker_id, path, rotateLength, maxRotatedFiles):
         self.worker_id = worker_id
         self.path = path
         self.rotateLength = rotateLength
         self.maxRotatedFiles = maxRotatedFiles
-        self.logs = []
         self.closed_count = 0
+        self.logfile = LogFile.fromFullPath(
+            path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
+
+    @property
+    def logs(self):
+        reader = self.logfile.getCurrentLog()
+        logs = []
+        lines = reader.readLines()
+        while lines:
+            logs.extend(lines)
+            lines = reader.readLines()
+        return logs
 
     def write(self, data):
-        self.logs.append(data)
+        self.logfile.write(data)
+        self.logfile.flush()
 
     def close(self):
         self.closed_count += 1
+
+    def listLogs(self):
+        return []
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -170,11 +186,13 @@ class JunebugTestBase(TestCase):
             transport_class = 'vumi.transports.telnet.TelnetServerTransport'
 
         properties = deepcopy(properties)
+        logpath = self.mktemp()
         if config is None:
             config = yield self.create_channel_config(
                 channels={
                     properties['type']: transport_class
-                })
+                },
+                logging_path=logpath)
 
         channel = Channel(
             redis, config, properties, id=id, plugins=plugins)
