@@ -139,12 +139,10 @@ def reverse_read(filename, buf):
     '''
     with open(filename) as f:
         f.seek(0, os.SEEK_END)
-        total_size = remaining_size = f.tell()
-        offset = 0
+        remaining_size = f.tell()
         incomplete_line = None
         while remaining_size > 0:
-            offset = min(total_size, offset + buf)
-            f.seek(total_size - offset, os.SEEK_SET)
+            f.seek(max(0, remaining_size - buf), os.SEEK_SET)
             data = f.read(min(remaining_size, buf))
             # If we read no data, we should exit the loop
             if len(data) == 0:
