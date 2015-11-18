@@ -18,6 +18,7 @@ from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
 from vumi.transports import Transport
 
+import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
@@ -25,6 +26,24 @@ from junebug.plugin import JunebugPlugin
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
+
+
+class DummyLogFile(object):
+    '''LogFile that just stores logs in memory in `logs`.'''
+    def __init__(
+            self, worker_id, path, rotateLength, maxRotatedFiles):
+        self.worker_id = worker_id
+        self.path = path
+        self.rotateLength = rotateLength
+        self.maxRotatedFiles = maxRotatedFiles
+        self.logs = []
+        self.closed_count = 0
+
+    def write(self, data):
+        self.logs.append(data)
+
+    def close(self):
+        self.closed_count += 1
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -146,6 +165,7 @@ class JunebugTestBase(TestCase):
             plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         if transport_class is None:
             transport_class = 'vumi.transports.telnet.TelnetServerTransport'
 

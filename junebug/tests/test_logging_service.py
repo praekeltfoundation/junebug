@@ -7,26 +7,8 @@ from twisted.python.failure import Failure
 from twisted.python.log import LogPublisher
 
 import junebug
-from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.helpers import JunebugTestBase, DummyLogFile
 from junebug.logging_service import JunebugLogObserver, JunebugLoggerService
-
-
-class DummyLogFile(object):
-    '''LogFile that just stores logs in memory in `logs`.'''
-    def __init__(
-            self, worker_id, path, rotateLength, maxRotatedFiles):
-        self.worker_id = worker_id
-        self.path = path
-        self.rotateLength = rotateLength
-        self.maxRotatedFiles = maxRotatedFiles
-        self.logs = []
-        self.closed_count = 0
-
-    def write(self, data):
-        self.logs.append(data)
-
-    def close(self):
-        self.closed_count += 1
 
 
 class TestSentryLogObserver(JunebugTestBase):

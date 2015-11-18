@@ -3,14 +3,12 @@ from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage, TransportStatus
 from vumi.transports.telnet import TelnetServerTransport
 
-import junebug
 from junebug.utils import api_from_message, api_from_status, conjoin
 from junebug.workers import ChannelStatusWorker, MessageForwardingWorker
 from junebug.channel import (
     Channel, ChannelNotFound, InvalidChannelType, MessageNotFound)
 from junebug.logging_service import JunebugLoggerService
 from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
-from junebug.tests.test_logging_service import DummyLogFile
 
 
 class TestChannel(JunebugTestBase):
@@ -75,7 +73,6 @@ class TestChannel(JunebugTestBase):
     def test_start_channel_logging(self):
         '''When the channel is started, the logging worker should be started
         along with it.'''
-        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         channel = yield self.create_channel(
             self.service, self.redis,
             'junebug.tests.helpers.LoggingTestTransport')
@@ -87,7 +84,6 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_logging_single_channel(self):
         '''All logs from a single channel should go to the logging worker.'''
-        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         channel = yield self.create_channel(
             self.service, self.redis,
             'junebug.tests.helpers.LoggingTestTransport')
@@ -104,7 +100,6 @@ class TestChannel(JunebugTestBase):
     @inlineCallbacks
     def test_channel_logging_multiple_channels(self):
         '''All logs from a single channel should go to the logging worker.'''
-        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         channel1 = yield self.create_channel(
             self.service, self.redis,
             'junebug.tests.helpers.LoggingTestTransport')
