@@ -173,15 +173,12 @@ class JunebugTestBase(TestCase):
         if config is None:
             config = yield self.create_channel_config(
                 channels={
-                    'test_channel': transport_class
+                    properties['type']: transport_class
                 })
 
-        patched_type = properties['type']
-        properties['type'] = 'test_channel'
         channel = Channel(
             redis, config, properties, id=id, plugins=plugins)
         yield channel.start(self.service)
-        properties['type'] = patched_type
 
         properties['config']['transport_name'] = channel.id
 
