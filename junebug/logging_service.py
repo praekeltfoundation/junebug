@@ -130,6 +130,7 @@ def reverse_read(filename, buf):
     Read the non-blank lines from a file in reverse order.
 
     :param str filename: The path of the file to be read.
+    :param int buf: The size of the read buffer.
 
     :returns:
         A generator that yields each line from the file in reverse order as a
@@ -163,7 +164,7 @@ def read_logs(logfile, lines, buf=4096):
     :param logfile: The LogFile to read from.
     :type logfile: :class:`twisted.python.logfile.LogFile`
     :param int lines: Maximum number of lines to read.
-    :param int buffer: The size of the read buffer.
+    :param int buf: The size of the read buffer.
 
     :returns: list -- Each item is a dictionary representing a log entry.
     '''
