@@ -1,3 +1,4 @@
+from itertools import chain
 import json
 import logging
 import os
@@ -183,14 +184,11 @@ def read_logs(logfile, lines, buf=4096):
     '''
     logs = []
 
-    # Read the current log file
-    for line in reverse_read(logfile.path, buf):
-        logs.append(json.loads(line))
-        if len(logs) == lines:
-            return logs
-    # Read the rotated log files
-    for file_num in logfile.listLogs():
-        for line in reverse_read('%s.%d' % (logfile.path, file_num), buf):
+    for filepath in chain(
+            (logfile.path,),
+            ('%s.%d' % (logfile.path, n) for n in logfile.listLogs())
+            ):
+        for line in reverse_read(filepath, buf):
             logs.append(json.loads(line))
             if len(logs) == lines:
                 return logs
