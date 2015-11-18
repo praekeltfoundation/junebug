@@ -318,3 +318,14 @@ class TestReadingLogs(JunebugTestBase):
 
         [log] = read_logs(logfile, 2, buf=1)
         self.assertEqual(log, {'log_entry': 1})
+
+    def test_read_log_incomplete_last_entry(self):
+        '''If the last log entry does not end in a new line, then discard
+        it.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}))
+        logfile.flush()
+
+        [log] = read_logs(logfile, 2, buf=1)
+        self.assertEqual(log, {'log_entry': 1})

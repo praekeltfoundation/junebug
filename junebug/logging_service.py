@@ -143,13 +143,26 @@ def reverse_read(filename, buf):
         incomplete_line = None
         while remaining_size > 0:
             offset = min(total_size, offset + buf)
-            f.seek(-offset, os.SEEK_END)
+            f.seek(total_size - offset, os.SEEK_SET)
             data = f.read(min(remaining_size, buf))
-            remaining_size -= buf
+            # If we read no data, we should exit the loop
+            if len(data) == 0:
+                break
+            remaining_size -= len(data)
             lines = data.split('\n')
+            # If the last line of the file doesn't end in a new line, it is
+            # possible that the line hasn't been finished yet, so we should
+            # ignore that line.
+            if incomplete_line is None and data[-1] != '\n':
+                lines.pop(-1)
+            # If there is an incomplete line from the last read, we should
+            # append it to the end of the current read.
             if incomplete_line:
                 lines[-1] += incomplete_line
-            incomplete_line = lines.pop(0)
+            # If we still have any lines left, the first one could be
+            # incomplete, so store it for the next iteration.
+            if lines:
+                incomplete_line = lines.pop(0)
             for l in lines[::-1]:
                 if l is not '':
                     yield l
