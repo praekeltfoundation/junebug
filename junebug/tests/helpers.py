@@ -16,8 +16,9 @@ from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
-from vumi.transports.telnet import TelnetServerTransport
+from vumi.transports import Transport
 
+import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
@@ -25,6 +26,24 @@ from junebug.plugin import JunebugPlugin
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
+
+
+class DummyLogFile(object):
+    '''LogFile that just stores logs in memory in `logs`.'''
+    def __init__(
+            self, worker_id, path, rotateLength, maxRotatedFiles):
+        self.worker_id = worker_id
+        self.path = path
+        self.rotateLength = rotateLength
+        self.maxRotatedFiles = maxRotatedFiles
+        self.logs = []
+        self.closed_count = 0
+
+    def write(self, data):
+        self.logs.append(data)
+
+    def close(self):
+        self.closed_count += 1
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -83,6 +102,11 @@ class RequestLoggingApi(object):
         return 'test-error-response'
 
 
+class LoggingTestTransport(Transport):
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
+
+
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
     helper functions'''
@@ -91,7 +115,6 @@ class JunebugTestBase(TestCase):
         'type': 'telnet',
         'config': {
             'twisted_endpoint': 'tcp:0',
-            'worker_name': 'unnamed',
         },
         'mo_url': 'http://foo.bar',
     }
@@ -142,16 +165,23 @@ class JunebugTestBase(TestCase):
             plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         if transport_class is None:
-            transport_class = TelnetServerTransport
+            transport_class = 'vumi.transports.telnet.TelnetServerTransport'
 
         properties = deepcopy(properties)
         if config is None:
-            config = yield self.create_channel_config()
+            config = yield self.create_channel_config(
+                channels={
+                    properties['type']: transport_class
+                })
+
         channel = Channel(
             redis, config, properties, id=id, plugins=plugins)
-        properties['config']['transport_name'] = channel.id
         yield channel.start(self.service)
+
+        properties['config']['transport_name'] = channel.id
+
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)

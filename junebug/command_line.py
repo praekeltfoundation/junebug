@@ -86,6 +86,18 @@ def create_parser():
         '--metric-window', '-mw', type=float,
         dest='metric_window', help='The size of each bucket '
         '(in seconds) to use for metrics. Defaults to 10 seconds.')
+    parser.add_argument(
+        '--logging-path', '-lp', type=str,
+        dest='logging_path', help='The path to place log files for each '
+        'channel. Defaults to `logs/`')
+    parser.add_argument(
+        '--log-rotate-size', '-lrs', type=int,
+        dest='log_rotate_size', help='The maximum size (in bytes) for each '
+        'log file before it gets rotated. Defaults to 1000000.')
+    parser.add_argument(
+        '--max-log-files', '-mlf', type=int,
+        dest='max_log_files', help='The maximum number of log files to '
+        'keep before deleting old files. Defaults to 5. 0 is unlimited.')
 
     return parser
 
@@ -140,7 +152,14 @@ def config_from_args(args):
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     parse_channels(args)
     args['plugins'] = parse_plugins(config.get('plugins', []), args)
-    return JunebugConfig(conjoin(config, args))
+
+    combined = conjoin(config, args)
+
+    # max_log_files == 0 means that no limit should be set, so we need to set
+    # it to `None` for that case
+    combined['max_log_files'] = combined.get('max_log_files') or None
+
+    return JunebugConfig(combined)
 
 
 def parse_redis(config, args):

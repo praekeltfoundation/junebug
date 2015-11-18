@@ -23,7 +23,7 @@ setup(
         'klein',
         'jsonschema',
         'treq',
-        'vumi',
+        'vumi>=0.5.33',
         'confmodel',
         'PyYAML',
     ],
