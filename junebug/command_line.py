@@ -154,7 +154,11 @@ def config_from_args(args):
     args['plugins'] = parse_plugins(config.get('plugins', []), args)
 
     combined = conjoin(config, args)
+
+    # max_log_files == 0 means that no limit should be set, so we need to set
+    # it to `None` for that case
     combined['max_log_files'] = combined.get('max_log_files') or None
+
     return JunebugConfig(combined)
 
 
