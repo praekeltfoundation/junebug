@@ -71,7 +71,7 @@ class JunebugLogObserver(object):
             data['instance'] = repr(failure.value)
             data['stack'] = failure.stack
 
-        self.logfile.write(json.dumps(data))
+        self.logfile.write(json.dumps(data) + '\n')
 
     def __call__(self, event):
         if self.log_context_sentinel in event:
@@ -125,52 +125,59 @@ class JunebugLoggerService(Service):
         return self.log_observer in self.logger.observers
 
 
+def reverse_read(filename, buf):
+    '''
+    Read the non-blank lines from a file in reverse order.
+
+    :param str filename: The path of the file to be read.
+
+    :returns:
+        A generator that yields each line from the file in reverse order as a
+        string.
+    '''
+    with open(filename) as f:
+        f.seek(0, os.SEEK_END)
+        total_size = remaining_size = f.tell()
+        offset = 0
+        incomplete_line = None
+        while remaining_size > 0:
+            offset = min(total_size, offset + buf)
+            f.seek(-offset, os.SEEK_END)
+            data = f.read(min(remaining_size, buf))
+            remaining_size -= buf
+            lines = data.split('\n')
+            if incomplete_line:
+                lines[-1] += incomplete_line
+            incomplete_line = lines.pop(0)
+            for l in lines[::-1]:
+                if l is not '':
+                    yield l
+        if incomplete_line:
+            yield incomplete_line
+
+
 def read_logs(logfile, lines, buf=4096):
     '''
     Reads log files to fetch the last N logs.
 
     :param logfile: The LogFile to read from.
-    :type logfile: class:`twisted.python.logfile.LogFile`
+    :type logfile: :class:`twisted.python.logfile.LogFile`
     :param int lines: Maximum number of lines to read.
+    :param int buffer: The size of the read buffer.
 
-    :returns: A list of log dictionaries.
+    :returns: list -- Each item is a dictionary representing a log entry.
     '''
-    def _reverse_read(filename):
-        '''Return a generator that reads non-blank lines from a file in
-        reverse order.'''
-        with open(filename) as f:
-            f.seek(0, os.SEEK_END)
-            total_size = remaining_size = f.tell()
-            if total_size == 0:
-                raise StopIteration
-            offset = 0
-            incomplete_line = None
-            while remaining_size > 0:
-                offset = min(total_size, offset + buf)
-                f.seek(-offset, os.SEEK_END)
-                data = f.read(min(remaining_size, buf))
-                remaining_size -= buf
-                lines = data.split('\n')
-                if incomplete_line is not None:
-                    lines[-1] += incomplete_line
-                incomplete_line = lines.pop(0)
-                for l in lines[::-1]:
-                    if l is not '':
-                        yield l
-            if incomplete_line is not '':
-                yield incomplete_line
-
-    filename = logfile.path
     logs = []
 
-    for line in _reverse_read(filename):
-        logs += json.loads(line)
-        if len(logs) >= lines:
+    # Read the current log file
+    for line in reverse_read(logfile.path, buf):
+        logs.append(json.loads(line))
+        if len(logs) == lines:
             return logs
+    # Read the rotated log files
     for file_num in logfile.listLogs():
-        filename = '%s.%s' % (logfile.path, file_num)
-        for line in _reverse_read(filename):
-            logs += json.loads(line)
-            if len(logs) >= lines:
+        for line in reverse_read('%s.%d' % (logfile.path, file_num), buf):
+            logs.append(json.loads(line))
+            if len(logs) == lines:
                 return logs
     return logs
