@@ -5,10 +5,12 @@ import sys
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
 from twisted.python.log import LogPublisher
+from twisted.python.logfile import LogFile
 
 import junebug
 from junebug.tests.helpers import JunebugTestBase, DummyLogFile
-from junebug.logging_service import JunebugLogObserver, JunebugLoggerService
+from junebug.logging_service import (
+    JunebugLogObserver, JunebugLoggerService, read_logs)
 
 
 class TestSentryLogObserver(JunebugTestBase):
@@ -196,3 +198,134 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.stopService()
         self.assertFalse(self.service.registered())
         self.assertEqual(self.service.logfile.closed_count, 1)
+
+
+class TestReadingLogs(JunebugTestBase):
+    def create_logfile(self):
+        '''Creates and returns a temporary LogFile.'''
+        return LogFile.fromFullPath(self.mktemp())
+
+    def test_read_empty_log(self):
+        '''Reading an empty log should return an empty list.'''
+        logfile = self.create_logfile()
+        logs = read_logs(logfile, 10)
+        self.assertEqual(logs, [])
+
+    def test_read_single_less_than_total(self):
+        '''Reading a single log from a file with multiple logs should only
+        return the last written log.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.flush()
+        [log] = read_logs(logfile, 1)
+        self.assertEqual(log, {'log_entry': 2})
+
+    def test_read_single_equal_to_total(self):
+        '''Reading a single log from a file with a single log should just
+        return that log.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.flush()
+        [log] = read_logs(logfile, 1)
+        self.assertEqual(log, {'log_entry': 1})
+
+    def test_read_multiple_less_than_total(self):
+        '''Reading multiple logs from a file with more logs than required
+        should just return the required number of logs.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.write(json.dumps({'log_entry': 3}) + '\n')
+        logfile.flush()
+        [log1, log2] = read_logs(logfile, 2)
+        self.assertEqual(log1, {'log_entry': 3})
+        self.assertEqual(log2, {'log_entry': 2})
+
+    def test_read_multiple_more_than_total(self):
+        '''Reading multiple logs from a file with less logs than required
+        should just return the number of logs available.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.flush()
+        [log] = read_logs(logfile, 2)
+        self.assertEqual(log, {'log_entry': 1})
+
+    def test_read_multiple_equal_than_total(self):
+        '''Reading multiple logs from a file with the required amount of logs
+        should just return the all of logs available.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.flush()
+        [log1, log2] = read_logs(logfile, 2)
+        self.assertEqual(log1, {'log_entry': 2})
+        self.assertEqual(log2, {'log_entry': 1})
+
+    def test_read_logs_from_multiple_files_more_than_available(self):
+        '''If there are not enough logs in the current log, it should check
+        the rotated log files for more logs. Total logs more than required
+        logs.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.rotate()
+        logfile.write(json.dumps({'log_entry': 3}) + '\n')
+        logfile.write(json.dumps({'log_entry': 4}) + '\n')
+        logfile.flush()
+
+        [log1, log2, log3] = read_logs(logfile, 3)
+        self.assertEqual(log1, {'log_entry': 4})
+        self.assertEqual(log2, {'log_entry': 3})
+        self.assertEqual(log3, {'log_entry': 2})
+
+    def test_read_logs_from_multiple_files_equal_available(self):
+        '''If there are not enough logs in the current log, it should check
+        the rotated log files for more logs. Total logs equal to required
+        logs.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.rotate()
+        logfile.write(json.dumps({'log_entry': 3}) + '\n')
+        logfile.flush()
+
+        [log1, log2, log3] = read_logs(logfile, 3)
+        self.assertEqual(log1, {'log_entry': 3})
+        self.assertEqual(log2, {'log_entry': 2})
+        self.assertEqual(log3, {'log_entry': 1})
+
+    def test_read_logs_from_multiple_files_less_than_available(self):
+        '''If there are not enough logs in the current log, it should check
+        the rotated log files for more logs. Total logs less than to required
+        logs.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.rotate()
+        logfile.write(json.dumps({'log_entry': 2}) + '\n')
+        logfile.flush()
+
+        [log1, log2] = read_logs(logfile, 3)
+        self.assertEqual(log1, {'log_entry': 2})
+        self.assertEqual(log2, {'log_entry': 1})
+
+    def test_read_single_log_bigger_than_buffer(self):
+        '''If a single log entry is greater than the buffer size, it should
+        still read the log entry correctly.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.flush()
+
+        [log] = read_logs(logfile, 2, buf=1)
+        self.assertEqual(log, {'log_entry': 1})
+
+    def test_read_log_incomplete_last_entry(self):
+        '''If the last log entry does not end in a new line, then discard
+        it.'''
+        logfile = self.create_logfile()
+        logfile.write(json.dumps({'log_entry': 1}) + '\n')
+        logfile.write(json.dumps({'log_entry': 2}))
+        logfile.flush()
+
+        [log] = read_logs(logfile, 2, buf=1)
+        self.assertEqual(log, {'log_entry': 1})

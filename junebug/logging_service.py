@@ -1,5 +1,7 @@
+from itertools import chain
 import json
 import logging
+import os
 import time
 
 from twisted.python import log
@@ -70,7 +72,7 @@ class JunebugLogObserver(object):
             data['instance'] = repr(failure.value)
             data['stack'] = failure.stack
 
-        self.logfile.write(json.dumps(data))
+        self.logfile.write(json.dumps(data) + '\n')
 
     def __call__(self, event):
         if self.log_context_sentinel in event:
@@ -122,3 +124,70 @@ class JunebugLoggerService(Service):
 
     def registered(self):
         return self.log_observer in self.logger.observers
+
+
+def reverse_read(filename, buf):
+    '''
+    Read the non-blank lines from a file in reverse order.
+
+    :param str filename: The path of the file to be read.
+    :param int buf: The size of the read buffer.
+
+    :returns:
+        A generator that yields each line from the file in reverse order as a
+        string.
+    '''
+    with open(filename) as f:
+        f.seek(0, os.SEEK_END)
+        remaining_size = f.tell()
+        incomplete_line = None
+        while remaining_size > 0:
+            f.seek(max(0, remaining_size - buf), os.SEEK_SET)
+            data = f.read(min(remaining_size, buf))
+            # If we read no data, we should exit the loop
+            if len(data) == 0:
+                break
+            remaining_size -= len(data)
+            lines = data.split('\n')
+            # If the last line of the file doesn't end in a new line, it is
+            # possible that the line hasn't been finished yet, so we should
+            # ignore that line.
+            if incomplete_line is None and data[-1] != '\n':
+                lines.pop(-1)
+            # If there is an incomplete line from the last read, we should
+            # append it to the end of the current read.
+            if incomplete_line:
+                lines[-1] += incomplete_line
+            # If we still have any lines left, the first one could be
+            # incomplete, so store it for the next iteration.
+            if lines:
+                incomplete_line = lines.pop(0)
+            for l in lines[::-1]:
+                if l is not '':
+                    yield l
+        if incomplete_line:
+            yield incomplete_line
+
+
+def read_logs(logfile, lines, buf=4096):
+    '''
+    Reads log files to fetch the last N logs.
+
+    :param logfile: The LogFile to read from.
+    :type logfile: :class:`twisted.python.logfile.LogFile`
+    :param int lines: Maximum number of lines to read.
+    :param int buf: The size of the read buffer.
+
+    :returns: list -- Each item is a dictionary representing a log entry.
+    '''
+    logs = []
+
+    for filepath in chain(
+            (logfile.path,),
+            ('%s.%d' % (logfile.path, n) for n in logfile.listLogs())
+            ):
+        for line in reverse_read(filepath, buf):
+            logs.append(json.loads(line))
+            if len(logs) == lines:
+                return logs
+    return logs
