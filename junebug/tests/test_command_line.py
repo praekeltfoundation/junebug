@@ -303,6 +303,18 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-mlf', '0'])
         self.assertEqual(config.max_log_files, None)
 
+    def test_parse_arguments_max_logs(self):
+        '''The max logs can be specified by "--max-logs" or "-ml" and defaults
+        to 100.'''
+        config = parse_arguments([])
+        self.assertEqual(config.max_logs, 100)
+
+        config = parse_arguments(['--max-logs', '2'])
+        self.assertEqual(config.max_logs, 2)
+
+        config = parse_arguments(['-ml', '2'])
+        self.assertEqual(config.max_logs, 2)
+
     def test_config_file(self):
         '''The config file command line argument can be specified by
         "--config" or "-c"'''
@@ -332,6 +344,7 @@ class TestCommandLine(JunebugTestBase):
                 'logging_path': 'other-logs/',
                 'log_rotate_size': 2,
                 'max_log_files': 3,
+                'max_logs': 4,
             }
         })
 
@@ -356,6 +369,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.logging_path, 'other-logs/')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
+        self.assertEqual(config.max_logs, 4)
 
         config = parse_arguments(['-c', '/foo/bar.yaml'])
         self.assertEqual(config.interface, 'lolcathost')
@@ -378,6 +392,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.logging_path, 'other-logs/')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
+        self.assertEqual(config.max_logs, 4)
 
     def test_config_file_overriding(self):
         '''Config file options are overriden by their corresponding command
@@ -405,6 +420,7 @@ class TestCommandLine(JunebugTestBase):
                 'logging_path': 'other-logs/',
                 'log_rotate_size': 2,
                 'max_log_files': 3,
+                'max_logs': 4,
             }
         })
 
@@ -427,6 +443,7 @@ class TestCommandLine(JunebugTestBase):
             '-lp', 'my-logs/',
             '-lrs', '100',
             '-mlf', '10',
+            '-ml', '5',
         ])
 
         self.assertEqual(config.interface, 'zuulcathost')
@@ -449,6 +466,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.logging_path, 'my-logs/')
         self.assertEqual(config.log_rotate_size, 100)
         self.assertEqual(config.max_log_files, 10)
+        self.assertEqual(config.max_logs, 5)
 
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename

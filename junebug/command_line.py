@@ -96,8 +96,12 @@ def create_parser():
         'log file before it gets rotated. Defaults to 1000000.')
     parser.add_argument(
         '--max-log-files', '-mlf', type=int,
-        dest='max_log_files', help='The maximum number of log files to '
-        'keep before deleting old files. Defaults to 5. 0 is unlimited.')
+        dest='max_log_files', help='the maximum number of log files to '
+        'keep before deleting old files. defaults to 5. 0 is unlimited.')
+    parser.add_argument(
+        '--max-logs', '-ml', type=int,
+        dest='max_logs', help='the maximum number of log entries to '
+        'to allow to be fetched through the API. Defaults to 100.')
 
     return parser
 
