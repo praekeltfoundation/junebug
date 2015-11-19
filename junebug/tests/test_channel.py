@@ -820,8 +820,8 @@ class TestChannel(JunebugTestBase):
             self.service, self.redis, config=config, properties=properties)
         worker_logger = channel.transport_worker.getServiceNamed(
             'Junebug Worker Logger')
-
         worker_logger.startService()
+
         channel.transport_worker.test_log('Test message1')
         channel.transport_worker.test_log('Test message2')
         channel.transport_worker.test_log('Test message3')
