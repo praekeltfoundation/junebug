@@ -189,7 +189,7 @@ Logs
 
    :param str class: The class of the exception.
    :param str instance: The specific instance of the exception.
-   :param list traceback:
+   :param list stack:
        A list of strings representing the traceback of the error.
 
    **Example Request**:
