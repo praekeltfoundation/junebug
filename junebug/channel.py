@@ -8,7 +8,7 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
-from junebug.logging_service import JunebugLoggerService
+from junebug.logging_service import JunebugLoggerService, read_logs
 from junebug.stores import StatusStore, MessageRateStore
 from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
@@ -264,6 +264,17 @@ class Channel(object):
         msg = in_msg.reply(**msg)
         msg = yield self._send_message(sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
+
+    def get_logs(self, n):
+        '''Returns the last `n` logs. If `n` is greater than the configured
+        limit, only returns the configured limit amount of logs. If `n` is
+        None, returns the configured limit amount of logs.'''
+        if n is None:
+            n = self.config.max_logs
+        n = min(n, self.config.max_logs)
+        logfile = self.transport_worker.getServiceNamed(
+            'Junebug Worker Logger').logfile
+        return read_logs(logfile, n)
 
     @property
     def _transport_config(self):

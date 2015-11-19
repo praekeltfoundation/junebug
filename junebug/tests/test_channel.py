@@ -1,3 +1,4 @@
+import logging
 import json
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage, TransportStatus
@@ -760,3 +761,75 @@ class TestChannel(JunebugTestBase):
         self.assert_status(
             (yield channel.status())['status'],
             delivery_pending_rate=1.0/channel.config.metric_window)
+
+    @inlineCallbacks
+    def test_get_logs_more_than_available(self):
+        '''If the amount of available logs is less than what is requested,
+        all the logs will be returned.'''
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        worker_logger.startService()
+        channel.transport_worker.test_log('Test message1')
+
+        [log] = channel.get_logs(2)
+        self.assert_log(log, {
+            'logger': channel.id, 'message': 'Test message1',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_logs_less_than_available(self):
+        '''If the amount of available logs is more than what is requested,
+        only the requested amount will be returned.'''
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        worker_logger.startService()
+        channel.transport_worker.test_log('Test message1')
+        channel.transport_worker.test_log('Test message2')
+        channel.transport_worker.test_log('Test message3')
+
+        [log1, log2] = channel.get_logs(2)
+        self.assert_log(log1, {
+            'logger': channel.id, 'message': 'Test message3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id, 'message': 'Test message2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_logs_more_than_configured(self):
+        '''If the amount of logs requested is more than the configured
+        maximum, then only the configured maximum amount is returned.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        properties = yield self.create_channel_properties(type='logging')
+        channel = yield self.create_channel(
+            self.service, self.redis, config=config, properties=properties)
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        worker_logger.startService()
+        channel.transport_worker.test_log('Test message1')
+        channel.transport_worker.test_log('Test message2')
+        channel.transport_worker.test_log('Test message3')
+
+        [log1, log2] = channel.get_logs(3)
+        self.assert_log(log1, {
+            'logger': channel.id, 'message': 'Test message3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id, 'message': 'Test message2',
+            'level': logging.INFO})

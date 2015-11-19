@@ -305,6 +305,12 @@ class JunebugTestBase(TestCase):
             dict((k, v) for k, v in body.iteritems() if k in fields),
             fields)
 
+    def assert_log(self, log, expected):
+        '''Assert that a log matches what is expected.'''
+        timestamp = log.pop('timestamp')
+        self.assertTrue(isinstance(timestamp, float))
+        self.assertEqual(log, expected)
+
     def generate_status(
             self, level=None, components={}, inbound_message_rate=0,
             outbound_message_rate=0, submitted_event_rate=0,
