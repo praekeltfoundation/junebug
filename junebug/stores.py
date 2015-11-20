@@ -1,3 +1,4 @@
+from math import ceil
 import time
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -185,7 +186,7 @@ class MessageRateStore(BaseStore):
         Note: bucket_size should be kept constant for each channel_id and label
         combination. Changing bucket sizes results in undefined behaviour.'''
         key = self._get_current_key(channel_id, label, bucket_size)
-        return self.increment_id(key, ttl=bucket_size * 2)
+        return self.increment_id(key, ttl=int(ceil(bucket_size * 2)))
 
     @inlineCallbacks
     def get_messages_per_second(self, channel_id, label, bucket_size):
