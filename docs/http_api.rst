@@ -173,8 +173,7 @@ Logs
    Get the most recent logs for a specific channel.
 
    :query int n:
-       The amount of logs to fetch.
-
+       The number of logs to fetch.
 
    The response is a list of logs, with each log taking the following form:
 
