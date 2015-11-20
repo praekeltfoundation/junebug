@@ -446,18 +446,20 @@ class TestMessageRateStore(JunebugTestBase):
 
         self.redis._client.clock = clock
 
-        yield store.increment('channelid', 'inbound', 1)
+        yield store.increment('channelid', 'inbound', 1.2)
         bucket0 = store.get_key('channelid', 'inbound', int(clock.seconds()))
         self.assertEqual((yield self.redis.get(bucket0)), '1')
 
-        clock.advance(1)
-        yield store.increment('channelid', 'inbound', 1)
+        clock.advance(1.2)
+        yield store.increment('channelid', 'inbound', 1.2)
         bucket1 = store.get_key('channelid', 'inbound', int(clock.seconds()))
         self.assertEqual((yield self.redis.get(bucket0)), '1')
         self.assertEqual((yield self.redis.get(bucket1)), '1')
 
-        clock.advance(1)
-        yield store.increment('channelid', 'inbound', 1)
+        # We need to advance the clock here by 1.8, as the expiry time is an
+        # int, and is rounded up.
+        clock.advance(1.8)
+        yield store.increment('channelid', 'inbound', 1.2)
         bucket2 = store.get_key('channelid', 'inbound', int(clock.seconds()))
         self.assertEqual((yield self.redis.get(bucket0)), None)
         self.assertEqual((yield self.redis.get(bucket1)), '1')
