@@ -15,7 +15,8 @@ from junebug.logging_service import (
 
 class TestSentryLogObserver(JunebugTestBase):
     def setUp(self):
-        self.logfile = DummyLogFile(None, None, None, None)
+        self.logpath = self.mktemp()
+        self.logfile = DummyLogFile(None, self.logpath, None, None)
         self.obs = JunebugLogObserver(self.logfile, 'worker-1')
 
     def assert_log(self, log, expected):
@@ -52,9 +53,11 @@ class TestSentryLogObserver(JunebugTestBase):
             'level': JunebugLogObserver.DEFAULT_ERROR_LEVEL,
             'message': 'foo error',
             'logger': 'worker-1',
-            'class': repr(ValueError),
-            'instance': repr(e),
-            'stack': [],
+            'exception': {
+                'class': repr(ValueError),
+                'instance': repr(e),
+                'stack': [],
+            },
         })
 
     def test_log_traceback(self):
@@ -72,10 +75,12 @@ class TestSentryLogObserver(JunebugTestBase):
             'message': 'foo',
             'logger': 'worker-1',
             'level': logging.ERROR,
-            'class': repr(f.type),
-            'instance': repr(ValueError),
-            # json encoding changes all tuples to lists
-            'stack': json.loads(json.dumps(f.stack)),
+            'exception': {
+                'class': repr(f.type),
+                'instance': repr(ValueError),
+                # json encoding changes all tuples to lists
+                'stack': json.loads(json.dumps(f.stack)),
+            },
         })
 
     def test_log_warning(self):
@@ -122,13 +127,12 @@ class TestSentryLogObserver(JunebugTestBase):
         id of the log.'''
         self.obs({'message': ["a"], 'system': 'worker-1,bar'})
         self.assertEqual(len(self.logfile.logs), 1)
-        del self.logfile.logs[:]
 
         self.obs({'message': ["a"], 'system': 'worker-2,foo'})
-        self.assertEqual(len(self.logfile.logs), 0)
+        self.assertEqual(len(self.logfile.logs), 1)
 
         self.obs({'message': ["a"], 'system': 'worker-1foo,bar'})
-        self.assertEqual(len(self.logfile.logs), 0)
+        self.assertEqual(len(self.logfile.logs), 1)
 
 
 class TestJunebugLoggerService(JunebugTestBase):
@@ -136,8 +140,9 @@ class TestJunebugLoggerService(JunebugTestBase):
     def setUp(self):
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         self.logger = LogPublisher()
+        self.logpath = self.mktemp()
         self.service = JunebugLoggerService(
-            'worker-id', '/testpath/', 1000000, 7, logger=self.logger)
+            'worker-id', self.logpath, 1000000, 7, logger=self.logger)
 
     def assert_log(self, log, expected):
         '''Assert that a log matches what is expected.'''
@@ -153,7 +158,7 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.startService()
         logfile = self.service.logfile
         self.assertEqual(logfile.worker_id, 'worker-id')
-        self.assertEqual(logfile.path, '/testpath/')
+        self.assertEqual(logfile.path, self.logpath)
         self.assertEqual(logfile.rotateLength, 1000000)
         self.assertEqual(logfile.maxRotatedFiles, 7)
 
@@ -175,10 +180,10 @@ class TestJunebugLoggerService(JunebugTestBase):
             'message': 'Hello',
         })
 
-        del logfile.logs[:]
         yield self.service.stopService()
+        self.assertEqual(len(logfile.logs), 1)
         self.logger.msg("Foo", logLevel=logging.WARN)
-        self.assertEqual(logfile.logs, [])
+        self.assertEqual(len(logfile.logs), 1)
 
     @inlineCallbacks
     def test_stop_not_running(self):

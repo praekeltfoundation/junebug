@@ -165,6 +165,76 @@ Channels
    Delete a channel.
 
 
+Logs
+^^^^
+
+.. http:get:: /channels/(channel_id:str)/logs
+
+   Get the most recent logs for a specific channel.
+
+   :query int n:
+       Optional. The number of logs to fetch. If not supplied, then the
+       configured maximum number of logs are returned. If this number is
+       greater than the configured maximum logs value, then only the
+       configured maximum number of logs will be returned.
+
+   The response is a list of logs, with each log taking the following form:
+
+   :param str logger: The logger that created the log, usually the channel id.
+   :param int level:
+       The level of the logs. Corresponds to the levels found in the python
+       module :py:mod:`logging`.
+   :param float timestamp: Timestamp, in the format of seconds since the epoch.
+   :param str message: The message of the log.
+
+   In the case of an exception, there will be an exception object, with the
+   following parameters:
+
+   :param str class: The class of the exception.
+   :param str instance: The specific instance of the exception.
+   :param list stack:
+       A list of strings representing the traceback of the error.
+
+   **Example Request**:
+
+   .. sourcecode:: http
+
+       GET /channels/123-456-7a90/logs?n=2 HTTP/1.1
+       Host: example.com
+       Accept: application/json, text/javascript
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+      {
+        status: 200,
+        code: "OK",
+        description: "Logs retrieved",
+        result: [
+            {
+                logger: "123-456-7a90",
+                level: 40,
+                timestamp: 987654321.0,
+                message: "Last log for the channel"
+                exception: {
+                    class: "ValueError",
+                    instance: "ValueError("Bad value",)",
+                    stack: [
+                        ...
+                    ]
+                }
+            },
+            {
+                logger: "123-456-7a90",
+                level: 20,
+                timestamp: 987654320.0,
+                message: "Second last log for the channel"
+            }
+        ]
+      }
+
+
 Messages
 ^^^^^^^^
 

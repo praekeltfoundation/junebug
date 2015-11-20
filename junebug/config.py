@@ -71,3 +71,7 @@ class JunebugConfig(Config):
     max_log_files = ConfigInt(
         "The maximum amount of log files allowed before old files start to "
         "get deleted. 0 is unlimited.", default=5)
+
+    max_logs = ConfigInt(
+        "The maximum amount of logs that is allowed to be retrieved via the "
+        "API.", default=100)

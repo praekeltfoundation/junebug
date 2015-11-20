@@ -68,9 +68,11 @@ class JunebugLogObserver(object):
 
         failure = event.get('failure')
         if failure:
-            data['class'] = repr(failure.type)
-            data['instance'] = repr(failure.value)
-            data['stack'] = failure.stack
+            data['exception'] = {
+                'class': repr(failure.type),
+                'instance': repr(failure.value),
+                'stack': failure.stack,
+            }
 
         self.logfile.write(json.dumps(data) + '\n')
 
