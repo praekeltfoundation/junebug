@@ -79,7 +79,7 @@ class JunebugLogObserver(object):
     def __call__(self, event):
         if self.log_context_sentinel in event:
             return
-        if self.worker_id not in event.get('system', '').split(','):
+        if self.worker_id not in (event.get('system', '') or '').split(','):
             return
         log.callWithContext(self.log_context, self._log_to_file, event)
 

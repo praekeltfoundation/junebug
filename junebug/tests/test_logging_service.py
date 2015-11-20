@@ -134,6 +134,9 @@ class TestSentryLogObserver(JunebugTestBase):
         self.obs({'message': ["a"], 'system': 'worker-1foo,bar'})
         self.assertEqual(len(self.logfile.logs), 1)
 
+        self.obs({'message': ["a"], 'system': None})
+        self.assertEqual(len(self.logfile.logs), 1)
+
 
 class TestJunebugLoggerService(JunebugTestBase):
 
