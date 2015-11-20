@@ -186,7 +186,8 @@ Logs
    :param float timestamp: Timestamp, in the format of seconds since the epoch.
    :param str message: The message of the log.
 
-   In the case of an exception, the following fields may also be returned:
+   In the case of an exception, there will be an exception object, with the
+   following parameters:
 
    :param str class: The class of the exception.
    :param str instance: The specific instance of the exception.
@@ -212,9 +213,15 @@ Logs
         result: [
             {
                 logger: "123-456-7a90",
-                level: 20,
+                level: 40,
                 timestamp: 987654321.0,
                 message: "Last log for the channel"
+                exception: {
+                    class: "ValueError",
+                    instance: "ValueError("Bad value",)",
+                    stack: [
+                        ...
+                    ]
             },
             {
                 logger: "123-456-7a90",

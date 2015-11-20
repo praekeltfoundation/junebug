@@ -53,9 +53,11 @@ class TestSentryLogObserver(JunebugTestBase):
             'level': JunebugLogObserver.DEFAULT_ERROR_LEVEL,
             'message': 'foo error',
             'logger': 'worker-1',
-            'class': repr(ValueError),
-            'instance': repr(e),
-            'stack': [],
+            'exception': {
+                'class': repr(ValueError),
+                'instance': repr(e),
+                'stack': [],
+            },
         })
 
     def test_log_traceback(self):
@@ -73,10 +75,12 @@ class TestSentryLogObserver(JunebugTestBase):
             'message': 'foo',
             'logger': 'worker-1',
             'level': logging.ERROR,
-            'class': repr(f.type),
-            'instance': repr(ValueError),
-            # json encoding changes all tuples to lists
-            'stack': json.loads(json.dumps(f.stack)),
+            'exception': {
+                'class': repr(f.type),
+                'instance': repr(ValueError),
+                # json encoding changes all tuples to lists
+                'stack': json.loads(json.dumps(f.stack)),
+            },
         })
 
     def test_log_warning(self):
