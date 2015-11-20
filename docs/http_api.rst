@@ -173,9 +173,10 @@ Logs
    Get the most recent logs for a specific channel.
 
    :query int n:
-       The number of logs to fetch. If this number is greater than the
-       configured maximum logs value, then only the configured maximum number
-       of logs will be returned.
+       Optional. The number of logs to fetch. If not supplied, then the
+       configured maximum number of logs are returned. If this number is
+       greater than the configured maximum logs value, then only the
+       configured maximum number of logs will be returned.
 
    The response is a list of logs, with each log taking the following form:
 

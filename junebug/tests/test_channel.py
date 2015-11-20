@@ -833,3 +833,34 @@ class TestChannel(JunebugTestBase):
         self.assert_log(log2, {
             'logger': channel.id, 'message': 'Test message2',
             'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_logs_n_is_none(self):
+        '''If no value for n is supplied, then the configured maximum number
+        of logs should be returned.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        properties = yield self.create_channel_properties(type='logging')
+        channel = yield self.create_channel(
+            self.service, self.redis, config=config, properties=properties)
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test message1')
+        channel.transport_worker.test_log('Test message2')
+        channel.transport_worker.test_log('Test message3')
+
+        [log1, log2] = channel.get_logs(None)
+        self.assert_log(log1, {
+            'logger': channel.id, 'message': 'Test message3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id, 'message': 'Test message2',
+            'level': logging.INFO})

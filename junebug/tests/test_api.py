@@ -769,3 +769,41 @@ class TestJunebugApi(JunebugTestBase):
             'logger': channel.id,
             'message': 'Test2',
             'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_channel_logs_no_n(self):
+        '''If the number of logs is not specified, then the API should return
+        the configured maximum number of logs.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        properties = yield self.create_channel_properties(type='logging')
+        yield self.stop_server()
+        yield self.start_server(config=config)
+        channel = yield self.create_channel(
+            self.service, self.redis, config=config, properties=properties)
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test1')
+        channel.transport_worker.test_log('Test2')
+        channel.transport_worker.test_log('Test3')
+        resp = yield self.get('/channels/%s/logs' % channel.id)
+
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': channel.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id,
+            'message': 'Test2',
+            'level': logging.INFO})
