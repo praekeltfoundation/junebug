@@ -3,7 +3,7 @@
 Release Notes
 =============
 
-v1.0.0
+v0.1.0
 ------
 .. Pull requests 60,62-70
 
