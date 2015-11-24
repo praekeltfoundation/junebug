@@ -34,7 +34,8 @@ extensions = [
     'sphinxarg.ext',
     'sphinx_confmodel.ext',
     'sphinxcontrib.httpdomain',
-    'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinxcontrib.blockdiag'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
