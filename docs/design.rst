@@ -107,3 +107,20 @@ Glossary
     a single connection to a provider
 :channel type:
     connections are instances of channel types. Example: Twilio, SMPP 3.4, etc.
+
+
+System Architecture
+-------------------
+.. blockdiag::
+
+    diagram {
+        Junebug <-> Redis, RabbitMQ, Files;
+    }
+
+Junebug relies on Redis for temporary storage, RabbitMQ for message queueing,
+and files on disc for logs. This setup was chosen so that Junebug would be
+easy to setup and start using, and not require a large, complicated,
+multi-system setup.
+
+There are downsides to this approach, however, Junebug is currently restricted
+to a single theaded process.
