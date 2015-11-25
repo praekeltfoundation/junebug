@@ -123,4 +123,4 @@ easy to setup and start using, and not require a large, complicated,
 multi-system setup.
 
 There are downsides to this approach, however, Junebug is currently restricted
-to a single theaded process.
+to a single threaded process.

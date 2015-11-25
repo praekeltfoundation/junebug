@@ -142,7 +142,7 @@ together in a typical setup.
         SMS [label="SMPP SMS line"];
         USSD [label="Dmark USSD line"];
         Status [label="Status monitoring app"];
-        App1 [label="User interaction app"];
+        App1 [label="Survey app"];
         Bulk [label="Bulk message sending app"];
 
         USSD <-> C1 <-> App1;
@@ -180,7 +180,7 @@ available.
 Each of these lines is connected to a Junebug channel.
 
 The USSD line sends all of its incoming messages to an application which knows
-what to do what the messages, and can generate appropriate responses. In this
+what to do with the messages, and can generate appropriate responses. In this
 case, the application will store the user's answer, and send the user the next
 question in the survey.
 
