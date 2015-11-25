@@ -135,24 +135,20 @@ together in a typical setup.
     diagram {
         orientation = portrait;
         default_group_color = lightblue;
+        edge_layout = flowchart;
 
         C1 [label="USSD Channel"];
-        C1S [label="USSD Channel Status"];
-        C1M [label="USSD Channel Messages & Events"];
         C2 [label="SMS Channel"];
-        C2S [label="SMS Channel Status"];
-        C2M [label="SMS Channel Messages Endpoint"];
         SMS [label="SMPP SMS line"];
         USSD [label="Dmark USSD line"];
         Status [label="Status monitoring app"];
         App1 [label="User interaction app"];
         Bulk [label="Bulk message sending app"];
 
-        USSD <-> C1 <-> C1M, C1S;
-            C1M <-> App1;
-        SMS <-> C2 <-> C2M, C2S;
-            C2M <- Bulk;
-        C1S, C2S -> Status;
+        USSD <-> C1 <-> App1;
+                 C1 -> Status;
+        SMS <-> C2 <- Bulk;
+                C2 -> Status;
 
         group {
             label='Network provider';
@@ -162,21 +158,12 @@ together in a typical setup.
 
         group {
             label="Junebug";
-            group {
-                C1;
-                C1M;
-                C1S;
-            }
-            group {
-                C2;
-                C2S;
-                C2M;
-            }
+            C1;
+            C2;
         }
 
         group {
             label='User applications';
-            orientation = portrait;
             App1;
             Status;
             Bulk;
