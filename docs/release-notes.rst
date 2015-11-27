@@ -23,6 +23,8 @@ v0.0.5
 ------
 .. Pull requests 10,19,36-42,44-49,51-54,57-59
 
+*9 November 2015*
+
 - Fixes
     - When Junebug is started up, all previously created channels are now
       started
@@ -52,6 +54,8 @@ v0.0.4
 ------
 .. Pull request 33,34
 
+*23 September 2015*
+
 - Fixes
     - Ignore events without an associated event forwarding URL, instead of logging
       an error.
@@ -61,6 +65,8 @@ v0.0.4
 v0.0.3
 ------
 .. Pull requests 8,18,20-32
+
+*23 September 2015*
 
 - Fixes
     - Remove channel from channel list when it is deleted
@@ -79,6 +85,8 @@ v0.0.2
 ------
 .. Pull requests 9,11,12,15,16
 
+*9 September 2015*
+
 - Fixes
     - Collection API endpoints now all end in a ``/``
     - Channels are now only started/stopped once instead of twice
@@ -91,6 +99,8 @@ v0.0.2
 v0.0.1
 ------
 .. Pull requests 1-7
+
+*1 September 2015*
 
 - Features:
     - API endpoint structure
