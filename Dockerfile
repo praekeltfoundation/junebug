@@ -6,4 +6,4 @@ RUN pip install -q junebug
 RUN mkdir logs
 
 EXPOSE 8080
-ENTRYPOINT ["jb", "--config=/app/example-config.yaml"]
+ENTRYPOINT ["jb", "--config=/app/config.yaml"]
