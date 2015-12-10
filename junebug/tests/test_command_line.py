@@ -39,6 +39,11 @@ class TestCommandLine(JunebugTestBase):
         config = junebug.command_line.load_config(filename)
         self.assertEqual(config, {'foo': 'bar'})
 
+    def test_load_config_none(self):
+        '''If the filename is None, return an empty object'''
+        config = junebug.command_line.load_config(None)
+        self.assertEqual(config, {})
+
     def test_parse_arguments_interface(self):
         '''The interface command line argument can be specified by
         "--interface" and "-i" and has a default value of "localhost"'''
