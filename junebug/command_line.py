@@ -82,6 +82,26 @@ def create_parser():
         help='Add a plugins to the list of plugins, as a json blob of the '
         'plugin config. Must contain a `type` key, with the full python class '
         'path of the plugin')
+    parser.add_argument(
+        '--metric-window', '-mw', type=float,
+        dest='metric_window', help='The size of each bucket '
+        '(in seconds) to use for metrics. Defaults to 10 seconds.')
+    parser.add_argument(
+        '--logging-path', '-lp', type=str,
+        dest='logging_path', help='The path to place log files for each '
+        'channel. Defaults to `logs/`')
+    parser.add_argument(
+        '--log-rotate-size', '-lrs', type=int,
+        dest='log_rotate_size', help='The maximum size (in bytes) for each '
+        'log file before it gets rotated. Defaults to 1000000.')
+    parser.add_argument(
+        '--max-log-files', '-mlf', type=int,
+        dest='max_log_files', help='the maximum number of log files to '
+        'keep before deleting old files. defaults to 5. 0 is unlimited.')
+    parser.add_argument(
+        '--max-logs', '-ml', type=int,
+        dest='max_logs', help='the maximum number of log entries to '
+        'to allow to be fetched through the API. Defaults to 100.')
 
     return parser
 
@@ -136,7 +156,14 @@ def config_from_args(args):
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     parse_channels(args)
     args['plugins'] = parse_plugins(config.get('plugins', []), args)
-    return JunebugConfig(conjoin(config, args))
+
+    combined = conjoin(config, args)
+
+    # max_log_files == 0 means that no limit should be set, so we need to set
+    # it to `None` for that case
+    combined['max_log_files'] = combined.get('max_log_files') or None
+
+    return JunebugConfig(combined)
 
 
 def parse_redis(config, args):
@@ -201,7 +228,11 @@ def overrides(target, source, mappings):
 
 
 def load_config(filename):
-    return yaml.safe_load(filename) if filename is not None else {}
+    if filename is None:
+        return {}
+    with open(filename) as f:
+        config = yaml.safe_load(f)
+    return config
 
 
 if __name__ == '__main__':

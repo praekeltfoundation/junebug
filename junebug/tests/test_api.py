@@ -1,3 +1,4 @@
+import logging
 import json
 import treq
 from twisted.internet.defer import inlineCallbacks
@@ -17,8 +18,9 @@ class TestJunebugApi(JunebugTestBase):
         self.patch_logger()
         yield self.start_server()
 
-    def get(self, url):
-        return treq.get("%s%s" % (self.url, url), persistent=False)
+    def get(self, url, params={}):
+        return treq.get(
+            "%s%s" % (self.url, url), params=params, persistent=False)
 
     def post(self, url, data, headers=None):
         return treq.post(
@@ -154,7 +156,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel created',
-            conjoin(properties, {'status': {}}),
+            conjoin(properties, {'status': self.generate_status()}),
             ignore=['id'])
 
     @inlineCallbacks
@@ -170,6 +172,7 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(transport.config, conjoin(properties['config'], {
             'transport_name': id,
+            'worker_name': id,
             'publish_status': True,
         }))
 
@@ -235,7 +238,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel found', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
             }))
 
@@ -265,7 +268,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel updated', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
                 'metadata': {'foo': 'bar'},
             }))
@@ -285,7 +288,7 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.assert_response(
             resp, http.OK, 'channel updated', conjoin(properties, {
-                'status': {},
+                'status': self.generate_status(),
                 'id': 'test-channel',
             }))
 
@@ -382,6 +385,24 @@ class TestJunebugApi(JunebugTestBase):
         event_url = yield self.api.outbounds.load_event_url(
             'test-channel', message['message_id'])
         self.assertEqual(event_url, None)
+
+    @inlineCallbacks
+    def test_send_message_message_rate(self):
+        '''Sending a message should increment the message rate counter'''
+        clock = yield self.patch_message_rate_clock()
+        channel = Channel(
+            (yield self.get_redis()), (yield self.create_channel_config()),
+            self.create_channel_properties(), id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None})
+        clock.advance(channel.config.metric_window)
+
+        rate = yield self.api.message_rate.get_messages_per_second(
+            'test-channel', 'outbound', channel.config.metric_window)
+        self.assertEqual(rate, 1.0 / channel.config.metric_window)
 
     @inlineCallbacks
     def test_send_message_event_url(self):
@@ -643,3 +664,146 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/health')
         yield self.assert_response(
             resp, http.OK, 'health ok', {})
+
+    @inlineCallbacks
+    def test_get_channel_logs_no_logs(self):
+        '''If there are no logs, an empty list should be returned.'''
+        channel = yield self.create_channel(self.service, self.redis)
+        log_worker = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        yield log_worker.startService()
+        resp = yield self.get('/channels/%s/logs' % channel.id, params={
+            'n': '3',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [])
+
+    @inlineCallbacks
+    def test_get_channel_logs_less_than_limit(self):
+        '''If the amount of logs is less than the limit, all the logs should
+        be returned.'''
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test')
+        resp = yield self.get('/channels/%s/logs' % channel.id, params={
+            'n': '2',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[0])
+        [log] = (yield resp.json())['result']
+        self.assert_log(log, {
+            'logger': channel.id,
+            'message': 'Test',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_channel_logs_more_than_limit(self):
+        '''If the amount of logs is more than the limit, only the latest n
+        should be returned.'''
+        channel = yield self.create_channel(
+            self.service, self.redis,
+            'junebug.tests.helpers.LoggingTestTransport')
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test1')
+        channel.transport_worker.test_log('Test2')
+        channel.transport_worker.test_log('Test3')
+        resp = yield self.get('/channels/%s/logs' % channel.id, params={
+            'n': '2',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': channel.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id,
+            'message': 'Test2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_channel_logs_more_than_configured(self):
+        '''If the amount of requested logs is more than what is
+        configured, then only the configured amount of logs are returned.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        properties = yield self.create_channel_properties(type='logging')
+        yield self.stop_server()
+        yield self.start_server(config=config)
+        channel = yield self.create_channel(
+            self.service, self.redis, config=config, properties=properties)
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test1')
+        channel.transport_worker.test_log('Test2')
+        channel.transport_worker.test_log('Test3')
+        resp = yield self.get('/channels/%s/logs' % channel.id, params={
+            'n': '3',
+        })
+
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': channel.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id,
+            'message': 'Test2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_channel_logs_no_n(self):
+        '''If the number of logs is not specified, then the API should return
+        the configured maximum number of logs.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        properties = yield self.create_channel_properties(type='logging')
+        yield self.stop_server()
+        yield self.start_server(config=config)
+        channel = yield self.create_channel(
+            self.service, self.redis, config=config, properties=properties)
+        worker_logger = channel.transport_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        channel.transport_worker.test_log('Test1')
+        channel.transport_worker.test_log('Test2')
+        channel.transport_worker.test_log('Test3')
+        resp = yield self.get('/channels/%s/logs' % channel.id)
+
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': channel.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': channel.id,
+            'message': 'Test2',
+            'level': logging.INFO})

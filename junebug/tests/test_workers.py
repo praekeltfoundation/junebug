@@ -44,6 +44,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'mo_message_url': self.url.decode('utf-8'),
             'inbound_ttl': 60,
             'outbound_ttl': 60 * 60 * 24 * 2,
+            'metric_window': 1.0,
         }), config)
 
         worker = yield app_helper.get_application(config)
@@ -290,6 +291,131 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual(self.logging_api.requests, [])
         self.assert_was_logged("Discarding unrecognised event %r" % (event,))
+
+    @inlineCallbacks
+    def test_outbound_message_rates(self):
+        '''Outbound messages should increase the message send rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield worker.consume_user_message(msg)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'inbound', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_submitted_event_rates(self):
+        '''Acknowledge events should increase the submitted event rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+        yield worker.consume_ack(event)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'submitted', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_rejected_event_rates(self):
+        '''Not-acknowledge events should increase the rejected event rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        event = TransportEvent(
+            event_type='nack',
+            nack_reason='bad message',
+            user_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+        yield worker.consume_nack(event)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'rejected', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_delivery_succeeded_event_rates(self):
+        '''Delivered delivery reports should increase the delivery_succeeded
+        event rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='delivered',
+            timestamp='2015-09-22 15:39:44.827794')
+        yield worker.consume_delivery_report(event)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'delivery_succeeded', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_delivery_failed_event_rates(self):
+        '''Failed delivery reports should increase the delivery_failed
+        event rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='failed',
+            timestamp='2015-09-22 15:39:44.827794')
+        yield worker.consume_delivery_report(event)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'delivery_failed', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_delivery_pending_event_rates(self):
+        '''Pending delivery reports should increase the delivery_pending
+        event rates.'''
+        clock = self.patch_message_rate_clock()
+
+        worker = yield self.get_worker({
+            'message_rate_bucket': 1.0,
+        })
+
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='pending',
+            timestamp='2015-09-22 15:39:44.827794')
+        yield worker.consume_delivery_report(event)
+
+        clock.advance(1)
+
+        self.assertEqual((yield worker.message_rate.get_messages_per_second(
+            'testtransport', 'delivery_pending', 1.0)), 1.0)
 
 
 class TestChannelStatusWorker(JunebugTestBase):

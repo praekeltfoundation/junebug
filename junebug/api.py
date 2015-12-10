@@ -11,7 +11,8 @@ from junebug.channel import Channel
 from junebug.error import JunebugError
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
-from junebug.stores import InboundMessageStore, OutboundMessageStore
+from junebug.stores import (
+    InboundMessageStore, MessageRateStore, OutboundMessageStore)
 
 logging = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ class JunebugApi(object):
 
         self.outbounds = OutboundMessageStore(
             self.redis, self.config.outbound_message_ttl)
+
+        self.message_rate = MessageRateStore(self.redis)
 
         self.plugins = []
         for plugin_config in self.config.plugins:
@@ -196,6 +199,19 @@ class JunebugApi(object):
         returnValue(response(
             request, 'channel deleted', {}))
 
+    @app.route('/channels/<string:channel_id>/logs', methods=['GET'])
+    @inlineCallbacks
+    def get_logs(self, request, channel_id):
+        '''Get the last N logs for a channel, sorted reverse
+        chronologically.'''
+        n = request.args.get('n', None)
+        if n is not None:
+            n = int(n[0])
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+        logs = yield channel.get_logs(n)
+        returnValue(response(request, 'logs retrieved', logs))
+
     @app.route('/channels/<string:channel_id>/messages/', methods=['POST'])
     @json_body
     @validate(
@@ -237,6 +253,9 @@ class JunebugApi(object):
         else:
             msg = yield channel.send_reply_message(
                 self.message_sender, self.outbounds, self.inbounds, body)
+
+        yield self.message_rate.increment(
+            channel_id, 'outbound', self.config.metric_window)
 
         returnValue(response(request, 'message sent', msg))
 

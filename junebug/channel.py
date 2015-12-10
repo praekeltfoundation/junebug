@@ -8,7 +8,8 @@ from vumi.message import TransportUserMessage
 from vumi.service import WorkerCreator
 from vumi.servicemaker import VumiOptions
 
-from junebug.stores import StatusStore
+from junebug.logging_service import JunebugLoggerService, read_logs
+from junebug.stores import StatusStore, MessageRateStore
 from junebug.utils import api_from_message, message_from_api, api_from_status
 from junebug.error import JunebugError
 
@@ -62,6 +63,7 @@ class Channel(object):
     STATUS_APPLICATION_ID = 'status:%s'
     APPLICATION_CLS_NAME = 'junebug.workers.MessageForwardingWorker'
     STATUS_APPLICATION_CLS_NAME = 'junebug.workers.ChannelStatusWorker'
+    JUNEBUG_LOGGING_SERVICE_CLS = JunebugLoggerService
 
     def __init__(self, redis_manager, config, properties, plugins=[], id=None):
         '''Creates a new channel. ``redis_manager`` is the redis manager, from
@@ -84,6 +86,8 @@ class Channel(object):
 
         self.sstore = StatusStore(self.redis)
         self.plugins = plugins
+
+        self.message_rates = MessageRateStore(self.redis)
 
     @property
     def application_id(self):
@@ -159,6 +163,10 @@ class Channel(object):
         status['status'] = yield self._get_status()
         returnValue(status)
 
+    def _get_message_rate(self, label):
+        return self.message_rates.get_messages_per_second(
+            self.id, label, self.config.metric_window)
+
     @inlineCallbacks
     def _get_status(self):
         components = yield self.sstore.get_statuses(self.id)
@@ -178,11 +186,25 @@ class Channel(object):
                 key=status_values.get)
         except ValueError:
             # No statuses
-            returnValue({})
+            status = None
 
         returnValue({
             'components': components,
-            'status': status
+            'status': status,
+            'inbound_message_rate': (
+                yield self._get_message_rate('inbound')),
+            'outbound_message_rate': (
+                yield self._get_message_rate('outbound')),
+            'submitted_event_rate': (
+                yield self._get_message_rate('submitted')),
+            'rejected_event_rate': (
+                yield self._get_message_rate('rejected')),
+            'delivery_succeeded_rate': (
+                yield self._get_message_rate('delivery_succeeded')),
+            'delivery_failed_rate': (
+                yield self._get_message_rate('delivery_failed')),
+            'delivery_pending_rate': (
+                yield self._get_message_rate('delivery_pending')),
         })
 
     @classmethod
@@ -243,11 +265,23 @@ class Channel(object):
         msg = yield self._send_message(sender, outbounds, event_url, msg)
         returnValue(api_from_message(msg))
 
+    def get_logs(self, n):
+        '''Returns the last `n` logs. If `n` is greater than the configured
+        limit, only returns the configured limit amount of logs. If `n` is
+        None, returns the configured limit amount of logs.'''
+        if n is None:
+            n = self.config.max_logs
+        n = min(n, self.config.max_logs)
+        logfile = self.transport_worker.getServiceNamed(
+            'Junebug Worker Logger').logfile
+        return read_logs(logfile, n)
+
     @property
     def _transport_config(self):
         config = self._properties['config']
         config = self._convert_unicode(config)
         config['transport_name'] = self.id
+        config['worker_name'] = self.id
         config['publish_status'] = True
         return config
 
@@ -259,6 +293,7 @@ class Channel(object):
             'redis_manager': self.config.redis,
             'inbound_ttl': self.config.inbound_message_ttl,
             'outbound_ttl': self.config.outbound_message_ttl,
+            'metric_window': self.config.metric_window,
         }
 
     @property
@@ -298,12 +333,17 @@ class Channel(object):
             transport_worker = self._create_transport()
 
         transport_worker.setName(self.id)
+
+        logging_service = self._create_junebug_logger_service()
+        transport_worker.addService(logging_service)
+
         transport_worker.setServiceParent(service)
         self.transport_worker = transport_worker
 
     def _start_application(self, service):
         worker = self._create_application()
         worker.setName(self.application_id)
+
         worker.setServiceParent(service)
         self.application_worker = worker
 
@@ -327,6 +367,11 @@ class Channel(object):
         return self._create_worker(
             self.STATUS_APPLICATION_CLS_NAME,
             self._status_application_config)
+
+    def _create_junebug_logger_service(self):
+        return self.JUNEBUG_LOGGING_SERVICE_CLS(
+            self.id, self.config.logging_path, self.config.log_rotate_size,
+            self.config.max_log_files)
 
     def _create_worker(self, cls_name, config):
         creator = WorkerCreator(self.options)

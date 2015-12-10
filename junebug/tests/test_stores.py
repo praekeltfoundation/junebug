@@ -2,7 +2,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
 from junebug.stores import (
-    BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore)
+    BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore,
+    MessageRateStore)
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -61,6 +62,8 @@ class TestBaseStore(JunebugTestBase):
         props = yield store.load_all('testid')
         self.assertEqual(properties, props)
 
+        self.assertEqual((yield self.redis.ttl('testid')), 60)
+
     @inlineCallbacks
     def test_load_property(self):
         '''Loads a single property from redis'''
@@ -72,6 +75,8 @@ class TestBaseStore(JunebugTestBase):
 
         self.assertEqual(val, 'bar')
 
+        self.assertEqual((yield self.redis.ttl('testid')), 60)
+
     @inlineCallbacks
     def test_load_property_empty(self):
         '''Loads None if property doesn't exist in redis'''
@@ -80,6 +85,54 @@ class TestBaseStore(JunebugTestBase):
         val = yield store.load_property('testid', 'foo')
 
         self.assertEqual(val, None)
+
+    @inlineCallbacks
+    def test_override_ttl(self):
+        '''If a ttl for an action is specified, it should override the default
+        ttl'''
+        store = yield self.create_store(ttl=1)
+
+        yield store.store_all('testid1', {'foo': 'bar'}, ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid1')), 2)
+
+        yield store.load_all('testid1', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid1')), 3)
+
+        yield store.store_property('testid2', 'foo', 'bar', ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid2')), 2)
+
+        yield store.load_property('testid2', 'foo', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid2')), 3)
+
+        yield store.increment_id('testid3', ttl=2)
+        self.assertEqual((yield self.redis.ttl('testid3')), 2)
+
+        yield store.get_id('testid3', ttl=3)
+        self.assertEqual((yield self.redis.ttl('testid3')), 3)
+
+    @inlineCallbacks
+    def test_none_ttl(self):
+        '''If the ttl for an action is specified as None, no ttl should be
+        set.'''
+        store = yield self.create_store()
+
+        yield store.store_all('testid1', {'foo': 'bar'}, ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.load_all('testid1', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid1')), None)
+
+        yield store.store_property('testid2', 'foo', 'bar', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.load_property('testid2', 'foo', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid2')), None)
+
+        yield store.increment_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
+
+        yield store.get_id('testid3', ttl=None)
+        self.assertEqual((yield self.redis.ttl('testid3')), None)
 
 
 class TestInboundMessageStore(JunebugTestBase):
@@ -262,7 +315,8 @@ class TestStatusStore(JunebugTestBase):
     def test_store_single_status(self):
         '''The single status is stored under the correct key'''
         store = yield self.create_store()
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
         yield store.store_status('channelid', status)
 
         status_redis = yield self.redis.hget('channelid:status', 'foo')
@@ -275,9 +329,12 @@ class TestStatusStore(JunebugTestBase):
         '''New statuses override old statuses with the same component, but do
         not affect statuses of different components'''
         store = yield self.create_store()
-        status_old = TransportStatus(status='ok', component='foo')
-        status_new = TransportStatus(status='down', component='foo')
-        status_other = TransportStatus(status='ok', component='bar')
+        status_old = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
+        status_new = TransportStatus(
+            status='down', component='foo', type='bar', message='foo')
+        status_other = TransportStatus(
+            status='ok', component='bar', type='bar', message='foo')
 
         yield store.store_status('channelid', status_other)
         yield store.store_status('channelid', status_old)
@@ -292,7 +349,8 @@ class TestStatusStore(JunebugTestBase):
     @inlineCallbacks
     def test_load_one_status(self):
         store = yield self.create_store()
-        status = TransportStatus(status='ok', component='foo')
+        status = TransportStatus(
+            status='ok', component='foo', type='bar', message='foo')
         yield store.store_status('channelid', status)
 
         stored_statuses = yield store.get_statuses('channelid')
@@ -305,10 +363,104 @@ class TestStatusStore(JunebugTestBase):
         store = yield self.create_store()
         expected = {}
         for i in range(5):
-            status = TransportStatus(status='ok', component=i)
+            status = TransportStatus(
+                status='ok', component=i, type='bar', message='foo')
             yield store.store_status('channelid', status)
             expected[str(i)] = status
 
         stored_statuses = yield store.get_statuses('channelid')
 
         self.assertEqual(stored_statuses, expected)
+
+
+class TestMessageRateStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self, **kw):
+        '''
+        Creates and returns a new message rate store.
+        '''
+        redis = yield self.get_redis()
+        returnValue(MessageRateStore(redis, **kw))
+
+    @inlineCallbacks
+    def test_get_rate_no_messages(self):
+        '''If no messages have been sent, the message rate should be 0.'''
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
+        clock.advance(10)
+        rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
+        self.assertEqual(rate, 0)
+
+    @inlineCallbacks
+    def test_get_rate_single_message(self):
+        '''If there is a single message in the last time bucket, the message
+        rate should be 1/bucket_length'''
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
+        yield store.increment('channelid', 'inbound', 10)
+        clock.advance(10)
+        rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
+        self.assertEqual(rate, 1.0 / 10.0)
+
+    @inlineCallbacks
+    def test_get_rate_multiple_messages(self):
+        '''If there are n messages in the last time bucket, the message
+        rate should be n/bucket_length'''
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
+        N = 15
+
+        for i in range(N):
+            yield store.increment('channelid', 'inbound', 10)
+
+        clock.advance(10)
+        rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
+        self.assertEqual(rate, N / 10.0)
+
+    @inlineCallbacks
+    def test_get_rate_different_buckets(self):
+        '''If there are n messages in the last time bucket, the message
+        rate should be n/bucket_length, independant of the amount of messages
+        in the current bucket.'''
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
+        N = 15
+        M = 6
+
+        for i in range(N):
+            yield store.increment('channelid', 'inbound', 10)
+
+        clock.advance(10)
+
+        for i in range(M):
+            yield store.increment('channelid', 'inbound', 10)
+
+        rate = yield store.get_messages_per_second('channelid', 'inbound', 10)
+        self.assertEqual(rate, N / 10.0)
+
+    @inlineCallbacks
+    def test_old_redis_keys_are_expired(self):
+        '''Redis keys that are no longer required should be expired.'''
+        clock = self.patch_message_rate_clock()
+        store = yield self.create_store()
+
+        self.redis._client.clock = clock
+
+        yield store.increment('channelid', 'inbound', 1.2)
+        bucket0 = store.get_key('channelid', 'inbound', int(clock.seconds()))
+        self.assertEqual((yield self.redis.get(bucket0)), '1')
+
+        clock.advance(1.2)
+        yield store.increment('channelid', 'inbound', 1.2)
+        bucket1 = store.get_key('channelid', 'inbound', int(clock.seconds()))
+        self.assertEqual((yield self.redis.get(bucket0)), '1')
+        self.assertEqual((yield self.redis.get(bucket1)), '1')
+
+        # We need to advance the clock here by 1.8, as the expiry time is an
+        # int, and is rounded up.
+        clock.advance(1.8)
+        yield store.increment('channelid', 'inbound', 1.2)
+        bucket2 = store.get_key('channelid', 'inbound', int(clock.seconds()))
+        self.assertEqual((yield self.redis.get(bucket0)), None)
+        self.assertEqual((yield self.redis.get(bucket1)), '1')
+        self.assertEqual((yield self.redis.get(bucket2)), '1')

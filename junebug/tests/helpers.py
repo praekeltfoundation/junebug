@@ -3,8 +3,10 @@ from copy import deepcopy
 import logging
 import logging.handlers
 
+from twisted.python.logfile import LogFile
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -15,14 +17,49 @@ from vumi.utils import vumi_resource_path
 from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
-from vumi.transports.telnet import TelnetServerTransport
+from vumi.transports import Transport
 
+import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
+from junebug.stores import MessageRateStore
+
+
+class DummyLogFile(object):
+    '''LogFile that has a different path to its worker_id'''
+    def __init__(
+            self, worker_id, path, rotateLength, maxRotatedFiles):
+        self.worker_id = worker_id
+        self.path = path
+        self.rotateLength = rotateLength
+        self.maxRotatedFiles = maxRotatedFiles
+        self.closed_count = 0
+        self.logfile = LogFile.fromFullPath(
+            path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
+
+    @property
+    def logs(self):
+        reader = self.logfile.getCurrentLog()
+        logs = []
+        lines = reader.readLines()
+        while lines:
+            logs.extend(lines)
+            lines = reader.readLines()
+        return logs
+
+    def write(self, data):
+        self.logfile.write(data)
+        self.logfile.flush()
+
+    def close(self):
+        self.closed_count += 1
+
+    def listLogs(self):
+        return []
 
 
 class FakeAmqpClient(JunebugAMQClient):
@@ -81,6 +118,11 @@ class RequestLoggingApi(object):
         return 'test-error-response'
 
 
+class LoggingTestTransport(Transport):
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
+
+
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
     helper functions'''
@@ -89,7 +131,6 @@ class JunebugTestBase(TestCase):
         'type': 'telnet',
         'config': {
             'twisted_endpoint': 'tcp:0',
-            'worker_name': 'unnamed',
         },
         'mo_url': 'http://foo.bar',
     }
@@ -105,6 +146,12 @@ class JunebugTestBase(TestCase):
         self.logging_handler = logging.handlers.MemoryHandler(100)
         logging.getLogger().addHandler(self.logging_handler)
         self.addCleanup(self._cleanup_logging_patch)
+
+    def patch_message_rate_clock(self):
+        '''Patches the message rate clock, and returns the clock'''
+        clock = Clock()
+        self.patch(MessageRateStore, 'get_seconds', lambda _: clock.seconds())
+        return clock
 
     def _cleanup_logging_patch(self):
         self.logging_handler.close()
@@ -134,16 +181,25 @@ class JunebugTestBase(TestCase):
             plugins=[]):
         '''Creates and starts, and saves a channel, with a
         TelnetServerTransport transport'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         if transport_class is None:
-            transport_class = TelnetServerTransport
+            transport_class = 'vumi.transports.telnet.TelnetServerTransport'
 
         properties = deepcopy(properties)
+        logpath = self.mktemp()
         if config is None:
-            config = yield self.create_channel_config()
+            config = yield self.create_channel_config(
+                channels={
+                    properties['type']: transport_class
+                },
+                logging_path=logpath)
+
         channel = Channel(
             redis, config, properties, id=id, plugins=plugins)
-        properties['config']['transport_name'] = channel.id
         yield channel.start(self.service)
+
+        properties['config']['transport_name'] = channel.id
+
         yield channel.save()
         self.addCleanup(channel.stop)
         returnValue(channel)
@@ -248,6 +304,35 @@ class JunebugTestBase(TestCase):
         self.assertEqual(
             dict((k, v) for k, v in body.iteritems() if k in fields),
             fields)
+
+    def assert_log(self, log, expected):
+        '''Assert that a log matches what is expected.'''
+        timestamp = log.pop('timestamp')
+        self.assertTrue(isinstance(timestamp, float))
+        self.assertEqual(log, expected)
+
+    def generate_status(
+            self, level=None, components={}, inbound_message_rate=0,
+            outbound_message_rate=0, submitted_event_rate=0,
+            rejected_event_rate=0, delivery_succeeded_rate=0,
+            delivery_failed_rate=0, delivery_pending_rate=0):
+        '''Generates a status that the http API would respond with, given the
+        same parameters'''
+        return {
+            'status': level,
+            'components': components,
+            'inbound_message_rate': inbound_message_rate,
+            'outbound_message_rate': outbound_message_rate,
+            'submitted_event_rate': submitted_event_rate,
+            'rejected_event_rate': rejected_event_rate,
+            'delivery_succeeded_rate': delivery_succeeded_rate,
+            'delivery_failed_rate': delivery_failed_rate,
+            'delivery_pending_rate': delivery_pending_rate,
+        }
+
+    def assert_status(self, status, **kwargs):
+        '''Assert that the current channel status is correct'''
+        self.assertEqual(status, self.generate_status(**kwargs))
 
 
 class FakeJunebugPlugin(JunebugPlugin):

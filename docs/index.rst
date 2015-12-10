@@ -24,6 +24,7 @@ Contents:
    design
    http_api
    plugins-reference
+   release-notes
 
 
 Indices and tables
