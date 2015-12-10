@@ -228,7 +228,11 @@ def overrides(target, source, mappings):
 
 
 def load_config(filename):
-    return yaml.safe_load(filename) if filename is not None else {}
+    if filename is None:
+        return {}
+    with open(filename) as f:
+        config = yaml.safe_load(f)
+    return config
 
 
 if __name__ == '__main__':
