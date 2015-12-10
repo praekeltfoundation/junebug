@@ -1,9 +1,9 @@
-import yaml
 import json
 import logging
 import os.path
 from twisted.internet.defer import inlineCallbacks
 
+import junebug
 from junebug import JunebugApi
 from junebug.command_line import parse_arguments, logging_setup, start_server
 from junebug.tests.helpers import JunebugTestBase
@@ -26,7 +26,18 @@ class TestCommandLine(JunebugTestBase):
         JunebugApi.teardown = self.old_teardown
 
     def patch_yaml_load(self, mappings):
-        self.patch(yaml, 'safe_load', mappings.get)
+        self.patch(junebug.command_line, 'load_config', mappings.get)
+
+    def test_load_config(self):
+        '''Given a filename with the file containing yaml content, the
+        load_config function should load the yaml file.'''
+        filename = self.mktemp()
+        with open(filename, 'w') as f:
+            f.write('''
+                foo: bar
+            ''')
+        config = junebug.command_line.load_config(filename)
+        self.assertEqual(config, {'foo': 'bar'})
 
     def test_parse_arguments_interface(self):
         '''The interface command line argument can be specified by
