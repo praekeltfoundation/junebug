@@ -1,0 +1,13 @@
+junebug:
+    build: .
+    ports:
+     - "8080:8080"
+    volumes:
+     - example-app:/app
+    links:
+     - redis
+     - rabbitmq
+redis:
+    image: redis
+rabbitmq:
+    image: rabbitmq
