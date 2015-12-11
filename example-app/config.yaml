@@ -34,7 +34,7 @@ plugins: []
 metric_window: 10.0
 
 # Individual channel log files config
-logging_path: logs/
+logging_path: /app/channel-logs/
 log_rotate_size: 1000000  # 1MB
 max_log_files: 5
 max_logs: 100  # limit of lines of log files that can be returned by the API
