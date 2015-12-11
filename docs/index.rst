@@ -8,11 +8,9 @@ Welcome to Junebug's documentation!
 
 Junebug is a messaging gateway which is intended to provide the means to connect to mobile network infrastructure to enable the managing of text messages via a RESTful HTTP interface.
 
-.. warning::
 
-   Junebug is in active development. These notes are a description of its intended goals.
-
-Contents:
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
@@ -28,7 +26,7 @@ Contents:
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
