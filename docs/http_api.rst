@@ -45,7 +45,7 @@ Channels
        AMQP queue to repost messages onto for mobile originated messages. One
        or both of mo_url or mo_queue must be specified. Sends inbound
        (mobile originated) messages to '{amqp_queue}.inbound', outbound (mobile
-       terminated) messages to '{amqp_queue}.outbound', and events to
+       terminated) messages from '{amqp_queue}.outbound', and events to
        '{amqp_queue}.events'
    :param int rate_limit_count:
        Number of incoming messages to allow in a given time window.
