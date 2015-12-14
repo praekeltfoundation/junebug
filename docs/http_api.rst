@@ -6,11 +6,6 @@ HTTP API
 
 Junebug's HTTP API.
 
-.. warning::
-
-   Junebug is still in alpha, and some of the HTTP API endpoints documented
-   here are yet to be completed.
-
 
 HTTP API endpoints
 ------------------
