@@ -21,7 +21,11 @@ class MessageForwardingConfig(ApplicationConfig):
 
     mo_message_url = ConfigText(
         "The URL to send HTTP POST requests to for MO messages",
-        required=True, static=True)
+        default=None, static=True)
+
+    message_queue = ConfigText(
+        "The AMQP queue to forward messages on",
+        default=None, static=True)
 
     redis_manager = ConfigDict(
         "Redis config.",
@@ -73,12 +77,13 @@ class MessageForwardingWorker(ApplicationWorker):
         yield self.inbounds.store_vumi_message(self.channel_id, message)
 
         msg = api_from_message(message)
-        resp = yield post(self.config['mo_message_url'], msg)
 
-        if request_failed(resp):
-            logging.exception(
-                'Error sending message, received HTTP code %r with body %r. '
-                'Message: %r' % (resp.code, (yield resp.content()), msg))
+        if self.config['mo_message_url']:
+            resp = yield post(self.config['mo_message_url'], msg)
+            if request_failed(resp):
+                logging.exception(
+                    'Error sending message, received HTTP code %r with body %r'
+                    '. Message: %r' % (resp.code, (yield resp.content()), msg))
 
         yield self._increment_metric('inbound')
 

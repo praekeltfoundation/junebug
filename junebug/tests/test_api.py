@@ -196,14 +196,11 @@ class TestJunebugApi(JunebugTestBase):
             'config': {},
             'rate_limit_count': -3,
             'character_limit': 'a',
+            'mo_url': 'http://example.org',
         })
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
-                'errors': [
-                    {
-                        'message': "'mo_url' is a required property",
-                        'type': 'invalid_body',
-                    },
+                'errors': sorted([
                     {
                         'message': '-3 is less than the minimum of 0',
                         'type': 'invalid_body',
@@ -212,7 +209,25 @@ class TestJunebugApi(JunebugTestBase):
                         'message': "u'a' is not of type 'integer'",
                         'type': 'invalid_body',
                     },
-                ]
+                ])
+            })
+
+    @inlineCallbacks
+    def test_create_channel_mo_destination(self):
+        '''When creating a channel, one of or both of mo_url and mo_queue
+        must be present.'''
+        resp = yield self.post('/channels/', {
+            'type': 'smpp',
+            'config': {}
+        })
+        self.maxDiff = None
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': 'One or both of "mo_url" and "amqp_queue" must'
+                               ' be specified',
+                    'type': 'ApiUsageError',
+                }],
             })
 
     @inlineCallbacks
