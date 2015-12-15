@@ -40,10 +40,10 @@ Channels
        to. May be ``null`` if not desired. Not supported by every channel.
    :param str mo_url:
        URL to call on incoming messages (mobile originated) from this channel.
-       One or both of mo_url or mo_queue must be specified.
+       One or both of mo_url or amqp_queue must be specified.
    :param str amqp_queue:
        AMQP queue to repost messages onto for mobile originated messages. One
-       or both of mo_url or mo_queue must be specified. Sends inbound
+       or both of mo_url or amqp_queue must be specified. Sends inbound
        (mobile originated) messages to '{amqp_queue}.inbound', outbound (mobile
        terminated) messages from '{amqp_queue}.outbound', and events to
        '{amqp_queue}.events'
