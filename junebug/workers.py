@@ -130,8 +130,7 @@ class MessageForwardingWorker(ApplicationWorker):
     def _forward_event(self, event):
         '''Forward the event to the correct places.'''
         yield self._forward_event_http(event)
-        if self.config.get('message_queue') is not None:
-            yield self._forward_event_amqp(event)
+        yield self._forward_event_amqp(event)
 
     @inlineCallbacks
     def _forward_event_http(self, event):
@@ -156,7 +155,8 @@ class MessageForwardingWorker(ApplicationWorker):
 
     def _forward_event_amqp(self, event):
         '''Put the event on the correct queue.'''
-        return self.ro_connector.publish_event(event)
+        if self.config.get('message_queue') is not None:
+            return self.ro_connector.publish_event(event)
 
     def consume_ack(self, event):
         return self.store_and_forward_event(event)
