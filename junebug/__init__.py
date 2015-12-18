@@ -5,4 +5,4 @@ interface.
 from junebug.api import JunebugApi
 
 __all__ = ['JunebugApi']
-__version__ = '0.0.7a'
+__version__ = '0.1.0'
