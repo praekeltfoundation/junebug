@@ -7,16 +7,22 @@ v0.1.0
 ------
 .. Pull requests 60,62-70
 
+- Fixes
+    - Fixed config file loading
+
 - Features
     - We can now get message and event rates on a GET request to the channel
       endpoint
     - Can now get the last N logs for each channel
+    - Can send and receive messages to and from AMQP queues as well as HTTP
+    - Dockerfile for creating docker containers
 
 - Documentation
     - Add documentation for message and event rates
     - Add documentation for getting a list of logs for a channel
     - Add a changelog to the documentation
-    - Update documentation to be ready for v1 release
+    - Update documentation to be ready for v0.1.0 release
+    - Remove Alpha version warning
 
 
 v0.0.5
