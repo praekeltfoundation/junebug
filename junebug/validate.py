@@ -20,7 +20,7 @@ def validate(*validators):
                 return fn(api, req, *a, **kw)
             else:
                 return response(
-                    req, 'api usage error', {'errors': errors},
+                    req, 'api usage error', {'errors': sorted(errors)},
                     code=http.BAD_REQUEST)
 
         return wrapper

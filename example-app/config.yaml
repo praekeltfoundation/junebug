@@ -1,0 +1,41 @@
+# Where to expose Junebug API endpoint
+interface: 0.0.0.0
+port: 8080
+
+logfile: /app/junebug.log
+
+# Where to find Redis and AMQP
+redis:
+    host: redis
+    port: 6379
+    db: 0
+    password: null
+
+amqp:
+    hostname: rabbitmq
+    vhost: /
+    port: 5672
+    db: 0
+    username: guest
+    password: guest
+
+# How long to store inbound and outbound message details in Redis
+inbound_message_ttl: 600      # 10 minutes for message reply
+outbound_message_ttl: 172800  # 2 days for events to arrive
+
+# Configure extra channel types here
+channels: {}
+replace_channels: false
+
+# List of plugins here
+plugins: []
+
+# The window size to use for metrics
+metric_window: 10.0
+
+# Individual channel log files config
+logging_path: /app/channel-logs/
+log_rotate_size: 1000000  # 1MB
+max_log_files: 5
+max_logs: 100  # limit of lines of log files that can be returned by the API
+

@@ -41,7 +41,7 @@ class TestValidate(TestCase):
         self.assertEqual(resp.code, http.BAD_REQUEST)
         content = yield resp.json()
         self.assertEqual(content['result'], {
-            'errors': errs1 + errs2
+            'errors': sorted(errs1 + errs2)
         })
         self.assertEqual(content['status'], 400)
         self.assertEqual(content['code'], 'Bad Request')

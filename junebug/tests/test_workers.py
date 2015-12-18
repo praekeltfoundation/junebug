@@ -31,9 +31,9 @@ class TestMessageForwardingWorker(JunebugTestBase):
         if config is None:
             config = {}
 
-        app_helper = ApplicationHelper(MessageForwardingWorker)
-        yield app_helper.setup()
-        self.addCleanup(app_helper.cleanup)
+        self.app_helper = ApplicationHelper(MessageForwardingWorker)
+        yield self.app_helper.setup()
+        self.addCleanup(self.app_helper.cleanup)
 
         persistencehelper = PersistenceHelper()
         yield persistencehelper.setup()
@@ -47,7 +47,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'metric_window': 1.0,
         }), config)
 
-        worker = yield app_helper.get_application(config)
+        worker = yield self.app_helper.get_application(config)
         returnValue(worker)
 
     @inlineCallbacks
@@ -63,8 +63,9 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(worker.channel_id, 'foo')
 
     @inlineCallbacks
-    def test_send_message(self):
-        '''A sent message should be forwarded to the configured URL'''
+    def test_send_message_http(self):
+        '''A sent message should be forwarded to the configured URL if a URL
+        is set.'''
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
         yield self.worker.consume_user_message(msg)
         [req] = self.logging_api.requests
@@ -74,6 +75,21 @@ class TestMessageForwardingWorker(JunebugTestBase):
         })
 
         self.assert_body_contains(req, to='+1234', content='testcontent')
+
+    @inlineCallbacks
+    def test_send_message_amqp(self):
+        '''A sent message should be forwarded to the correct AMQP queue if
+        the config option is set.'''
+        worker = yield self.get_worker(config={
+            'message_queue': 'testqueue'
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield worker.consume_user_message(msg)
+
+        [dispatched_msg] = self.app_helper.get_dispatched(
+            'testqueue', 'inbound', TransportUserMessage)
+
+        self.assertEqual(dispatched_msg, msg)
 
     @inlineCallbacks
     def test_send_message_bad_response(self):
@@ -105,7 +121,22 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(TransportUserMessage.from_json(msg_json), msg)
 
     @inlineCallbacks
-    def test_forward_ack(self):
+    def test_receive_message_amqp(self):
+        '''A received message on the configured queue should be forwarded to
+        the transport queue if the config option is set.'''
+        worker = yield self.get_worker(config={
+            'message_queue': 'testqueue'
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.app_helper.dispatch_outbound(
+            msg, connector_name='testqueue')
+
+        [dispatched_msg] = yield self.app_helper.wait_for_dispatched_outbound(
+            connector_name=worker.transport_name)
+        self.assertEqual(dispatched_msg, msg)
+
+    @inlineCallbacks
+    def test_forward_ack_http(self):
         event = TransportEvent(
             event_type='ack',
             user_message_id='msg-21',
@@ -124,6 +155,26 @@ class TestMessageForwardingWorker(JunebugTestBase):
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
         yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_ack_amqp(self):
+        '''A sent ack event should be forwarded to the correct AMQP queue if
+        the config option is set.'''
+        worker = yield self.get_worker(config={
+            'message_queue': 'testqueue'
+        })
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield worker.consume_ack(event)
+
+        [dispatched_msg] = self.app_helper.get_dispatched(
+            'testqueue', 'event', TransportEvent)
+
+        self.assertEqual(dispatched_msg['event_id'], event['event_id'])
 
     @inlineCallbacks
     def test_forward_ack_bad_response(self):
@@ -161,7 +212,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.assert_event_stored(event)
 
     @inlineCallbacks
-    def test_forward_nack(self):
+    def test_forward_nack_http(self):
         event = TransportEvent(
             event_type='nack',
             user_message_id='msg-21',
@@ -180,6 +231,26 @@ class TestMessageForwardingWorker(JunebugTestBase):
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
         yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_nack_amqp(self):
+        '''A sent nack event should be forwarded to the correct AMQP queue if
+        the config option is set.'''
+        worker = yield self.get_worker(config={
+            'message_queue': 'testqueue'
+        })
+        event = TransportEvent(
+            event_type='nack',
+            user_message_id='msg-21',
+            nack_reason='too many foos',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield worker.consume_nack(event)
+
+        [dispatched_msg] = self.app_helper.get_dispatched(
+            'testqueue', 'event', TransportEvent)
+
+        self.assertEqual(dispatched_msg['event_id'], event['event_id'])
 
     @inlineCallbacks
     def test_forward_nack_bad_response(self):
@@ -217,7 +288,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.assert_event_stored(event)
 
     @inlineCallbacks
-    def test_forward_dr(self):
+    def test_forward_dr_http(self):
         event = TransportEvent(
             event_type='delivery_report',
             user_message_id='msg-21',
@@ -236,6 +307,26 @@ class TestMessageForwardingWorker(JunebugTestBase):
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
         yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_dr_amqp(self):
+        '''A sent delivery report event should be forwarded to the correct
+        AMQP queue if the config option is set.'''
+        worker = yield self.get_worker(config={
+            'message_queue': 'testqueue'
+        })
+        event = TransportEvent(
+            event_type='delivery_report',
+            user_message_id='msg-21',
+            delivery_status='pending',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield worker.consume_nack(event)
+
+        [dispatched_msg] = self.app_helper.get_dispatched(
+            'testqueue', 'event', TransportEvent)
+
+        self.assertEqual(dispatched_msg['event_id'], event['event_id'])
 
     @inlineCallbacks
     def test_forward_dr_bad_response(self):

@@ -118,6 +118,7 @@ class JunebugApi(object):
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
                 'mo_url': {'type': 'string'},
+                'amqp_queue': {'type': 'string'},
                 'rate_limit_count': {
                     'type': 'integer',
                     'minimum': 0,
@@ -131,11 +132,15 @@ class JunebugApi(object):
                     'minimum': 0,
                 },
             },
-            'required': ['type', 'config', 'mo_url'],
+            'required': ['type', 'config'],
         }))
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
+        if not (body.get('mo_url') or body.get('amqp_queue')):
+            raise ApiUsageError(
+                'One or both of "mo_url" and "amqp_queue" must be specified')
+
         channel = Channel(
             self.redis, self.config, body, self.plugins)
         yield channel.save()
