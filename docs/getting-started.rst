@@ -8,7 +8,7 @@ This guides assumed you have already followed the :ref:`installation guide
 
 If you prefer a video tutorial, you can start by watching our `demo`_.
 
-.. _demo: https://archive.org/details/Junebug004Demo
+.. _demo: https://archive.org/details/Junebug010Demo
 
 First, make sure you have `Redis`_ and `RabbitMQ`_ running. On a Debian-based system, one can run them with::
 
