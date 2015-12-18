@@ -7,21 +7,29 @@ v0.1.0
 ------
 .. Pull requests 60,62-70
 
+- Fixes
+    - Fixed config file loading
+
 - Features
     - We can now get message and event rates on a GET request to the channel
       endpoint
     - Can now get the last N logs for each channel
+    - Can send and receive messages to and from AMQP queues as well as HTTP
+    - Dockerfile for creating docker containers
 
 - Documentation
     - Add documentation for message and event rates
     - Add documentation for getting a list of logs for a channel
     - Add a changelog to the documentation
-    - Update documentation to be ready for v1 release
+    - Update documentation to be ready for v0.1.0 release
+    - Remove Alpha version warning
 
 
 v0.0.5
 ------
 .. Pull requests 10,19,36-42,44-49,51-54,57-59
+
+*9 November 2015*
 
 - Fixes
     - When Junebug is started up, all previously created channels are now
@@ -52,6 +60,8 @@ v0.0.4
 ------
 .. Pull request 33,34
 
+*23 September 2015*
+
 - Fixes
     - Ignore events without an associated event forwarding URL, instead of logging
       an error.
@@ -61,6 +71,8 @@ v0.0.4
 v0.0.3
 ------
 .. Pull requests 8,18,20-32
+
+*23 September 2015*
 
 - Fixes
     - Remove channel from channel list when it is deleted
@@ -79,6 +91,8 @@ v0.0.2
 ------
 .. Pull requests 9,11,12,15,16
 
+*9 September 2015*
+
 - Fixes
     - Collection API endpoints now all end in a ``/``
     - Channels are now only started/stopped once instead of twice
@@ -91,6 +105,8 @@ v0.0.2
 v0.0.1
 ------
 .. Pull requests 1-7
+
+*1 September 2015*
 
 - Features:
     - API endpoint structure

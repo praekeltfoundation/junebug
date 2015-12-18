@@ -21,7 +21,11 @@ class MessageForwardingConfig(ApplicationConfig):
 
     mo_message_url = ConfigText(
         "The URL to send HTTP POST requests to for MO messages",
-        required=True, static=True)
+        default=None, static=True)
+
+    message_queue = ConfigText(
+        "The AMQP queue to forward messages on",
+        default=None, static=True)
 
     redis_manager = ConfigDict(
         "Redis config.",
@@ -59,6 +63,12 @@ class MessageForwardingWorker(ApplicationWorker):
 
         self.message_rate = MessageRateStore(self.redis)
 
+        if self.config.get('message_queue') is not None:
+            self.ro_connector = yield self.setup_ro_connector(
+                self.config['message_queue'])
+            self.ro_connector.set_outbound_handler(
+                self._publish_message)
+
     @inlineCallbacks
     def teardown_application(self):
         yield self.redis.close_manager()
@@ -73,12 +83,16 @@ class MessageForwardingWorker(ApplicationWorker):
         yield self.inbounds.store_vumi_message(self.channel_id, message)
 
         msg = api_from_message(message)
-        resp = yield post(self.config['mo_message_url'], msg)
 
-        if request_failed(resp):
-            logging.exception(
-                'Error sending message, received HTTP code %r with body %r. '
-                'Message: %r' % (resp.code, (yield resp.content()), msg))
+        if self.config.get('mo_message_url') is not None:
+            resp = yield post(self.config['mo_message_url'], msg)
+            if request_failed(resp):
+                logging.exception(
+                    'Error sending message, received HTTP code %r with body %r'
+                    '. Message: %r' % (resp.code, (yield resp.content()), msg))
+
+        if self.config.get('message_queue') is not None:
+            yield self.ro_connector.publish_inbound(message)
 
         yield self._increment_metric('inbound')
 
@@ -114,6 +128,12 @@ class MessageForwardingWorker(ApplicationWorker):
 
     @inlineCallbacks
     def _forward_event(self, event):
+        '''Forward the event to the correct places.'''
+        yield self._forward_event_http(event)
+        yield self._forward_event_amqp(event)
+
+    @inlineCallbacks
+    def _forward_event_http(self, event):
         '''POST the event to the correct URL'''
         url = yield self._get_event_url(event)
 
@@ -132,6 +152,11 @@ class MessageForwardingWorker(ApplicationWorker):
             logging.exception(
                 'Error sending event, received HTTP code %r with body %r. '
                 'Event: %r' % (resp.code, (yield resp.content()), event))
+
+    def _forward_event_amqp(self, event):
+        '''Put the event on the correct queue.'''
+        if self.config.get('message_queue') is not None:
+            return self.ro_connector.publish_event(event)
 
     def consume_ack(self, event):
         return self.store_and_forward_event(event)

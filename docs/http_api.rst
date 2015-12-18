@@ -6,11 +6,6 @@ HTTP API
 
 Junebug's HTTP API.
 
-.. warning::
-
-   Junebug is still in alpha, and some of the HTTP API endpoints documented
-   here are yet to be completed.
-
 
 HTTP API endpoints
 ------------------
@@ -40,6 +35,15 @@ Channels
        to. May be ``null`` if not desired. Not supported by every channel.
    :param str mo_url:
        URL to call on incoming messages (mobile originated) from this channel.
+       One or both of mo_url or amqp_queue must be specified. If both are
+       specified, messages will be sent to both.
+   :param str amqp_queue:
+       AMQP queue to repost messages onto for mobile originated messages. One
+       or both of mo_url or amqp_queue must be specified. If both are
+       specified, messages are sent to both. Sends inbound (mobile originated)
+       messages to '{amqp_queue}.inbound'. Inbound events are sent to
+       '{amqp_queue}.events'. Messages are sent from '{amqp_queue}.outbound'
+       as outbound (mobile terminated) messages on the channel. 
    :param int rate_limit_count:
        Number of incoming messages to allow in a given time window.
        See ``rate_limit_window``.
