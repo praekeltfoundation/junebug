@@ -15,3 +15,4 @@ pyenv install -s pypy-$PYPY_VERSION
 pyenv global pypy-$PYPY_VERSION
 virtualenv -p $(which python) ~/env-pypy-$PYPY_VERSION
 source ~/env-pypy-$PYPY_VERSION/bin/activate
+pip install --upgrade pip
