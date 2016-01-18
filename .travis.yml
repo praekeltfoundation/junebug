@@ -1,6 +1,13 @@
 language: python
 python:
   - "2.7"
+matrix:
+  include:
+    # Test on pypy without coverage, because it's unnecessary and very slow.
+    - python: "pypy"
+      env: PYPY_VERSION="4.0.1" NO_COVERAGE=1
+before_install:
+  - if [ ! -z "$PYPY_VERSION" ]; then source utils/setup-pypy-travis.sh; fi
 install:
   - "pip install -r requirements.txt"
   - "pip install coveralls"
@@ -9,6 +16,7 @@ cache:
     - $HOME/.cache/pip
 sudo: false
 script:
-  - coverage run --source=junebug `which trial` junebug
+  - if [ -z "$NO_COVERAGE" ]; then COVERAGE_CMD="coverage run --source=junebug"; else COVERAGE_CMD=""; fi
+  - $COVERAGE_CMD `which trial` junebug
 after_success:
   - coveralls
