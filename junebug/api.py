@@ -143,8 +143,8 @@ class JunebugApi(object):
 
         channel = Channel(
             self.redis, self.config, body, self.plugins)
-        yield channel.save()
         yield channel.start(self.service)
+        yield channel.save()
         returnValue(response(
             request, 'channel created', (yield channel.status())))
 
