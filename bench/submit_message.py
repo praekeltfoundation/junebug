@@ -2,7 +2,8 @@ import argparse
 import time
 import socket
 import sys
-
+from threading import Thread
+from Queue import Queue
 
 def parse_arguments(args):
     parser = argparse.ArgumentParser(
@@ -17,21 +18,21 @@ def parse_arguments(args):
     parser.add_argument(
         '--end-id', dest='end_id', type=int, default=10000,
         help='The integer to start with for request ids')
+    parser.add_argument(
+        '--concurrency', dest='concurrency', type=int, default=10,
+        help='The integer to start with for request ids')
     return parser.parse_args(args)
 
 
 def main():
     config = parse_arguments(sys.argv[1:])
-    create_requests(config.port, config.start_id, config.end_id)
+    create_requests(config.port, config.start_id, config.end_id, config.concurrency)
 
-
-def create_requests(port, start, end):
-    print("Starting send.")
-    start_time = time.time()
-    avg = []
+def sync_worker(port, item):
+    start, end = item
+    l = []
     t0 = time.time()
-    batch = 100
-    for i in xrange(start, end):
+    for k in range(start, end):
         s = socket.socket()
         s.connect(('localhost', port))
         s.send(
@@ -40,18 +41,42 @@ def create_requests(port, start, end):
             "&transactionTime=0000&creationTime=0000&response=0000 HTTP/1.1\r\n"
             "Host: localhost:8001\r\n"
             "User-Agent: test\r\n"
-            "\r\n\r\n" % i)
+            "\r\n\r\n" % k)
         s.recv(1024)
         s.close()
-        if i % batch == 0 and i > 0:
-            delta = time.time() - t0
-            avg.append(batch/delta)
-            print "Current avg:", batch/delta, "Total avg:", sum(avg)/len(avg)
-            t0 = time.time()
-    duration = time.time() - start_time
-    print("Completed sending %d messages in %fs, for a speed of %fmsgs/s" % (
-        end - start, duration, (end - start) / (duration)))
+    return time.time() - t0
 
+def worker(port, in_q, out_q):
+    while True:
+        item = in_q.get()
+        if item is None:
+            break
+        out_q.put(sync_worker(port, item))
+
+def create_requests(port, start, end, concurrency):
+    batch = 20
+    if concurrency > 1:
+        in_q = Queue()
+        out_q = Queue()
+        all_threads = []
+        for i in range(concurrency):
+            t = Thread(target=worker, args=(port, in_q, out_q))
+            t.start()
+            all_threads.append(t)
+        for i in range(start, end, batch):
+            in_q.put((i, i+batch))
+        for i in range(start, end, batch):
+            print out_q.get()
+        for k in range(concurrency):
+            in_q.put(None)
+        for t in all_threads:
+            t.join()
+    else:
+        # run it directly
+        l = []
+        for i in range(start, end, batch):
+            l.append(sync_worker(port, (i, i+batch)))
+        print l
 
 if __name__ == "__main__":
     main()
