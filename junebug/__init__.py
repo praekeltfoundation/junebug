@@ -4,25 +4,23 @@ interface.
 '''
 import os
 
+# Allows us to select which Twisted reactor to use. Must be done before any
+# Twisted import calls.
 r = os.environ.get('JUNEBUG_REACTOR')
 if r == "SELECT":
-    from twisted.internet import selectreactor
-    selectreactor.install()
+    from twisted.internet import selectreactor as r
 elif r == "POLL":
-    from twisted.internet import pollreactor
-    pollreactor.install()
+    from twisted.internet import pollreactor as r
 elif r == "KQUEUE":
-    from twisted.internet import kqreactor
-    kqreactor.install()
+    from twisted.internet import kqreactor as r
 elif r == "WFMO":
-    from twisted.internet import win32eventreactor
-    win32eventreactor.install()
+    from twisted.internet import win32eventreactor as r
 elif r == "IOCP":
-    from twisted.internet import iocpreactor
-    iocpreactor.install()
+    from twisted.internet import iocpreactor as r
 elif r == "EPOLL":
-    from twisted.internet import epollreactor
-    epollreactor.install()
+    from twisted.internet import epollreactor as r
+if r is not None:
+    r.install()
 
 from junebug.api import JunebugApi
 
