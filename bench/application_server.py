@@ -19,7 +19,6 @@ def send_response(content, port):
     content = json.loads(content.splitlines()[-1])
     reply = json.dumps({
         "reply_to": content.get('message_id'),
-        #"from": content.get('to'),
         "content": "reply message",
         "channel_data": {
             "session_event": "close",
@@ -28,13 +27,14 @@ def send_response(content, port):
 
     s = socket.socket()
     s.connect(('localhost', 8080))
-    channel_id = "45175bc5-6484-49c8-a276-c0164f900398"
+    channel_id = content['channel_id']
     s.send(
         "POST /channels/%s/messages/ HTTP/1.1\r\n"
         "Content-Type: application/json\r\n"
         "Content-Length: %d\r\n"
-        "\r\n%s\r\n\r\n" % (channel_id, len(reply), reply))
-    #print s.recv(1024)
+        "\r\n%s\r\n\r\n" % (channel_id, len(reply) + 2, reply))
+    reply = s.recv(1024)
+    assert reply.splitlines()[0] == 'HTTP/1.1 200 OK'
     s.close()
 
 
