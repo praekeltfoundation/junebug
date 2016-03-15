@@ -9,7 +9,7 @@ def parse_arguments(args):
         description=(
             'Creates and submits USSD messages via HTTP for benchmarking.'))
     parser.add_argument(
-        '--port', dest='port', type=int, default=8003,
+        '--port', dest='port', type=int, default=8001,
         help='Port to send USSD message requests to')
     parser.add_argument(
         '--start-id', dest='start_id', type=int, default=0,
