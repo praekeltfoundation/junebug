@@ -4,7 +4,7 @@ import socket
 
 def start_server(port=8002, response_port=8001):
     serversocket = socket.socket()
-    serversocket.bind(('localhost', port))
+    serversocket.bind(('127.0.0.1', port))
     serversocket.listen(1)
 
     while True:

@@ -9,7 +9,7 @@ def parse_arguments(args):
         description=(
             'Creates and submits USSD messages via HTTP for benchmarking.'))
     parser.add_argument(
-        '--port', dest='port', type=int, default=8001,
+        '--port', dest='port', type=int, default=8003,
         help='Port to send USSD message requests to')
     parser.add_argument(
         '--start-id', dest='start_id', type=int, default=0,
@@ -28,9 +28,10 @@ def main():
 def create_requests(port, start, end):
     print("Starting send.")
     start_time = time.time()
-    l = []
+    avg = []
+    t0 = time.time()
+    batch = 100
     for i in xrange(start, end):
-        t0 = time.time()
         s = socket.socket()
         s.connect(('localhost', port))
         s.send(
@@ -41,9 +42,12 @@ def create_requests(port, start, end):
             "User-Agent: test\r\n"
             "\r\n\r\n" % i)
         s.recv(1024)
-        l.append(time.time() - t0)
-        if i % 100 == 0 and i > 0:
-            print "Average so far:", sum(l)/len(l)
+        s.close()
+        if i % batch == 0 and i > 0:
+            delta = time.time() - t0
+            avg.append(batch/delta)
+            print "Current avg:", batch/delta, "Total avg:", sum(avg)/len(avg)
+            t0 = time.time()
     duration = time.time() - start_time
     print("Completed sending %d messages in %fs, for a speed of %fmsgs/s" % (
         end - start, duration, (end - start) / (duration)))
