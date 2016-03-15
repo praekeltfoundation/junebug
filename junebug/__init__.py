@@ -4,7 +4,7 @@ interface.
 '''
 import os
 
-r = os.environ.get('REACTOR')
+r = os.environ.get('JUNEBUG_REACTOR')
 if r == "SELECT":
     from twisted.internet import selectreactor
     selectreactor.install()

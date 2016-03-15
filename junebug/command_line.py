@@ -119,7 +119,7 @@ def logging_setup(filename):
 
     LOGGING_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 
-    if not os.environ.get('DISABLE_LOGGING'):
+    if not os.environ.get('JUNEBUG_DISABLE_LOGGING'):
         # Send Twisted Logs to python logger
         log.PythonLoggingObserver().start()
 
