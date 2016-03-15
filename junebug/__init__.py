@@ -6,7 +6,7 @@ import os
 
 # Allows us to select which Twisted reactor to use. Must be done before any
 # Twisted import calls.
-r = os.environ.get('JUNEBUG_REACTOR')
+r = os.environ.get('JUNEBUG_REACTOR', 'DEFAULT')
 if r == "SELECT":
     from twisted.internet import selectreactor as r
 elif r == "POLL":
@@ -19,8 +19,11 @@ elif r == "IOCP":
     from twisted.internet import iocpreactor as r
 elif r == "EPOLL":
     from twisted.internet import epollreactor as r
-if r is not None:
-    r.install()
+elif r == "DEFAULT":
+    from twisted.internet import default as r
+else:
+    raise RuntimeError("Unsupported JUNEBUG_REACTOR setting %r" % (r,))
+r.install()
 
 from junebug.api import JunebugApi
 
