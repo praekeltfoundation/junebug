@@ -119,11 +119,11 @@ def logging_setup(filename):
     LOGGING_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 
     # Send Twisted Logs to python logger
-    #log.PythonLoggingObserver().start()
+    log.PythonLoggingObserver().start()
 
     # Set up stdout logger
-    #logging.basicConfig(
-    #    level=logging.INFO, format=LOGGING_FORMAT, stream=sys.stdout)
+    logging.basicConfig(
+        level=logging.INFO, format=LOGGING_FORMAT, stream=sys.stdout)
 
     # Set up file logger
     if filename:
