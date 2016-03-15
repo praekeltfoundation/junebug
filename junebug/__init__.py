@@ -20,10 +20,11 @@ elif r == "IOCP":
 elif r == "EPOLL":
     from twisted.internet import epollreactor as r
 elif r == "DEFAULT":
-    from twisted.internet import default as r
+    r = None
 else:
     raise RuntimeError("Unsupported JUNEBUG_REACTOR setting %r" % (r,))
-r.install()
+if r is not None:
+    r.install()
 
 from junebug.api import JunebugApi
 
