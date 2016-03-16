@@ -21,18 +21,26 @@ def parse_arguments(args):
     parser.add_argument(
         '--concurrency', dest='concurrency', type=int, default=10,
         help='The integer to start with for request ids')
+    parser.add_argument(
+        '--save-file', dest='save_file', default='',
+        help='Save output to this file')
+    parser.add_argument(
+        '--warmup', dest='warmup', default=3000,
+        help='Number of iterations to discard for statistics')
+    
     return parser.parse_args(args)
 
 
 def main():
     config = parse_arguments(sys.argv[1:])
-    create_requests(config.port, config.start_id, config.end_id, config.concurrency)
+    create_requests(config.port, config.start_id, config.end_id, config.concurrency,
+                    config.save_file, config.warmup)
 
 def sync_worker(port, item):
     start, end = item
     l = []
-    t0 = time.time()
     for k in range(start, end):
+        t0 = time.time()
         s = socket.socket()
         s.connect(('localhost', port))
         s.send(
@@ -44,7 +52,8 @@ def sync_worker(port, item):
             "\r\n\r\n" % k)
         s.recv(1024)
         s.close()
-    return time.time() - t0
+        l.append(time.time() - t0)
+    return l
 
 def worker(port, in_q, out_q):
     while True:
@@ -53,8 +62,12 @@ def worker(port, in_q, out_q):
             break
         out_q.put(sync_worker(port, item))
 
-def create_requests(port, start, end, concurrency):
+def create_requests(port, start, end, concurrency, save_file, warmup):
+    print "running..."
+    t0 = time.time()
     batch = 20
+    all_items = []
+    t1 = 0
     if concurrency > 1:
         in_q = Queue()
         out_q = Queue()
@@ -66,17 +79,46 @@ def create_requests(port, start, end, concurrency):
         for i in range(start, end, batch):
             in_q.put((i, i+batch))
         for i in range(start, end, batch):
-            print out_q.get()
+            all_items.extend(out_q.get())
+            if len(all_items) % 100 == 0 and all_items:
+                sys.stdout.write("%d%% .. " % (int(float(len(all_items)) / (end - start) * 100),))
+                sys.stdout.flush()
+            if len(all_items) == warmup:
+                t1 = time.time()
         for k in range(concurrency):
             in_q.put(None)
         for t in all_threads:
             t.join()
     else:
         # run it directly
-        l = []
+        all_items = []
         for i in range(start, end, batch):
-            l.append(sync_worker(port, (i, i+batch)))
-        print l
+            all_items.extend(sync_worker(port, (i, i+batch)))
+    if save_file:
+        open(save_file, "w").write("l = " + repr(all_items))
+    else:
+        print
+        # print some statistics
+        total_time = time.time() - t0
+        print "Average throuhput: %dmsgs/s" % (len(all_items) / total_time)
+        latency_95 = cut_by(all_items, 0.95)
+        latency_99 = cut_by(all_items, 0.99)
+        print ("Average latency: %.1fms 95%% latency: %.1fms, 99%% latency: %.1fms" % 
+               ((sum(all_items) / len(all_items) * 1000), latency_95, latency_99))
+        if t1:            
+            total_time = time.time() - t1
+            all_items = all_items[warmup:]
+            print "After warmup:"
+            print "Average throuhput: %dmsgs/s" % (len(all_items) / total_time)
+            latency_95 = cut_by(all_items, 0.95)
+            latency_99 = cut_by(all_items, 0.99)
+            print ("Average latency: %.1fms 95%% latency: %.1fms, 99%% latency: %.1fms" % 
+                   ((sum(all_items) / len(all_items) * 1000), latency_95, latency_99))
+
+def cut_by(l, fraction):
+    l = l[:]
+    l.sort()
+    return l[int(len(l) * fraction)] * 1000
 
 if __name__ == "__main__":
     main()
