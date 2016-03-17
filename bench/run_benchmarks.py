@@ -3,6 +3,7 @@ import httplib
 import json
 import os
 import time
+import re, math, sys
 
 
 class Process(object):
@@ -18,6 +19,21 @@ class Process(object):
         self.process = Popen(
             command, env=env, stdout=stdout)
         self.post_start()
+
+    def get_rss(self):
+        if not sys.platform.startswith('linux'):
+            return 0
+        pid = self.process.pid
+        with open("/proc/%d/status" % pid) as f:
+            d = f.read()
+            start = d.find('RSS')
+            end = d.find('\n', start)
+            m = re.search("(\d+)\s+([kKmM])B", d[start:end])
+            if m.group(2) in 'kK':
+                coef = 0.001
+            else:
+                coef = 1.0
+            return int(math.ceil((m.group(1)) * coef))
 
     def post_start(self):
         '''Subclasses implement. What to do after starting process.'''
@@ -80,7 +96,6 @@ class BenchmarkRunner(Process):
         for line in iter(self.process.stdout.readline, ''):
             print line.rstrip('\n')
 
-
 def main():
     try:
         print 'Starting Junebug benchmark...'
@@ -95,10 +110,15 @@ def main():
         for concurrency in [2, 5, 10]:
             print 'Running benchmark with concurrency %d' % concurrency
             benchmark = BenchmarkRunner()
+            max_rss = 0
             benchmark.start(
                 stdout=None, extra_commands=[
                     '--concurrency=%d' % concurrency])
-            benchmark.process.wait()
+            while not benchmark.process.poll():
+                max_rss = max(max_rss, benchmark.get_rss())
+                time.sleep(0.2)
+            if sys.platform.startswith('linux'):
+                print "Max memory: %d" % max_rss
 
         jb.delete_ussd_channel(ch)
     finally:
