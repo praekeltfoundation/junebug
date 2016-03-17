@@ -4,6 +4,7 @@ import socket
 import sys
 from threading import Thread
 from Queue import Queue
+from util import print_results
 
 def parse_arguments(args):
     parser = argparse.ArgumentParser(
@@ -98,22 +99,12 @@ def create_requests(port, start, end, concurrency, save_file, warmup):
         open(save_file, "w").write("l = " + repr(all_items))
     else:
         print
+        tk = time.time()
         # print some statistics
-        total_time = time.time() - t0
-        print "Average throuhput: %dmsgs/s" % (len(all_items) / total_time)
-        latency_95 = cut_by(all_items, 0.95)
-        latency_99 = cut_by(all_items, 0.99)
-        print ("Average latency: %.1fms 95%% latency: %.1fms, 99%% latency: %.1fms" % 
-               ((sum(all_items) / len(all_items) * 1000), latency_95, latency_99))
+        print_results(all_items, tk - t0)
         if t1:            
-            total_time = time.time() - t1
-            all_items = all_items[warmup:]
-            print "After warmup:"
-            print "Average throuhput: %dmsgs/s" % (len(all_items) / total_time)
-            latency_95 = cut_by(all_items, 0.95)
-            latency_99 = cut_by(all_items, 0.99)
-            print ("Average latency: %.1fms 95%% latency: %.1fms, 99%% latency: %.1fms" % 
-                   ((sum(all_items) / len(all_items) * 1000), latency_95, latency_99))
+            print "After warmup"
+            print_results(all_items[warmup:], tk - t1)
 
 def cut_by(l, fraction):
     l = l[:]

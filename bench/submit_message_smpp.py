@@ -1,9 +1,6 @@
 import argparse
-# import time
-# import socket
+import time
 import sys
-# from threading import Thread
-# from Queue import Queue
 
 from smpp.pdu_builder import (
     BindTransceiverResp, BindTransmitterResp, BindReceiverResp,
@@ -14,6 +11,8 @@ from twisted.internet.protocol import ServerFactory
 from twisted.internet.task import react
 from vumi.transports.smpp.pdu_utils import seq_no, command_id
 from vumi.transports.smpp.tests.fake_smsc import FakeSMSCProtocol
+
+from util import print_results
 
 
 class FakeSMSCFactory(ServerFactory):
@@ -41,10 +40,8 @@ class FakeSMSC(object):
 
     def start(self):
         assert self._lp is None, "already running"
-        print "starting SMSC..."
 
         def _cb(lp):
-            print "SMSC started"
             self._lp = lp
             self.running = Deferred()
 
@@ -52,10 +49,8 @@ class FakeSMSC(object):
 
     def stop(self):
         assert self._lp is not None, "not running"
-        print "stopping SMSC..."
 
         def _cb(r):
-            print "SMSC stopped"
             self._lp = None
             self.running.callback(None)
             self.running = None
@@ -73,17 +68,15 @@ class FakeSMSC(object):
                 data_coding=data_coding, **kwargs))
 
     def connection_made(self):
-        print "ESME connected", self.protocol
+        pass
 
     def connection_lost(self):
-        print "ESME disconnected", self.protocol
         self.protocol = None
 
     def send_pdu(self, pdu):
         self.protocol.send_pdu(pdu)
 
     def pdu_received(self, pdu):
-        print "PDU:", pdu
         cmd_id = command_id(pdu)
         if cmd_id.startswith("bind_"):
             return self._bind_resp(pdu)
@@ -164,10 +157,38 @@ def create_requests(reactor, port, start, end, concurrency, save_file, warmup):
     print "Waiting for bind..."
     yield fake_smsc.bind_queue.get()
     print "Bound"
-    for i in range(10):
-        yield fake_smsc.send_mo(100 + i, "hello %s" % i)
-    for i in range(10):
+    unique_id = 0
+    start_times = {}
+        
+    t0 = time.time()
+    t1 = 0
+    all_times = []
+    for k in range(concurrency):
+        start_times[unique_id] = time.time()
+        yield fake_smsc.send_mo(100 + unique_id, "hello %s" % unique_id,
+                                source_addr=str(unique_id))
+        unique_id += 1
+    for i in range(start, end - concurrency):
+        start_times[unique_id] = time.time()
+        yield fake_smsc.send_mo(100 + unique_id, "hello %s" % i,
+                                source_addr=str(unique_id))
+        r = yield fake_smsc.submit_queue.get()
+        id = int(r['body']['mandatory_parameters']['destination_addr'])
+        all_times.append(time.time() - start_times.pop(id))
+        unique_id += 1
+        if unique_id % 100 == 0 and i > 0:
+            sys.stdout.write("%d%% .. " % (int(float(unique_id) / (end - start) * 100),))
+            sys.stdout.flush()
+        if unique_id == warmup:
+            t1 = time.time()
+    for k in range(concurrency):
         yield fake_smsc.submit_queue.get()
+    print
+    print_results(all_times, time.time() - t0)
+    if t1:
+        print "After warmup:"
+        print_results(all_times[warmup:], time.time() - t1)
+        
     yield fake_smsc.stop()
 
 if __name__ == "__main__":
