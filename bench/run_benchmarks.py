@@ -115,7 +115,10 @@ def main():
                 stdout=None, extra_commands=[
                     '--concurrency=%d' % concurrency])
             while not benchmark.process.poll():
-                max_rss = max(max_rss, benchmark.get_rss())
+                try:
+                    max_rss = max(max_rss, benchmark.get_rss())
+                except (OSError, IOError):
+                    pass # possible race condition?
                 time.sleep(0.2)
             if sys.platform.startswith('linux'):
                 print "Max memory: %d" % max_rss
