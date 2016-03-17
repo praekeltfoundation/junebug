@@ -33,7 +33,7 @@ class Process(object):
                 coef = 0.001
             else:
                 coef = 1.0
-            return int(math.ceil((m.group(1)) * coef))
+            return int(math.ceil((float(m.group(1))) * coef))
 
     def post_start(self):
         '''Subclasses implement. What to do after starting process.'''
