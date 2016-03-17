@@ -34,8 +34,10 @@ def send_response(content, port):
         "Content-Length: %d\r\n"
         "\r\n%s\r\n\r\n" % (channel_id, len(reply) + 2, reply))
     reply = s.recv(1024)
-    assert reply.splitlines()[0] == 'HTTP/1.1 200 OK'
-    s.close()
+    try:
+        assert reply.splitlines()[0] == 'HTTP/1.1 200 OK'
+    finally:
+        s.close()
 
 
 def main():
