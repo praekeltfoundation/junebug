@@ -3,9 +3,22 @@
 Release Notes
 =============
 
+v0.1.1
+------
+.. Pull requests 80
+
+*1 March 2016*
+
+- Fixes
+    - Junebug now works with PyPy again
+    - Fixed sending messages over AMQP
+
+
 v0.1.0
 ------
 .. Pull requests 60,62-70
+
+*18 December 2015*
 
 - Fixes
     - Fixed config file loading
