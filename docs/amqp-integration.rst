@@ -20,7 +20,7 @@ The data sent over AMQP is the standard Vumi data format.
 
 An example of the data format is:
 
-.. code:: css
+.. code:: json
 
     {
         "transport_name": "2427d857-688d-4cee-88d9-8e0e32dfdc13",
