@@ -14,7 +14,9 @@ you specify the ``amqp_queue`` parameter when you configure the
   ``{amqp_queue}.outbound``
 
 Remember to bind the **key** to your desired **queue**, and that the Exchange
-name defaults to ``vumi``, else it you will not recieve the messages.
+name defaults to ``vumi``, else it you will not recieve the messages. Please
+have a look at https://www.rabbitmq.com/tutorials/amqp-concepts.html for more
+information.
 
 The data sent over AMQP is the standard Vumi data format.
 
