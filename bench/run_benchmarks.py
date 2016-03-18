@@ -3,7 +3,10 @@ import httplib
 import json
 import os
 import time
-import re, math, sys
+import re
+import math
+import sys
+import argparse
 
 
 class Process(object):
@@ -44,7 +47,8 @@ class Process(object):
 
 
 class Junebug(Process):
-    def __init__(self):
+    def __init__(self, config):
+        self.config = config
         self.conn = httplib.HTTPConnection('localhost', port=8080)
 
     def get_command(self):
@@ -54,25 +58,42 @@ class Junebug(Process):
         # This is horrible
         time.sleep(2)
 
-    def create_ussd_channel(self):
-        self.conn.request(
-            "POST", '/channels/',
-            json.dumps({
-                'type': 'dmark',
-                'config': {
-                    'web_path': 'api',
-                    'web_port': 8001,
-                },
-                'mo_url': 'http://localhost:8002',
-            }),
-            {'Content-Type': 'application/json'})
+    def create_channel(self):
+        if self.config.channel_type == 'ussd':
+            self.conn.request(
+                "POST", '/channels/',
+                json.dumps({
+                    'type': 'dmark',
+                    'config': {
+                        'web_path': 'api',
+                        'web_port': 8001,
+                    },
+                    'mo_url': 'http://localhost:8002',
+                }),
+                {'Content-Type': 'application/json'})
+        elif self.config.channel_type == 'smpp':
+            self.conn.request(
+                "POST", '/channels/',
+                json.dumps({
+                    "type": "smpp",
+                    "mo_url": "http://localhost:8002",
+                    "config": {
+                        "system_id": "smppclient1",
+                        "password": "password",
+                        "twisted_endpoint": "tcp:localhost:2775",
+                    }
+                }),
+                {'Content-Type': 'application/json'})
+        else:
+            raise RuntimeError(
+                'Invalid channel type %r' % self.config.channel_type)
         r = self.conn.getresponse()
         assert r.status == 200
         channel = json.loads(r.read())['result']['id']
-        self._wait_for_ussd_channel_start()
+        self._wait_for_channel_start()
         return channel
 
-    def _wait_for_ussd_channel_start(self):
+    def _wait_for_channel_start(self):
         # This is horrible
         time.sleep(1)
 
@@ -89,36 +110,67 @@ class FakeApplicationServer(Process):
 
 
 class BenchmarkRunner(Process):
+    def __init__(self, config):
+        self.config = config
+
     def get_command(self):
-        return ['python', 'submit_message.py']
+        if self.config.channel_type == 'ussd':
+            command = ['python', 'submit_message.py']
+        elif self.config.channel_type == 'smpp':
+            command = ['python', 'submit_message_smpp.py']
+        command.extend([
+            '--end-id', str(self.config.test_length),
+            '--warmup', str(self.config.warmup)])
+        return command
 
     def print_results(self):
         for line in iter(self.process.stdout.readline, ''):
             print line.rstrip('\n')
 
+
+def parse_arguments(args):
+    parser = argparse.ArgumentParser(
+        description=(
+            'Runs the Junebug benchmarks and print out the results.'))
+    parser.add_argument(
+        '--channel-type', dest='channel_type', type=str, default='ussd',
+        help='The type of channel to benchmark. Either ussd or smpp')
+    parser.add_argument(
+        '--test-length', dest='test_length', type=int, default=10000,
+        help='The number of messages to send per benchmark.')
+    parser.add_argument(
+        '--warmup', dest='warmup', default=3000,
+        help='Number of iterations to discard for statistics')
+    parser.add_argument(
+        '--concurrency', dest='concurrency', type=int, default=[2, 5, 10, 20],
+        nargs='+', help='The list of concurrencies to test')
+    return parser.parse_args(args)
+
+
 def main():
+    config = parse_arguments(sys.argv[1:])
     try:
         print 'Starting Junebug benchmark...'
-        jb = Junebug()
+        jb = Junebug(config)
         jb.start()
 
         app = FakeApplicationServer()
         app.start()
 
-        ch = jb.create_ussd_channel()
+        ch = jb.create_channel()
 
-        for concurrency in [2, 5, 10]:
+        for concurrency in config.concurrency:
             print 'Running benchmark with concurrency %d' % concurrency
-            benchmark = BenchmarkRunner()
+            benchmark = BenchmarkRunner(config)
             max_rss = 0
             benchmark.start(
                 stdout=None, extra_commands=[
                     '--concurrency=%d' % concurrency])
-            while not benchmark.process.poll():
+            while benchmark.process.poll() is None:
                 try:
                     max_rss = max(max_rss, benchmark.get_rss())
                 except (OSError, IOError):
-                    pass # possible race condition?
+                    pass  # possible race condition?
                 time.sleep(0.2)
             if sys.platform.startswith('linux'):
                 print "Max memory: %d" % max_rss
@@ -127,6 +179,10 @@ def main():
     finally:
         jb.stop()
         app.stop()
+        try:
+            benchmark.stop()
+        except:
+            pass
 
 if __name__ == '__main__':
     main()

@@ -28,7 +28,7 @@ def parse_arguments(args):
     parser.add_argument(
         '--warmup', dest='warmup', default=3000,
         help='Number of iterations to discard for statistics')
-    
+
     return parser.parse_args(args)
 
 
@@ -102,7 +102,7 @@ def create_requests(port, start, end, concurrency, save_file, warmup):
         tk = time.time()
         # print some statistics
         print_results(all_items, tk - t0)
-        if t1:            
+        if t1:
             print "After warmup"
             print_results(all_items[warmup:], tk - t1)
 
