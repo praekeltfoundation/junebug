@@ -7,13 +7,13 @@ Should you choose to use the AMQP queues to handle messaging with Junebug, when
 you specify the ``amqp_queue`` parameter when you configure the
 :ref:`channel <channels>`, the usage is as follows:
 
-* Inbound *(mobile originated)* messages are sent to the **key** of
+* Inbound *(mobile originated)* messages are sent to the **routing key** of
   ``{amqp_queue}.inbound``
-* Events are sent to the **key** of ``{amqp_queue}.event``
+* Events are sent to the **routing key** of ``{amqp_queue}.event``
 * Outbound *(mobile terminated)* messages will be fetched from **queue**
   ``{amqp_queue}.outbound``
 
-Remember to bind the **key** to your desired **queue**, and that the Exchange
+Remember to bind the **routing key** to your desired **queue**, and that the Exchange
 name defaults to ``vumi``, else it you will not recieve the messages. Please
 have a look at https://www.rabbitmq.com/tutorials/amqp-concepts.html for more
 information.
