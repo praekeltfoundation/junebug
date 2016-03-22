@@ -3,9 +3,34 @@
 Release Notes
 =============
 
+v0.1.2
+------
+.. Pull requests 83
+
+- Fixes
+
+- Features
+    - Added environment variable for selecting reactor
+
+- Documentation
+    - Extended AMQP documentation
+
+v0.1.1
+------
+.. Pull requests 80
+
+*1 March 2016*
+
+- Fixes
+    - Junebug now works with PyPy again
+    - Fixed sending messages over AMQP
+
+
 v0.1.0
 ------
-.. Pull requests 60,62-70
+.. Pull requests 60,62-79
+
+*18 December 2015*
 
 - Fixes
     - Fixed config file loading
