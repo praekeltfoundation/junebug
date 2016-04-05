@@ -1,0 +1,22 @@
+# Source distribution files.
+include .travis.yml
+include CONTRIBUTING.rst
+include docker-compose.yml
+include Dockerfile
+include LICENSE
+include README.rst
+include requirements-docs.txt
+include requirements.txt
+include setup.py
+
+recursive-include docs *
+prune docs/_build
+recursive-include example-app *
+prune example-app/channel-logs
+recursive-include utils *.sh
+
+# Python package data files.
+recursive-include junebug *.template
+
+# Prune stray bytecode files.
+global-exclude *.pyc

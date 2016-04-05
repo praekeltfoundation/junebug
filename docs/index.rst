@@ -21,6 +21,7 @@ Contents
    config-reference
    design
    http_api
+   amqp-integration
    plugins-reference
    release-notes
 
