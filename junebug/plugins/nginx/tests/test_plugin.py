@@ -15,7 +15,7 @@ class TestNginxPlugin(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         yield self.start_server()
-        yield self.patch_subprocess_call([])
+        self.nginx_reloads = self.patch_nginx_reloads()
 
     def patch_subprocess_call(self, fixtures):
         calls = []
@@ -27,6 +27,19 @@ class TestNginxPlugin(JunebugTestBase):
 
         self.patch(subprocess, 'call', call)
         return calls
+
+    def patch_nginx_reloads(self):
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+            (['nginx', '-s', 'reload'], 0),
+        ))
+
+        def nginx_reloads():
+            reloads = calls.count(['nginx', '-s', 'reload'])
+            del calls[:]
+            return reloads
+
+        return nginx_reloads
 
     def make_temp_dir(self):
         dirname = mkdtemp()
@@ -76,11 +89,7 @@ class TestNginxPlugin(JunebugTestBase):
     def test_start_plugin_nginx_reload(self):
         plugin = NginxPlugin()
 
-        calls = self.patch_subprocess_call((
-            (['which', 'nginx'], 0),
-        ))
-
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+        self.assertEqual(self.nginx_reloads(), 0)
 
         plugin.start_plugin({
             'server_name': 'http//www.example.org',
@@ -88,7 +97,7 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
 
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        self.assertEqual(self.nginx_reloads(), 1)
 
     def test_stop_plugin_remove_vhost_config(self):
         plugin = NginxPlugin()
@@ -165,13 +174,9 @@ class TestNginxPlugin(JunebugTestBase):
         plugin.channel_started(chan4)
         plugin.channel_started(chan5)
 
-        calls = self.patch_subprocess_call((
-            (['which', 'nginx'], 0),
-        ))
-
+        self.nginx_reloads()  # flush reloads
         plugin.stop_plugin()
-
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        self.assertEqual(self.nginx_reloads(), 1)
 
     @inlineCallbacks
     def test_channel_started(self):
@@ -295,21 +300,13 @@ class TestNginxPlugin(JunebugTestBase):
 
     @inlineCallbacks
     def test_channel_started_exec_nginx_reload(self):
-        calls = self.patch_subprocess_call((
-            (['which', 'nginx'], 0),
-        ))
-
         plugin = NginxPlugin()
-
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
 
         plugin.start_plugin({
             'server_name': 'http//www.example.org',
             'vhost_file': self.make_temp_file(),
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
-
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
 
         properties = self.create_channel_properties(
             web_path='/foo/bar',
@@ -318,9 +315,9 @@ class TestNginxPlugin(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, properties=properties)
 
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        self.nginx_reloads()  # flush reloads
         plugin.channel_started(channel)
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 2)
+        self.assertEqual(self.nginx_reloads(), 1)
 
     @inlineCallbacks
     def test_channel_started_no_nginx_found(self):
@@ -437,12 +434,9 @@ class TestNginxPlugin(JunebugTestBase):
 
         plugin.channel_started(channel)
 
-        calls = self.patch_subprocess_call((
-            (['which', 'nginx'], 0),
-        ))
-
+        self.nginx_reloads()  # flush reloads
         plugin.channel_stopped(channel)
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        self.assertEqual(self.nginx_reloads(), 1)
 
     @inlineCallbacks
     def test_channel_stopped_irrelevant_channel_nginx_reload(self):
@@ -466,10 +460,7 @@ class TestNginxPlugin(JunebugTestBase):
 
         plugin.channel_started(chan4)
 
-        calls = self.patch_subprocess_call((
-            (['which', 'nginx'], 0),
-        ))
-
+        self.nginx_reloads()  # flush reloads
         plugin.channel_stopped(chan4)
         plugin.channel_stopped(chan5)
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        self.assertEqual(self.nginx_reloads(), 1)
