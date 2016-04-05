@@ -5,9 +5,13 @@ Release Notes
 
 v0.1.2
 ------
-.. Pull requests 83
+.. Pull requests 83, 84, 85
+
+*5 April 2016*
 
 - Fixes
+    - Added manifest file to fix nginx plugin template files that were
+      missing from the built Junebug packages.
 
 - Features
     - Added environment variable for selecting reactor
