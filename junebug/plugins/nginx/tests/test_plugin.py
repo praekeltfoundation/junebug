@@ -15,6 +15,7 @@ class TestNginxPlugin(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         yield self.start_server()
+        yield self.patch_subprocess_call([])
 
     def patch_subprocess_call(self, fixtures):
         calls = []
@@ -71,6 +72,23 @@ class TestNginxPlugin(JunebugTestBase):
         }, JunebugConfig({}))
 
         self.assertEqual(read(vhost_filename), 'http//www.example.org')
+
+    def test_start_plugin_nginx_reload(self):
+        plugin = NginxPlugin()
+
+        calls = self.patch_subprocess_call((
+            (['which', 'nginx'], 0),
+        ))
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+
+        plugin.start_plugin({
+            'server_name': 'http//www.example.org',
+            'vhost_file': self.make_temp_file(),
+            'locations_dir': self.make_temp_dir()
+        }, JunebugConfig({}))
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
 
     def test_stop_plugin_remove_vhost_config(self):
         plugin = NginxPlugin()
@@ -283,11 +301,15 @@ class TestNginxPlugin(JunebugTestBase):
 
         plugin = NginxPlugin()
 
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
+
         plugin.start_plugin({
             'server_name': 'http//www.example.org',
             'vhost_file': self.make_temp_file(),
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
+
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
 
         properties = self.create_channel_properties(
             web_path='/foo/bar',
@@ -296,9 +318,9 @@ class TestNginxPlugin(JunebugTestBase):
         channel = yield self.create_channel(
             self.service, self.redis, properties=properties)
 
-        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 0)
-        plugin.channel_started(channel)
         self.assertEqual(calls.count(['nginx', '-s', 'reload']), 1)
+        plugin.channel_started(channel)
+        self.assertEqual(calls.count(['nginx', '-s', 'reload']), 2)
 
     @inlineCallbacks
     def test_channel_started_no_nginx_found(self):
