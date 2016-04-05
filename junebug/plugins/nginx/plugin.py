@@ -55,6 +55,7 @@ class NginxPlugin(JunebugPlugin):
         self.vhost_template = read(self.config.vhost_template)
         self.location_template = read(self.config.location_template)
         write(self.config.vhost_file, self.get_vhost_config())
+        reload_nginx()
 
     def stop_plugin(self):
         ensure_removed(self.config.vhost_file)
