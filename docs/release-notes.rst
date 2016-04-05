@@ -3,6 +3,16 @@
 Release Notes
 =============
 
+v0.1.3
+------
+.. Pull requests 86
+
+*5 April 2016*
+
+- Fixes
+    - Reload nginx when nginx plugin starts so that the vhost file is
+      loaded straight away if the nginx plugin is active.
+
 v0.1.2
 ------
 .. Pull requests 83, 84, 85
