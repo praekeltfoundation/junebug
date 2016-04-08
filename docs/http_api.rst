@@ -169,6 +169,11 @@ Channels
    Delete a channel.
 
 
+.. http:post:: /channels/(channel_id:str)/restart
+
+   Restart a channel.
+
+
 Logs
 ^^^^
 
