@@ -204,6 +204,16 @@ class JunebugApi(object):
         returnValue(response(
             request, 'channel deleted', {}))
 
+    @app.route('/channels/<string:channel_id>/restart', methods=['POST'])
+    @inlineCallbacks
+    def restart_channel(self, request, channel_id):
+        '''Restart a channel.'''
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+        yield channel.stop()
+        yield channel.start(self.service)
+        returnValue(response(request, 'channel restarted', {}))
+
     @app.route('/channels/<string:channel_id>/logs', methods=['GET'])
     @inlineCallbacks
     def get_logs(self, request, channel_id):
