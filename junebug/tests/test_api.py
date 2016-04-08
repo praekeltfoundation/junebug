@@ -359,6 +359,52 @@ class TestJunebugApi(JunebugTestBase):
         properties = yield self.redis.get('test-channel:properties')
         self.assertEqual(properties, None)
 
+    def record_channel_methods(self, *methods):
+        calls = []
+
+        def method_recorder(meth):
+            orig_method = getattr(Channel, meth)
+
+            def record(self, *args, **kw):
+                result = orig_method(self, *args, **kw)
+                calls.append((meth, self.id))
+                return result
+
+            return record
+
+        for meth in methods:
+            self.patch(Channel, meth, method_recorder(meth))
+        return calls
+
+    @inlineCallbacks
+    def test_restart_channel(self):
+        config = yield self.create_channel_config()
+        properties = self.create_channel_properties()
+        channel = Channel(self.redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        actions = self.record_channel_methods('start', 'stop')
+
+        resp = yield self.post('/channels/test-channel/restart', None)
+        yield self.assert_response(resp, http.OK, 'channel restarted', {})
+
+        self.assertEqual(actions, [
+            ('stop', u'test-channel'),
+            ('start', u'test-channel'),
+        ])
+
+    @inlineCallbacks
+    def test_restart_missing_channel(self):
+        resp = yield self.post('/channels/test-channel/restart', None)
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'channel not found', {
+                'errors': [{
+                    'message': '',
+                    'type': 'ChannelNotFound',
+                }]
+            })
+
     @inlineCallbacks
     def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
