@@ -124,9 +124,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': locations_dirname
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         chan4 = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -161,9 +162,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         chan4 = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -189,9 +191,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': locations_dirname
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -219,9 +222,10 @@ class TestNginxPlugin(JunebugTestBase):
             'location_template': location_template_filename
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -243,9 +247,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': locations_dirname
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -308,9 +313,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, properties=properties)
@@ -359,9 +365,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': locations_dirname
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -387,9 +394,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': locations_dirname
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         chan4 = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)
@@ -425,9 +433,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         channel = yield self.create_channel(
             self.service, self.redis, properties=properties)
@@ -448,9 +457,10 @@ class TestNginxPlugin(JunebugTestBase):
             'locations_dir': self.make_temp_dir()
         }, JunebugConfig({}))
 
-        properties = self.create_channel_properties(
-            web_path='/foo/bar',
-            web_port=2323)
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
 
         chan4 = yield self.create_channel(
             self.service, self.redis, id='chan4', properties=properties)

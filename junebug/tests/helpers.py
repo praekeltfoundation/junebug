@@ -159,6 +159,8 @@ class JunebugTestBase(TestCase):
 
     def create_channel_properties(self, **kw):
         properties = deepcopy(self.default_channel_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
         properties.update(kw)
         return properties
 
