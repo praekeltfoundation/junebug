@@ -3,6 +3,16 @@
 Release Notes
 =============
 
+v0.1.4
+------
+.. Pull requests 87, 88, 81
+
+- Fixes
+    - Fix nginx plugin to properly support reading of web_path and web_port
+      configuration.
+    - Add endpoint for restarting channels.
+    - Automate deploys.
+
 v0.1.3
 ------
 .. Pull requests 86
