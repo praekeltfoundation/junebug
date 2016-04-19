@@ -3,6 +3,13 @@
 Release Notes
 =============
 
+v0.1.5
+------
+.. Pull requests 89
+
+- Fixes
+    - Have nginx plugin add a leading slash to location paths if necessary.
+
 v0.1.4
 ------
 .. Pull requests 87, 88, 81
