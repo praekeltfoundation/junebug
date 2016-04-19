@@ -100,6 +100,7 @@ class NginxPlugin(JunebugPlugin):
 
     def get_location_context(self, properties):
         web_path = properties['web_path']
+        web_path = '/%s' % web_path.lstrip('/')
         base_url = 'http://localhost:%s' % (properties['web_port'],)
 
         return {

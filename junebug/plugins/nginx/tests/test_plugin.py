@@ -474,3 +474,27 @@ class TestNginxPlugin(JunebugTestBase):
         plugin.channel_stopped(chan4)
         plugin.channel_stopped(chan5)
         self.assertEqual(self.nginx_reloads(), 1)
+
+    def test_get_location_context(self):
+        plugin = NginxPlugin()
+        properties = self.create_channel_properties(config={
+            'web_path': '/foo/bar',
+            'web_port': 2323,
+        })
+        context = plugin.get_location_context(properties['config'])
+        self.assertEqual(context, {
+            'external_path': '/foo/bar',
+            'internal_url': 'http://localhost:2323/foo/bar',
+        })
+
+    def test_get_location_context_prepends_slash(self):
+        plugin = NginxPlugin()
+        properties = self.create_channel_properties(config={
+            'web_path': 'foo/bar',
+            'web_port': 2323,
+        })
+        context = plugin.get_location_context(properties['config'])
+        self.assertEqual(context, {
+            'external_path': '/foo/bar',
+            'internal_url': 'http://localhost:2323/foo/bar',
+        })
