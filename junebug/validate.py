@@ -34,7 +34,8 @@ def body_schema(schema):
     def validator(req, body, *a, **kw):
         return [{
             'type': 'invalid_body',
-            'message': e.message
+            'message': e.message,
+            'schema_path': list(e.schema_path),
         } for e in json_validator.iter_errors(body)]
 
     return validator
