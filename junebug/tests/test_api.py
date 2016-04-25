@@ -204,10 +204,14 @@ class TestJunebugApi(JunebugTestBase):
                     {
                         'message': '-3 is less than the minimum of 0',
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'rate_limit_count', 'minimum'],
                     },
                     {
                         'message': "u'a' is not of type 'integer'",
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'character_limit', 'type'],
                     },
                 ])
             })
@@ -319,10 +323,14 @@ class TestJunebugApi(JunebugTestBase):
                     {
                         'message': '-3 is less than the minimum of 0',
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'rate_limit_count', 'minimum'],
                     },
                     {
                         'message': "u'a' is not of type 'integer'",
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'character_limit', 'type'],
                     },
                 ]
             })
@@ -556,6 +564,7 @@ class TestJunebugApi(JunebugTestBase):
                     'message': "Additional properties are not allowed (u'foo' "
                     "was unexpected)",
                     'type': 'invalid_body',
+                    'schema_path': ['additionalProperties'],
                 }]
             })
 
