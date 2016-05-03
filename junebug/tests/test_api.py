@@ -55,10 +55,29 @@ class TestJunebugApi(JunebugTestBase):
             'The requested URL was not found on the server.  If you entered '
             'the URL manually please check your spelling and try again.', {
                 'errors': [{
+                    'code': 404,
                     'message': '404: Not Found',
                     'type': 'Not Found',
                     }]
                 })
+
+    @inlineCallbacks
+    def test_redirect_http_error(self):
+        resp = yield self.get('/channels')
+        [redirect] = resp.history()
+        yield self.assert_response(
+            redirect, http.MOVED_PERMANENTLY,
+            None, {
+                'errors': [{
+                    'code': 301,
+                    'message': '301: Moved Permanently',
+                    'type': 'Moved Permanently',
+                    'new_url': '%s/channels/' % self.url,
+                }],
+            })
+        yield self.assert_response(
+            resp, http.OK,
+            'channels listed', [])
 
     @inlineCallbacks
     def test_startup_plugins_started(self):
