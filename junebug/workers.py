@@ -71,7 +71,8 @@ class MessageForwardingWorker(ApplicationWorker):
 
     @inlineCallbacks
     def teardown_application(self):
-        yield self.redis.close_manager()
+        if getattr(self, 'redis', None) is not None:
+            yield self.redis.close_manager()
 
     @property
     def channel_id(self):
