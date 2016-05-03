@@ -26,7 +26,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         treq._utils.set_global_pool(connection_pool)
 
     @inlineCallbacks
-    def get_worker(self, config=None):
+    def get_worker(self, config=None, start=True):
         '''Get a new MessageForwardingWorker with the provided config'''
         if config is None:
             config = {}
@@ -47,7 +47,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'metric_window': 1.0,
         }), config)
 
-        worker = yield self.app_helper.get_application(config)
+        worker = yield self.app_helper.get_application(config, start=start)
         returnValue(worker)
 
     @inlineCallbacks
@@ -507,6 +507,16 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual((yield worker.message_rate.get_messages_per_second(
             'testtransport', 'delivery_pending', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_teardown_without_startup(self):
+        '''If the teardown method is called before the worker was started up
+        correctly, the teardown should still succeed.'''
+        worker = yield self.get_worker(start=False)
+
+        self.assertEqual(getattr(worker, 'redis', None), None)
+
+        yield worker.teardown_application()
 
 
 class TestChannelStatusWorker(JunebugTestBase):
