@@ -6,6 +6,10 @@ from twisted.web.server import Site
 
 from junebug import JunebugApi
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> parent of 794a9f7... Modified logging_service.py in lines 115 and 116 to create logs directory if it does not already exist
 class JunebugService(MultiService, object):
     '''Base service that runs the HTTP API, and contains transports as child
     services'''
