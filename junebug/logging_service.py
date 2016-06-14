@@ -31,7 +31,6 @@ class JunebugLogObserver(object):
         :type logfile: :class:`twisted.python.logfile.LogFile`
         :param str worker_id: ID of the worker that the log is for.
         '''
-
         if log_context_sentinel is None:
             log_context_sentinel = DEFAULT_LOG_CONTEXT_SENTINEL
         self.worker_id = worker_id
@@ -112,9 +111,8 @@ class JunebugLoggerService(Service):
         self.max_files = max_files
 
     def startService(self):
-
-        if not os.path.exists(os.path.dirname(self.path)):
-            os.makedirs(self.path,0777)
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, 0777)
         self.logfile = LogFile(
             self.worker_id, self.path, rotateLength=self.rotate,
             maxRotatedFiles=self.max_files)
