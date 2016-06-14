@@ -6,6 +6,7 @@ from twisted.web.server import Site
 
 from junebug import JunebugApi
 
+import os
 
 class JunebugService(MultiService, object):
     '''Base service that runs the HTTP API, and contains transports as child
