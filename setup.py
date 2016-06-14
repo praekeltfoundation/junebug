@@ -28,7 +28,7 @@ setup(
         'treq',
         # We install a newer version of twisted before vumi, since vumi has a
         # lower minimum version requirement.
-        'Twisted>=15.0.0',
+        'Twisted>=15.3.0',
         'vumi>=0.5.33',
         'confmodel',
         'PyYAML',
