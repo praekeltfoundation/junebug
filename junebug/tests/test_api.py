@@ -1,6 +1,7 @@
 import logging
 import json
 import treq
+import os
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
 
@@ -815,6 +816,7 @@ class TestJunebugApi(JunebugTestBase):
         '''If the amount of requested logs is more than what is
         configured, then only the configured amount of logs are returned.'''
         logpath = self.mktemp()
+        os.mkdir(logpath)
         config = yield self.create_channel_config(
             max_logs=2,
             channels={
@@ -855,6 +857,7 @@ class TestJunebugApi(JunebugTestBase):
         '''If the number of logs is not specified, then the API should return
         the configured maximum number of logs.'''
         logpath = self.mktemp()
+        os.mkdir(logpath)
         config = yield self.create_channel_config(
             max_logs=2,
             channels={

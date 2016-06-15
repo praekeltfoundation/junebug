@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import os
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
@@ -16,7 +17,8 @@ from junebug.logging_service import (
 class TestSentryLogObserver(JunebugTestBase):
     def setUp(self):
         self.logpath = self.mktemp()
-        self.logfile = DummyLogFile(None, self.logpath, None, None)
+        os.mkdir(self.logpath)
+        self.logfile = DummyLogFile('worker-1', self.logpath, None, None)
         self.obs = JunebugLogObserver(self.logfile, 'worker-1')
 
     def assert_log(self, log, expected):
@@ -144,6 +146,7 @@ class TestJunebugLoggerService(JunebugTestBase):
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         self.logger = LogPublisher()
         self.logpath = self.mktemp()
+        os.mkdir(self.logpath)
         self.service = JunebugLoggerService(
             'worker-id', self.logpath, 1000000, 7, logger=self.logger)
 
@@ -161,7 +164,7 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.startService()
         logfile = self.service.logfile
         self.assertEqual(logfile.worker_id, 'worker-id')
-        self.assertEqual(logfile.path, self.logpath)
+        self.assertEqual(logfile.directory, self.logpath)
         self.assertEqual(logfile.rotateLength, 1000000)
         self.assertEqual(logfile.maxRotatedFiles, 7)
 
