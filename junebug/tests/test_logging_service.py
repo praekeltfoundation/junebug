@@ -202,6 +202,17 @@ class TestJunebugLoggerService(JunebugTestBase):
     def test_start_stop(self):
         '''Stopping the service after it has been started should result in
         properly closing the logfile.'''
+        self.assertFalse(self.service.registered())
+        yield self.service.startService()
+        self.assertEqual(self.service.logfile.closed_count, 0)
+        self.assertTrue(self.service.registered())
+        yield self.service.stopService()
+        self.assertFalse(self.service.registered())
+        self.assertEqual(self.service.logfile.closed_count, 1)
+
+    @inlineCallbacks
+    def test_dir_create(self):
+        '''If log directory already exists, make sure it is not recreated'''
         if not os.path.exists(self.service.path):
             os.makedirs(self.service.path, 0777)
             self.stat1 = os.stat(self.service.path)
@@ -212,13 +223,6 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.startService()
         self.assertTrue(os.path.exists(self.service.path))
         yield self.service.stopService()
-        self.assertFalse(self.service.registered())
-        yield self.service.startService()
-        self.assertEqual(self.service.logfile.closed_count, 0)
-        self.assertTrue(self.service.registered())
-        yield self.service.stopService()
-        self.assertFalse(self.service.registered())
-        self.assertEqual(self.service.logfile.closed_count, 1)
 
 
 class TestReadingLogs(JunebugTestBase):
