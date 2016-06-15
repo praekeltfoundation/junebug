@@ -202,6 +202,16 @@ class TestJunebugLoggerService(JunebugTestBase):
     def test_start_stop(self):
         '''Stopping the service after it has been started should result in
         properly closing the logfile.'''
+        if not os.path.exists(self.service.path):
+            os.makedirs(self.service.path, 0777)
+            self.stat1 = os.stat(self.service.path)
+            yield self.service.startService()
+            self.stat2 = os.stat(self.service.path)
+            self.assertEqual(self.stat1, self.stat2)
+            yield self.service.stopService()
+        yield self.service.startService()
+        self.assertTrue(os.path.exists(self.service.path))
+        yield self.service.stopService()
         self.assertFalse(self.service.registered())
         yield self.service.startService()
         self.assertEqual(self.service.logfile.closed_count, 0)
