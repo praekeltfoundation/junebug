@@ -216,10 +216,10 @@ class TestJunebugLoggerService(JunebugTestBase):
         '''If log directory already exists, make sure it is not recreated.'''
         if not os.path.exists(self.service.path):
             os.makedirs(self.service.path, 0777)
-        self.stat1 = os.stat(self.service.path)
+        stat1 = os.stat(self.service.path)
         yield self.service.startService()
-        self.stat2 = os.stat(self.service.path)
-        self.assertTrue(os.path.samestat(self.stat1, self.stat2))
+        stat2 = os.stat(self.service.path)
+        self.assertTrue(os.path.samestat(stat1, stat2))
         yield self.service.stopService()
         shutil.rmtree(self.service.path)
         self.assertFalse(os.path.exists(self.service.path))
