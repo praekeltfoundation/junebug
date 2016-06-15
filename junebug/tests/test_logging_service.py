@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 import os
+import shutil
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
@@ -212,14 +213,16 @@ class TestJunebugLoggerService(JunebugTestBase):
 
     @inlineCallbacks
     def test_dir_create(self):
-        '''If log directory already exists, make sure it is not recreated'''
+        '''If log directory already exists, make sure it is not recreated.'''
         if not os.path.exists(self.service.path):
             os.makedirs(self.service.path, 0777)
-            self.stat1 = os.stat(self.service.path)
-            yield self.service.startService()
-            self.stat2 = os.stat(self.service.path)
-            self.assertEqual(self.stat1, self.stat2)
-            yield self.service.stopService()
+        self.stat1 = os.stat(self.service.path)
+        yield self.service.startService()
+        self.stat2 = os.stat(self.service.path)
+        self.assertEqual(self.stat1, self.stat2)
+        yield self.service.stopService()
+        shutil.rmtree(self.service.path)
+        self.assertFalse(os.path.exists(self.service.path))
         yield self.service.startService()
         self.assertTrue(os.path.exists(self.service.path))
         yield self.service.stopService()
