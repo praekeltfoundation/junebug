@@ -2,7 +2,6 @@ import json
 from copy import deepcopy
 import logging
 import logging.handlers
-import os
 
 from twisted.python.logfile import LogFile
 from twisted.internet import reactor
@@ -192,7 +191,6 @@ class JunebugTestBase(TestCase):
 
         properties = deepcopy(properties)
         logpath = self.mktemp()
-        os.mkdir(logpath)
         if config is None:
             config = yield self.create_channel_config(
                 channels={

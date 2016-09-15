@@ -1,6 +1,5 @@
 import logging
 import json
-import os
 from twisted.internet.defer import inlineCallbacks
 from vumi.message import TransportUserMessage, TransportStatus
 from vumi.transports.telnet import TelnetServerTransport
@@ -810,7 +809,6 @@ class TestChannel(JunebugTestBase):
         '''If the amount of logs requested is more than the configured
         maximum, then only the configured maximum amount is returned.'''
         logpath = self.mktemp()
-        os.mkdir(logpath)
         config = yield self.create_channel_config(
             max_logs=2,
             channels={
@@ -842,7 +840,6 @@ class TestChannel(JunebugTestBase):
         '''If no value for n is supplied, then the configured maximum number
         of logs should be returned.'''
         logpath = self.mktemp()
-        os.mkdir(logpath)
         config = yield self.create_channel_config(
             max_logs=2,
             channels={

@@ -147,7 +147,6 @@ class TestJunebugLoggerService(JunebugTestBase):
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
         self.logger = LogPublisher()
         self.logpath = self.mktemp()
-        os.mkdir(self.logpath)
         self.service = JunebugLoggerService(
             'worker-id', self.logpath, 1000000, 7, logger=self.logger)
 
