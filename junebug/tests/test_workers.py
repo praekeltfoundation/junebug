@@ -136,6 +136,25 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(dispatched_msg, msg)
 
     @inlineCallbacks
+    def test_forward_event_no_message_id(self):
+        '''
+        If we receive an event, and we don't have a message ID to associate
+        the event to, then we should log the event and carry on.
+        '''
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id=None,
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.consume_ack(event)
+        self.assert_was_logged('Cannot store event')
+        self.assert_was_logged('Cannot find event URL')
+        self.assert_was_logged('%r' % event)
+
+    @inlineCallbacks
     def test_forward_ack_http(self):
         event = TransportEvent(
             event_type='ack',
