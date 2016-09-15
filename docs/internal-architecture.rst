@@ -1,7 +1,7 @@
 Internal Architecture
 =====================
 
-Internall Junebug is structured as a set of services that live within a
+Internal Junebug is structured as a set of services that live within a
 single process.
 
 Each Junebug channel creates three services -- a transport, a message
