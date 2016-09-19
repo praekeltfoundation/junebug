@@ -30,16 +30,18 @@ from junebug.stores import MessageRateStore
 
 
 class DummyLogFile(object):
-    '''LogFile that has a different path to its worker_id'''
+    '''Dummy log file used for testing.'''
     def __init__(
-            self, worker_id, path, rotateLength, maxRotatedFiles):
+            self, worker_id, directory, rotateLength, maxRotatedFiles):
         self.worker_id = worker_id
-        self.path = path
+        self.directory = directory
         self.rotateLength = rotateLength
         self.maxRotatedFiles = maxRotatedFiles
         self.closed_count = 0
-        self.logfile = LogFile.fromFullPath(
-            path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
+        self.logfile = LogFile(
+            worker_id, directory, rotateLength=rotateLength,
+            maxRotatedFiles=maxRotatedFiles)
+        self.path = self.logfile.path
 
     @property
     def logs(self):
