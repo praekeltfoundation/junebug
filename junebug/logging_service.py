@@ -112,7 +112,7 @@ class JunebugLoggerService(Service):
 
     def startService(self):
         if not os.path.exists(self.path):
-            os.makedirs(self.path, 0777)
+            os.makedirs(self.path, 0755)
         self.logfile = LogFile(
             self.worker_id, self.path, rotateLength=self.rotate,
             maxRotatedFiles=self.max_files)
