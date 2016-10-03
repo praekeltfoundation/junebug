@@ -6,9 +6,13 @@ matrix:
     # Test on pypy without coverage, because it's unnecessary and very slow.
     - python: "pypy"
       env: PYPY_VERSION="4.0.1" NO_COVERAGE=1
+    # Test against the lowest version of Twisted that we claim to support
+    - python: "2.7"
+      env: TWISTED_VERSION="Twisted==15.3.0"
 before_install:
   - if [ ! -z "$PYPY_VERSION" ]; then source utils/setup-pypy-travis.sh; fi
 install:
+  - "pip install ${TWISTED_VERSION}"
   - "pip install -r requirements.txt"
   - "pip install coveralls"
 cache:
