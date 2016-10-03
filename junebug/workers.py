@@ -71,7 +71,8 @@ class MessageForwardingWorker(ApplicationWorker):
 
     @inlineCallbacks
     def teardown_application(self):
-        yield self.redis.close_manager()
+        if getattr(self, 'redis', None) is not None:
+            yield self.redis.close_manager()
 
     @property
     def channel_id(self):
@@ -124,7 +125,12 @@ class MessageForwardingWorker(ApplicationWorker):
     def _store_event(self, event):
         '''Stores the event in the message store'''
         message_id = event['user_message_id']
-        return self.outbounds.store_event(self.channel_id, message_id, event)
+        if message_id is None:
+            logging.warning(
+                "Cannot store event, missing user_message_id: %r" % event)
+        else:
+            return self.outbounds.store_event(
+                self.channel_id, message_id, event)
 
     @inlineCallbacks
     def _forward_event(self, event):
@@ -169,7 +175,11 @@ class MessageForwardingWorker(ApplicationWorker):
 
     def _get_event_url(self, event):
         msg_id = event['user_message_id']
-        return self.outbounds.load_event_url(self.channel_id, msg_id)
+        if msg_id is not None:
+            return self.outbounds.load_event_url(self.channel_id, msg_id)
+        else:
+            logging.warning(
+                "Cannot find event URL, missing user_message_id: %r" % event)
 
 
 class ChannelStatusConfig(BaseConfig):

@@ -85,7 +85,8 @@ class TestValidate(TestCase):
         self.assertEqual(content['result'], {
             'errors': [{
                 'type': 'invalid_body',
-                'message': "23 is not of type 'string'"
+                'message': "23 is not of type 'string'",
+                'schema_path': ['properties', 'foo', 'type'],
             }]
         })
         self.assertEqual(content['status'], 400)

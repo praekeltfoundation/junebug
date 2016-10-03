@@ -3,9 +3,65 @@
 Release Notes
 =============
 
+v0.1.5
+------
+.. Pull requests 89
+
+- Fixes
+    - Have nginx plugin add a leading slash to location paths if necessary.
+
+v0.1.4
+------
+.. Pull requests 87, 88, 81
+
+- Fixes
+    - Fix nginx plugin to properly support reading of web_path and web_port
+      configuration.
+    - Add endpoint for restarting channels.
+    - Automate deploys.
+
+v0.1.3
+------
+.. Pull requests 86
+
+*5 April 2016*
+
+- Fixes
+    - Reload nginx when nginx plugin starts so that the vhost file is
+      loaded straight away if the nginx plugin is active.
+
+v0.1.2
+------
+.. Pull requests 83, 84, 85
+
+*5 April 2016*
+
+- Fixes
+    - Added manifest file to fix nginx plugin template files that were
+      missing from the built Junebug packages.
+
+- Features
+    - Added environment variable for selecting reactor
+
+- Documentation
+    - Extended AMQP documentation
+
+v0.1.1
+------
+.. Pull requests 80
+
+*1 March 2016*
+
+- Fixes
+    - Junebug now works with PyPy again
+    - Fixed sending messages over AMQP
+
+
 v0.1.0
 ------
-.. Pull requests 60,62-70
+.. Pull requests 60,62-79
+
+*18 December 2015*
 
 - Fixes
     - Fixed config file loading

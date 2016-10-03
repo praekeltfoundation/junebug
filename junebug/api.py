@@ -82,11 +82,17 @@ class JunebugApi(object):
 
     @app.handle_errors(HTTPException)
     def http_error(self, request, failure):
+        error = {
+            'code': failure.value.code,
+            'type': failure.value.name,
+            'message': failure.getErrorMessage(),
+        }
+        if getattr(failure.value, 'new_url', None) is not None:
+            request.setHeader('Location', failure.value.new_url)
+            error['new_url'] = failure.value.new_url
+
         return response(request, failure.value.description, {
-            'errors': [{
-                'type': failure.value.name,
-                'message': failure.getErrorMessage(),
-                }]
+            'errors': [error],
             }, code=failure.value.code)
 
     @app.handle_errors
@@ -203,6 +209,16 @@ class JunebugApi(object):
         yield channel.delete()
         returnValue(response(
             request, 'channel deleted', {}))
+
+    @app.route('/channels/<string:channel_id>/restart', methods=['POST'])
+    @inlineCallbacks
+    def restart_channel(self, request, channel_id):
+        '''Restart a channel.'''
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+        yield channel.stop()
+        yield channel.start(self.service)
+        returnValue(response(request, 'channel restarted', {}))
 
     @app.route('/channels/<string:channel_id>/logs', methods=['GET'])
     @inlineCallbacks

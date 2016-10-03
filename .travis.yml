@@ -6,9 +6,13 @@ matrix:
     # Test on pypy without coverage, because it's unnecessary and very slow.
     - python: "pypy"
       env: PYPY_VERSION="4.0.1" NO_COVERAGE=1
+    # Test against the lowest version of Twisted that we claim to support
+    - python: "2.7"
+      env: TWISTED_VERSION="Twisted==15.3.0"
 before_install:
   - if [ ! -z "$PYPY_VERSION" ]; then source utils/setup-pypy-travis.sh; fi
 install:
+  - "pip install ${TWISTED_VERSION}"
   - "pip install -r requirements.txt"
   - "pip install coveralls"
 cache:
@@ -20,3 +24,12 @@ script:
   - $COVERAGE_CMD `which trial` junebug
 after_success:
   - coveralls
+deploy:
+  provider: pypi
+  user: Praekelt
+  distributions: "sdist bdist_wheel"
+  password:
+    secure: TrR3EF0bUSLZFjvfp62Jjjc+d0HTjXRR5BGoM7K1ON4buyyq3AGj8Fvc20d8CN/jcpqnibj+L3MNZnFkgEjsCy7GRav42QTVtQPj5Sorodp8qM7e329do6VAtO3iL6uoG258gYD0oqM0PZjlZurGZjksI7P/IsaZXeFh2I4NyS5Dy/m9f1zhzo5fS4H5oOpK8ohTPe3l9yRBXHteaAZYSrC8pc05U82iSaiWY4RbtJfxB2lPsxTJCh7nrjsyOu+jOubxuandve6YrKnCdpb2JQaPOeSBVpxHxhlf47MTTp5Q4DCO0DLA+kDoBZ1aEkM5gULQihjrKRtmbbXr0AmA+KEVdtZ9KySkmZB8W4lJfz+nyhxvKYEujNKoRYsxLBb5Nxxs/wuy/JTSJBQwdxDff8Yqz0o0N4xsMRy389o06QpE1ARqXpNE7+JSODyZT4ojTMVSmuU2CpwxDSR5L6ZA61nhDECoGe39HLgXiB/LTXgLxCt8O41u+gNQwGbE0iL22C1hPrkT5qWgP6YoMIK8PvpJAw2PVlxnaGZISljPQmV5txBSfi8h7u+wPnRJIVqgaWiM9mM27LhjZnMKPUqIspkMEvc0YoAJ6QYRPsATEUMlZIg+U+FCeSlALNd1cCzxiritPPNOYw9JG2PVACLtnmxhe1L9ILVg48t4loeHxUc=
+  on:
+    tags: true
+    all_branches: true

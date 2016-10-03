@@ -10,6 +10,8 @@ Junebug's HTTP API.
 HTTP API endpoints
 ------------------
 
+.. _channels:
+
 Channels
 ^^^^^^^^
 
@@ -40,10 +42,8 @@ Channels
    :param str amqp_queue:
        AMQP queue to repost messages onto for mobile originated messages. One
        or both of mo_url or amqp_queue must be specified. If both are
-       specified, messages are sent to both. Sends inbound (mobile originated)
-       messages to '{amqp_queue}.inbound'. Inbound events are sent to
-       '{amqp_queue}.events'. Messages are sent from '{amqp_queue}.outbound'
-       as outbound (mobile terminated) messages on the channel. 
+       specified, messages are sent to both. See :ref:`amqp-integration` for
+       more details.
    :param int rate_limit_count:
        Number of incoming messages to allow in a given time window.
        See ``rate_limit_window``.
@@ -167,6 +167,11 @@ Channels
 .. http:delete:: /channels/(channel_id:str)
 
    Delete a channel.
+
+
+.. http:post:: /channels/(channel_id:str)/restart
+
+   Restart a channel.
 
 
 Logs
