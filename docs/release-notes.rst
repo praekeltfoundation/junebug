@@ -3,9 +3,49 @@
 Release Notes
 =============
 
+v0.1.7
+------
+.. Pull requests 110
+- Features
+   - Update the minimum version of vumi to get the latest version of the SMPP
+     transport, which allows us to set the keys of the data coding mapping to
+     strings. This allows us to use the data coding mapping setting in Junebug,
+     since in JSON we cannot have integers as keys in an object.
+
+v0.1.6
+------
+.. Pull requests 90, 92, 93, 100, 103, 105, 107, 108
+
+*3 October 2016*
+
+- Fixes
+    - Fix the teardown of the MessageForwardingWorker so that if it didn't
+      start up properly, it would still teardown properly.
+    - Handling for 301 redirect responses improved by providing the URL to be
+      redirected to in the body as well as the Location header.
+    - We no longer crash if we get an event without the user_message_id field.
+      Instead, we just don't store that event.
+
+- Features
+    - Update channel config error responses with the field that is causing the
+      issue.
+    - Set a minimum twisted version that we support (15.3.0), and ensure that
+      we're testing against it in our travis tests.
+    - The logging service now creates the logging directory if it doesn't exist
+      and if we have permissions. Previously we would give an error if the
+      directory didn't exist.
+
+- Documentation
+    - Added instructions to install libssl-dev and libffi-dev to the
+      installation instructions.
+    - Added documentation and diagrams for the internal architecture of
+      Junebug.
+
 v0.1.5
 ------
 .. Pull requests 89
+
+*19 April 2016*
 
 - Fixes
     - Have nginx plugin add a leading slash to location paths if necessary.
@@ -13,6 +53,8 @@ v0.1.5
 v0.1.4
 ------
 .. Pull requests 87, 88, 81
+
+*12 April 2016*
 
 - Fixes
     - Fix nginx plugin to properly support reading of web_path and web_port
