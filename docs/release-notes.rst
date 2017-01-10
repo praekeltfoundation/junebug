@@ -6,6 +6,9 @@ Release Notes
 v0.1.7
 ------
 .. Pull requests 110
+
+*10 January 2017*
+
 - Features
    - Update the minimum version of vumi to get the latest version of the SMPP
      transport, which allows us to set the keys of the data coding mapping to
