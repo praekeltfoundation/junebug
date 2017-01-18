@@ -3,6 +3,17 @@
 Release Notes
 =============
 
+v0.1.8
+------
+.. Pull requests 112
+
+*18 January 2017*
+
+- Fixes
+    - Change the default smpp channel type from the depricated SmppTransport
+      (SmppTransceiverTransportWithOldConfig), to the new
+      SmppTransceiverTransport.
+
 v0.1.7
 ------
 .. Pull requests 110
