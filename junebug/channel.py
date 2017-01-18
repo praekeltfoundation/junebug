@@ -45,7 +45,7 @@ class MessageTooLong(JunebugError):
 transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
-    'smpp': 'vumi.transports.smpp.SmppTransport',
+    'smpp': 'vumi.transports.smpp.SmppTransceiverTransport',
     'dmark': 'vumi.transports.dmark.DmarkUssdTransport',
 }
 
