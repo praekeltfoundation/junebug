@@ -340,8 +340,6 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
 
-        print properties
-
         properties['config']['name'] = 'bar'
         properties['mo_url'] = None
         resp = yield self.post('/channels/test-channel', properties)
