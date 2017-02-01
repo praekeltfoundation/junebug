@@ -175,7 +175,7 @@ class JunebugApi(object):
                 'config': {'type': 'object'},
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
-                'mo_url': {'type': 'string'},
+                'mo_url': {'type': ['string', 'null']},
                 'rate_limit_count': {
                     'type': 'integer',
                     'minimum': 0,
