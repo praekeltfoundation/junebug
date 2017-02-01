@@ -23,6 +23,16 @@ class MessageForwardingConfig(ApplicationConfig):
         "The URL to send HTTP POST requests to for MO messages",
         default=None, static=True)
 
+    mo_message_url_timeout = ConfigInt(
+        "Maximum time (in seconds) a mo_message_url is allowed to take "
+        "to process a message",
+        default=10, static=True)
+
+    event_url_timeout = ConfigInt(
+        "Maximum time (in seconds) an event_url is allowed to take "
+        "to process an event",
+        default=10, static=True)
+
     message_queue = ConfigText(
         "The AMQP queue to forward messages on",
         default=None, static=True)
@@ -86,7 +96,9 @@ class MessageForwardingWorker(ApplicationWorker):
         msg = api_from_message(message)
 
         if self.config.get('mo_message_url') is not None:
-            resp = yield post(self.config['mo_message_url'], msg)
+            config = self.get_static_config()
+            resp = yield post(config.mo_message_url, msg,
+                              timeout=config.mo_message_url_timeout)
             if request_failed(resp):
                 logging.exception(
                     'Error sending message, received HTTP code %r with body %r'
@@ -152,7 +164,8 @@ class MessageForwardingWorker(ApplicationWorker):
             logging.exception("Discarding unrecognised event %r" % (event,))
             return
 
-        resp = yield post(url, msg)
+        config = self.get_static_config()
+        resp = yield post(url, msg, timeout=config.event_url_timeout)
 
         if request_failed(resp):
             logging.exception(
@@ -196,6 +209,11 @@ class ChannelStatusConfig(BaseConfig):
         "Optional url to POST status events to",
         default=None, static=True)
 
+    status_url_timeout = ConfigInt(
+        "Maximum time (in seconds) a status_url is allowed to take "
+        "to process a status update",
+        default=10, static=True)
+
 
 class ChannelStatusWorker(BaseWorker):
     '''This worker consumes status messages for the transport, and stores them
@@ -229,7 +247,9 @@ class ChannelStatusWorker(BaseWorker):
     @inlineCallbacks
     def send_status(self, status):
         data = api_from_status(self.config['channel_id'], status)
-        resp = yield post(self.config['status_url'], data)
+        config = self.get_static_config()
+        resp = yield post(config.status_url, data,
+                          timeout=config.status_url_timeout)
 
         if request_failed(resp):
             logging.exception(
@@ -242,8 +262,9 @@ def request_failed(resp):
     return resp.code < 200 or resp.code >= 300
 
 
-def post(url, data):
+def post(url, data, timeout):
     return treq.post(
         url.encode('utf-8'),
         data=json.dumps(data, cls=JSONMessageEncoder),
-        headers={'Content-Type': 'application/json'})
+        headers={'Content-Type': 'application/json'},
+        timeout=timeout)
