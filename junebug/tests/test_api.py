@@ -351,6 +351,26 @@ class TestJunebugApi(JunebugTestBase):
             }))
 
     @inlineCallbacks
+    def test_modify_channel_config_remove_status_url(self):
+        redis = yield self.get_redis()
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        properties['config']['name'] = 'bar'
+        properties['status_url'] = None
+        resp = yield self.post('/channels/test-channel', properties)
+
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', conjoin(properties, {
+                'status': self.generate_status(),
+                'id': 'test-channel',
+            }))
+
+    @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
         resp = yield self.post('/channels/foo-bar', {
             'rate_limit_count': -3,
