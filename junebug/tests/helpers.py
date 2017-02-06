@@ -4,9 +4,11 @@ import logging
 import logging.handlers
 
 from twisted.python.logfile import LogFile
+from twisted.python.failure import Failure
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
+from twisted.internet.error import ConnectionDone
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -118,6 +120,10 @@ class RequestLoggingApi(object):
             })
         request.setResponseCode(500)
         return 'test-error-response'
+
+    @app.route('/implode/')
+    def imploding_request(self, request):
+        request.transport.connectionLost(reason=Failure(ConnectionDone()))
 
 
 class LoggingTestTransport(Transport):

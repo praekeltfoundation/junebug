@@ -102,7 +102,7 @@ class MessageForwardingWorker(ApplicationWorker):
             config = self.get_static_config()
             resp = yield post(config.mo_message_url, msg,
                               timeout=config.mo_message_url_timeout)
-            if request_failed(resp):
+            if resp and request_failed(resp):
                 logging.exception(
                     'Error sending message, received HTTP code %r with body %r'
                     '. Message: %r' % (resp.code, (yield resp.content()), msg))
@@ -170,7 +170,7 @@ class MessageForwardingWorker(ApplicationWorker):
         config = self.get_static_config()
         resp = yield post(url, msg, timeout=config.event_url_timeout)
 
-        if request_failed(resp):
+        if resp and request_failed(resp):
             logging.exception(
                 'Error sending event, received HTTP code %r with body %r. '
                 'Event: %r' % (resp.code, (yield resp.content()), event))
@@ -254,7 +254,7 @@ class ChannelStatusWorker(BaseWorker):
         resp = yield post(config.status_url, data,
                           timeout=config.status_url_timeout)
 
-        if request_failed(resp):
+        if resp and request_failed(resp):
             logging.exception(
                 'Error sending status event, received HTTP code %r with '
                 'body %r. Status event: %r'
@@ -265,15 +265,16 @@ def request_failed(resp):
     return resp.code < 200 or resp.code >= 300
 
 
-def post_eb(reason):
+def post_eb(reason, url):
     errors = (
         ResponseFailed,
         ConnectingCancelledError,
         ConnectionDone,
         TaskStopped,
     )
-    err = reason.trap(*errors)
-    logging.exception(err)
+    reason.trap(*errors)
+    logging.exception('Post to %s failed because of: %s' % (
+        url, reason.getErrorMessage()))
 
 
 def post(url, data, timeout):
@@ -282,5 +283,5 @@ def post(url, data, timeout):
         data=json.dumps(data, cls=JSONMessageEncoder),
         headers={'Content-Type': 'application/json'},
         timeout=timeout)
-    d.addErrback(post_eb)
+    d.addErrback(post_eb, url)
     return d

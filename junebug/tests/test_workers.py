@@ -109,6 +109,22 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged('test-error-response')
 
     @inlineCallbacks
+    def test_send_message_imploding_response(self):
+        '''If there is an error connecting to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': self.url + '/implode/',
+            })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        self.assert_was_logged('Post to %s/implode/ failed because of' % (
+            self.url,))
+        self.assert_was_logged('ConnectionDone')
+
+    @inlineCallbacks
     def test_send_message_storing(self):
         '''Inbound messages should be stored in the InboundMessageStore'''
         msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
