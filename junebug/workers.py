@@ -4,6 +4,9 @@ import logging
 import treq
 
 from twisted.internet.defer import inlineCallbacks
+from twisted.web.client import ResponseFailed
+from twisted.internet.error import ConnectingCancelledError, ConnectionDone
+from twisted.internet.task import TaskStopped
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
 from vumi.config import ConfigDict, ConfigInt, ConfigText, ConfigFloat
@@ -262,9 +265,22 @@ def request_failed(resp):
     return resp.code < 200 or resp.code >= 300
 
 
+def post_eb(reason):
+    errors = (
+        ResponseFailed,
+        ConnectingCancelledError,
+        ConnectionDone,
+        TaskStopped,
+    )
+    err = reason.trap(*errors)
+    logging.exception(err)
+
+
 def post(url, data, timeout):
-    return treq.post(
+    d = treq.post(
         url.encode('utf-8'),
         data=json.dumps(data, cls=JSONMessageEncoder),
         headers={'Content-Type': 'application/json'},
         timeout=timeout)
+    d.addErrback(post_eb)
+    return d
