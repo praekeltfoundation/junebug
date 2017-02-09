@@ -5,7 +5,8 @@ import treq
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.web.client import ResponseFailed
-from twisted.internet.error import ConnectingCancelledError, ConnectionDone
+from twisted.internet.error import (
+    ConnectingCancelledError, ConnectionDone, ConnectionRefusedError)
 from twisted.internet.task import TaskStopped
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
@@ -270,6 +271,7 @@ def post_eb(reason, url):
         ResponseFailed,
         ConnectingCancelledError,
         ConnectionDone,
+        ConnectionRefusedError,
         TaskStopped,
     )
     reason.trap(*errors)
