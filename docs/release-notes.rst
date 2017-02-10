@@ -3,21 +3,32 @@
 Release Notes
 =============
 
+v0.1.11
+-------
+
+.. Pull requests 118
+
+- Fixes
+    - Trap ConnectionRefusedError that can happen when trying to relay
+      a message to an event_url of mo_url.
+
+- Fixes
+
 v0.1.10
 -------
 .. Pull requests 114
 
 - Fixes
-  - Make Junebug gracefully handle timeouts and connection failure for
-    events and messages posted to URL endpoints.
+    - Make Junebug gracefully handle timeouts and connection failure for
+      events and messages posted to URL endpoints.
 
 v0.1.9
 ------
 .. Pull requests 91
 
 - Fixes
-  - Allow one to set the ``status_url`` and the ``mo_url`` for a channel to
-    ``None`` to disable pushing of status events and messages to these URLs.
+    - Allow one to set the ``status_url`` and the ``mo_url`` for a channel to
+      ``None`` to disable pushing of status events and messages to these URLs.
 
 v0.1.8
 ------
