@@ -302,7 +302,7 @@ Messages
         code: "created",
         description: "message submitted",
         result: {
-          id: "message-uuid-1234"
+          message_id: "message-uuid-1234"
         }
       }
 
