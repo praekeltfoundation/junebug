@@ -256,11 +256,12 @@ Messages
        if ``reply_to`` is specified.
    :param str from:
        the address the message is from. May be ``null`` if the channel
-       only supports a single from address.
+       only supports a single from address. Should be omitted if ``reply_to``
+       is specified.
    :param str reply_to:
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
-       Optional. Only one of ``to`` or ``reply_to`` may be specified.
+       Optional. Neither ``to`` or ``from`` may be specified.
        The default settings allow 10 minutes to reply to a message, after which
        an error will be returned.
    :param str event_url:
