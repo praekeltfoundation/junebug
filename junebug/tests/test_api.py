@@ -13,6 +13,9 @@ from junebug.utils import api_from_event, conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
+
+    maxDiff = None
+
     @inlineCallbacks
     def setUp(self):
         self.patch_logger()
@@ -56,7 +59,10 @@ class TestJunebugApi(JunebugTestBase):
             'the URL manually please check your spelling and try again.', {
                 'errors': [{
                     'code': 404,
-                    'message': '404: Not Found',
+                    'message': ('404 Not Found: The requested URL was not '
+                                'found on the server.  If you entered the URL'
+                                ' manually please check your spelling and try'
+                                ' again.'),
                     'type': 'Not Found',
                     }]
                 })
@@ -70,9 +76,9 @@ class TestJunebugApi(JunebugTestBase):
             None, {
                 'errors': [{
                     'code': 301,
-                    'message': '301: Moved Permanently',
-                    'type': 'Moved Permanently',
+                    'message': '301 Moved Permanently: None',
                     'new_url': '%s/channels/' % self.url,
+                    'type': 'Moved Permanently',
                 }],
             })
         yield self.assert_response(
