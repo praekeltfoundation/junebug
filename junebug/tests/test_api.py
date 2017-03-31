@@ -13,6 +13,9 @@ from junebug.utils import api_from_event, conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
+
+    maxDiff = None
+
     @inlineCallbacks
     def setUp(self):
         self.patch_logger()
