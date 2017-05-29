@@ -8,7 +8,7 @@ def read_file(filename):
 
 setup(
     name='junebug',
-    version='0.1.12',
+    version='0.1.15',
     url='http://github.com/praekelt/junebug',
     license='BSD',
     description=(
@@ -29,7 +29,7 @@ setup(
         # We install a newer version of twisted before vumi, since vumi has a
         # lower minimum version requirement.
         'Twisted>=15.3.0',
-        'vumi>=0.6.14',
+        'vumi>=0.6.16',
         'confmodel',
         'PyYAML',
     ],
