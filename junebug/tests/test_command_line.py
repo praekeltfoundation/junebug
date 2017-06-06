@@ -2,10 +2,12 @@ import json
 import logging
 import os.path
 from twisted.internet.defer import inlineCallbacks
+from twisted.python import log
 
 import junebug
 from junebug import JunebugApi
-from junebug.command_line import parse_arguments, logging_setup, start_server
+from junebug.command_line import (
+    parse_arguments, logging_setup, start_server, sentry_setup)
 from junebug.tests.helpers import JunebugTestBase
 from junebug.config import JunebugConfig
 
@@ -290,6 +292,17 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-lp', 'other-logs/'])
         self.assertEqual(config.logging_path, 'other-logs/')
 
+    def testparse_arguments_sentry_dsn(self):
+        '''The sentry DSN can be specified by "--sentry-dsn" or "-sd"'''
+        config = parse_arguments([])
+        self.assertEqual(config.sentry_dsn, None)
+
+        config = parse_arguments(["--sentry-dsn", "http://sentry-dsn.com"])
+        self.assertEqual(config.sentry_dsn, "http://sentry-dsn.com")
+
+        config = parse_arguments(["-sd", "http://sentry-dsn.com"])
+        self.assertEqual(config.sentry_dsn, "http://sentry-dsn.com")
+
     def test_parse_arguments_log_rotate_size(self):
         '''The log rotate size can be specified by "--log-rotate-size" or
         "-lrs"'''
@@ -358,6 +371,7 @@ class TestCommandLine(JunebugTestBase):
                 'plugins': [{'type': 'foo.bar'}],
                 'metric_window': 2.0,
                 'logging_path': 'other-logs/',
+                'sentry_dsn': 'http://sentry-dsn.com',
                 'log_rotate_size': 2,
                 'max_log_files': 3,
                 'max_logs': 4,
@@ -383,6 +397,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.sentry_dsn, 'http://sentry-dsn.com')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
         self.assertEqual(config.max_logs, 4)
@@ -406,6 +421,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.sentry_dsn, 'http://sentry-dsn.com')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
         self.assertEqual(config.max_logs, 4)
@@ -505,6 +521,17 @@ class TestCommandLine(JunebugTestBase):
 
         logging.getLogger().removeHandler(handler1)
         logging.getLogger().removeHandler(handler2)
+
+    def test_sentry_setup(self):
+        count = len(log.theLogPublisher._legacyObservers)
+
+        sentry_setup(None)
+        self.assertEqual(len(log.theLogPublisher._legacyObservers), count)
+
+        sentry_setup("http://username:password@sentry.test.com/16")
+        function = log.theLogPublisher._legacyObservers[count].legacyObserver
+        self.assertEqual(len(log.theLogPublisher._legacyObservers), count+1)
+        self.assertEqual(function.func_name, "logToSentry")
 
     @inlineCallbacks
     def test_start_server(self):

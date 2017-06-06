@@ -32,6 +32,7 @@ setup(
         'vumi>=0.6.16',
         'confmodel',
         'PyYAML',
+        'raven==5.32.0',
     ],
     entry_points='''
     [console_scripts]

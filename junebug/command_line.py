@@ -10,6 +10,8 @@ import yaml
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
+from raven import Client
+from raven.transport.twisted import TwistedHTTPTransport
 
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
@@ -34,6 +36,9 @@ def create_parser():
     parser.add_argument(
         '--log-file', '-l', dest='logfile', type=str,
         help='The file to log to. Defaults to not logging to a file')
+    parser.add_argument(
+        '--sentry-dsn', '-sd', dest='sentry_dsn', type=str,
+        help='The DSN to log exceptions to. Defaults to not logging')
     parser.add_argument(
         '--redis-host', '-redish', dest='redis_host', type=str,
         help='The hostname of the redis instance. Defaults to "localhost"')
@@ -135,6 +140,22 @@ def logging_setup(filename):
         logging.getLogger().addHandler(handler)
 
 
+def sentry_setup(sentry_dsn):
+    '''Sets up the exception logging to the provided DSN'''
+
+    if sentry_dsn:
+        client = Client(dsn=sentry_dsn, transport=TwistedHTTPTransport)
+
+        def logToSentry(event):
+            if not event.get('isError') or 'failure' not in event:
+                return
+
+            f = event['failure']
+            client.captureException((f.type, f.value, f.getTracebackObject()))
+
+        log.addObserver(logToSentry)
+
+
 @inlineCallbacks
 def start_server(config):
     '''Starts a new Junebug HTTP API server on the specified resource and
@@ -147,6 +168,7 @@ def start_server(config):
 def main():
     config = parse_arguments(sys.argv[1:])
     logging_setup(config.logfile)
+    sentry_setup(config.sentry_dsn)
     start_server(config)
     reactor.run()
 
