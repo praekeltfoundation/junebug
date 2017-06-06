@@ -1,8 +1,12 @@
 import json
 import logging
 import os.path
+import sys
 from twisted.internet.defer import inlineCallbacks
 from twisted.python import log
+from mock import patch
+from raven import Client
+
 
 import junebug
 from junebug import JunebugApi
@@ -528,10 +532,26 @@ class TestCommandLine(JunebugTestBase):
         sentry_setup(None)
         self.assertEqual(len(log.theLogPublisher._legacyObservers), count)
 
+        e = ValueError("Test Error")
+        with patch.object(Client, 'captureException') as mock_method:
+            log.err(e)
+            mock_method.assert_not_called()
+
         sentry_setup("http://username:password@sentry.test.com/16")
         function = log.theLogPublisher._legacyObservers[count].legacyObserver
         self.assertEqual(len(log.theLogPublisher._legacyObservers), count+1)
         self.assertEqual(function.func_name, "logToSentry")
+
+        with patch.object(Client, 'captureException') as mock_method:
+            try:
+                raise e
+            except:
+                tb = sys.exc_info()
+                log.err()
+            mock_method.assert_called_once_with(tb)
+
+        errors = self.flushLoggedErrors(ValueError)
+        self.assertEqual(len(errors), 2)
 
     @inlineCallbacks
     def test_start_server(self):
