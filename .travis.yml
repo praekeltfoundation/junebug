@@ -5,7 +5,7 @@ matrix:
   include:
     # Test on pypy without coverage, because it's unnecessary and very slow.
     - python: "pypy"
-      env: PYPY_VERSION="4.0.1" NO_COVERAGE=1
+      env: PYPY_VERSION="5.7.1" NO_COVERAGE=1
     # Test against the lowest version of Twisted that we claim to support
     - python: "2.7"
       env: TWISTED_VERSION="Twisted==15.3.0"
@@ -14,6 +14,7 @@ before_install:
 install:
   - "pip install ${TWISTED_VERSION}"
   - "pip install -r requirements.txt"
+  - "pip install -r requirements-dev.txt"
   - "pip install coveralls"
 cache:
   directories:
