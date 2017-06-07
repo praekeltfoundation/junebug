@@ -507,13 +507,13 @@ class TestCommandLine(JunebugTestBase):
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
         is not None, both the stdout logger and a file logger is created'''
-        logging_setup(None)
+        logging_setup(None, None)
         [handler] = logging.getLogger().handlers
         self.assertEqual(handler.stream.name, '<stdout>')
         logging.getLogger().removeHandler(handler)
 
         filename = self.mktemp()
-        logging_setup(filename)
+        logging_setup(filename, None)
         [handler1, handler2] = sorted(
             logging.getLogger().handlers,
             key=lambda h: hasattr(h, 'baseFilename'))

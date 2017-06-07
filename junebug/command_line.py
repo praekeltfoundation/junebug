@@ -118,14 +118,15 @@ def parse_arguments(args):
     return config_from_args(vars(parser.parse_args(args)))
 
 
-class PythonInfoLoggingObserver(log.PythonLoggingObserver):
+class PythonExceptionFilteringLoggingObserver(log.PythonLoggingObserver):
 
     def emit(self, eventDict):
         if not eventDict.get('isError') or 'failure' not in eventDict:
-            super(PythonInfoLoggingObserver, self).emit(eventDict)
+            super(PythonExceptionFilteringLoggingObserver, self).emit(
+                eventDict)
 
 
-def logging_setup(filename):
+def logging_setup(filename, sentry_dsn):
     '''Sets up the logging system to output to stdout and filename,
     if filename is not None'''
 
@@ -133,7 +134,10 @@ def logging_setup(filename):
 
     if not os.environ.get('JUNEBUG_DISABLE_LOGGING'):
         # Send Twisted Logs to python logger
-        PythonInfoLoggingObserver().start()
+        if sentry_dsn:
+            PythonExceptionFilteringLoggingObserver().start()
+        else:
+            log.PythonLoggingObserver().start()
 
         # Set up stdout logger
         logging.basicConfig(
@@ -174,7 +178,7 @@ def start_server(config):
 
 def main():
     config = parse_arguments(sys.argv[1:])
-    logging_setup(config.logfile)
+    logging_setup(config.logfile, config.sentry_dsn)
     sentry_setup(config.sentry_dsn)
     start_server(config)
     reactor.run()
