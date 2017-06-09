@@ -12,7 +12,7 @@ setup(
     url='http://github.com/praekelt/junebug',
     license='BSD',
     description=(
-        'A system for managing text messaging transports via a RESTful HTTP ',
+        'A system for managing text messaging transports via a RESTful HTTP '
         'interface'),
     long_description=read_file('README.rst'),
     author='Praekelt Foundation',
