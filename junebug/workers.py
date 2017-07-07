@@ -276,9 +276,9 @@ def post_eb(reason, url):
         # Raised when Deferred is cancelled because of timeouts
         CancelledError,
     )
-    reason.trap(*errors)
-    logging.exception('Post to %s failed because of: %s' % (
-        url, reason.getErrorMessage()))
+    err_class = reason.trap(*errors)
+    logging.exception('Post to %s failed because of %s: %s' % (
+        url, err_class, reason.getErrorMessage()))
 
 
 def post(url, data, timeout):
