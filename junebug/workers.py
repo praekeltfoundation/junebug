@@ -3,7 +3,7 @@ import logging
 
 import treq
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, CancelledError
 from twisted.web.client import ResponseFailed
 from twisted.internet.error import (
     ConnectingCancelledError, ConnectionDone, ConnectionRefusedError)
@@ -273,6 +273,8 @@ def post_eb(reason, url):
         ConnectionDone,
         ConnectionRefusedError,
         TaskStopped,
+        # Raised when Deferred is cancelled because of timeouts
+        CancelledError,
     )
     reason.trap(*errors)
     logging.exception('Post to %s failed because of: %s' % (
