@@ -1,4 +1,5 @@
 import treq
+from base64 import b64encode
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -90,6 +91,46 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'testqueue', 'inbound', TransportUserMessage)
 
         self.assertEqual(dispatched_msg, msg)
+
+    @inlineCallbacks
+    def test_send_message_with_basic_auth(self):
+        '''If there is an error sending a message to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+
+        # Inject the auth parameters
+        url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
+
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': url,
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        [logged_request] = self.logging_api.requests
+        self.assertEqual(logged_request, {
+            'Authorization': ['Basic %s' % (b64encode('foo:bar'),)]
+        })
+
+    @inlineCallbacks
+    def test_send_message_with_token_auth(self):
+        '''If there is an error sending a message to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': self.url + '/auth/',
+            'mo_message_url_auth_token': 'the-auth-token'
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        [logged_request] = self.logging_api.requests
+        self.assertEqual(logged_request, {
+            'Authorization': ['Token the-auth-token']
+        })
 
     @inlineCallbacks
     def test_send_message_bad_response(self):

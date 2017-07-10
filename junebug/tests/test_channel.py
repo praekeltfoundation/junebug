@@ -168,6 +168,7 @@ class TestChannel(JunebugTestBase):
         self.assertEqual(worker.config, {
             'transport_name': channel.id,
             'mo_message_url': 'http://foo.org',
+            'mo_message_url_auth_token': None,
             'message_queue': None,
             'redis_manager': channel.config.redis,
             'inbound_ttl': channel.config.inbound_message_ttl,
