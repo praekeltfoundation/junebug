@@ -1,5 +1,5 @@
 from klein import Klein
-import logging
+from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
@@ -13,8 +13,6 @@ from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
     InboundMessageStore, MessageRateStore, OutboundMessageStore)
-
-logging = logging.getLogger(__name__)
 
 
 class ApiUsageError(JunebugError):
@@ -97,7 +95,7 @@ class JunebugApi(object):
 
     @app.handle_errors
     def generic_error(self, request, failure):
-        logging.exception(failure)
+        log.err(failure)
         return response(request, 'generic error', {
             'errors': [{
                 'type': failure.type.__name__,
@@ -124,6 +122,7 @@ class JunebugApi(object):
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
                 'mo_url': {'type': 'string'},
+                'mo_url_auth_token': {'type': 'string'},
                 'amqp_queue': {'type': 'string'},
                 'rate_limit_count': {
                     'type': 'integer',

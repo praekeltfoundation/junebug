@@ -16,6 +16,10 @@ class JunebugConfig(Config):
         "File to log to or `None` for no logging",
         default=None)
 
+    sentry_dsn = ConfigText(
+        "DSN to send exceptions",
+        default=None)
+
     redis = ConfigDict(
         "Config to use for redis connection",
         default={

@@ -290,6 +290,8 @@ class Channel(object):
         return {
             'transport_name': self.id,
             'mo_message_url': self._properties.get('mo_url'),
+            'mo_message_url_auth_token': self._properties.get(
+                'mo_url_auth_token'),
             'message_queue': self._properties.get('amqp_queue'),
             'redis_manager': self.config.redis,
             'inbound_ttl': self.config.inbound_message_ttl,

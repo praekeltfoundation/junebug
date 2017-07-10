@@ -1,16 +1,18 @@
 import json
 import logging
+from urlparse import urlunparse
 
 import treq
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, CancelledError
 from twisted.web.client import ResponseFailed
 from twisted.internet.error import (
     ConnectingCancelledError, ConnectionDone, ConnectionRefusedError)
 from twisted.internet.task import TaskStopped
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigDict, ConfigInt, ConfigText, ConfigFloat
+from vumi.config import (
+    ConfigDict, ConfigInt, ConfigText, ConfigFloat, ConfigUrl)
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
@@ -23,8 +25,12 @@ from junebug.stores import (
 class MessageForwardingConfig(ApplicationConfig):
     '''Config for MessageForwardingWorker application worker'''
 
-    mo_message_url = ConfigText(
+    mo_message_url = ConfigUrl(
         "The URL to send HTTP POST requests to for MO messages",
+        default=None, static=True)
+
+    mo_message_url_auth_token = ConfigText(
+        "Authorization Token to use for the mo_message_url",
         default=None, static=True)
 
     mo_message_url_timeout = ConfigInt(
@@ -101,8 +107,41 @@ class MessageForwardingWorker(ApplicationWorker):
 
         if self.config.get('mo_message_url') is not None:
             config = self.get_static_config()
-            resp = yield post(config.mo_message_url, msg,
-                              timeout=config.mo_message_url_timeout)
+
+            # Parse the basic auth username & password if available
+            username = config.mo_message_url.username
+            password = config.mo_message_url.password
+            if any([username, password]):
+                url = urlunparse((
+                    config.mo_message_url.scheme,
+                    '%s%s' % (
+                        config.mo_message_url.hostname,
+                        (':%s' % (config.mo_message_url.port,)
+                         if config.mo_message_url.port is not None
+                         else '')),
+                    config.mo_message_url.path,
+                    config.mo_message_url.params,
+                    config.mo_message_url.query,
+                    config.mo_message_url.fragment,
+                ))
+                auth = (username, password)
+            else:
+                url = config.mo_message_url.geturl()
+                auth = None
+
+            # Construct token auth headers if configured
+            auth_token = config.mo_message_url_auth_token
+            if auth_token:
+                headers = {
+                    'Authorization': [
+                        'Token %s' % (auth_token,)]
+                }
+            else:
+                headers = {}
+
+            resp = yield post(url, msg,
+                              timeout=config.mo_message_url_timeout,
+                              auth=auth, headers=headers)
             if resp and request_failed(resp):
                 logging.exception(
                     'Error sending message, received HTTP code %r with body %r'
@@ -273,17 +312,21 @@ def post_eb(reason, url):
         ConnectionDone,
         ConnectionRefusedError,
         TaskStopped,
+        # Raised when Deferred is cancelled because of timeouts
+        CancelledError,
     )
-    reason.trap(*errors)
-    logging.exception('Post to %s failed because of: %s' % (
-        url, reason.getErrorMessage()))
+    err_class = reason.trap(*errors)
+    logging.exception('Post to %s failed because of %s: %s' % (
+        url, err_class, reason.getErrorMessage()))
 
 
-def post(url, data, timeout):
+def post(url, data, timeout, auth=None, headers={}):
+    request_headers = {'Content-Type': ['application/json']}
+    request_headers.update(headers)
     d = treq.post(
         url.encode('utf-8'),
         data=json.dumps(data, cls=JSONMessageEncoder),
-        headers={'Content-Type': 'application/json'},
-        timeout=timeout)
+        headers=request_headers,
+        timeout=timeout, auth=auth)
     d.addErrback(post_eb, url)
     return d
