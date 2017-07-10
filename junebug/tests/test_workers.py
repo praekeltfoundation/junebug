@@ -100,7 +100,6 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         # Inject the auth parameters
         url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
-        print 'url', url
 
         self.worker = yield self.get_worker({
             'transport_name': 'testtransport',

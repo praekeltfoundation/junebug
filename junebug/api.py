@@ -122,6 +122,7 @@ class JunebugApi(object):
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
                 'mo_url': {'type': 'string'},
+                'mo_url_auth_token': {'type': 'string'},
                 'amqp_queue': {'type': 'string'},
                 'rate_limit_count': {
                     'type': 'integer',
