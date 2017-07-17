@@ -522,6 +522,39 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, None)
 
     @inlineCallbacks
+    def test_send_group_message(self):
+        '''Sending a group message should place the message on the queue for the
+        channel'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'group': 'the-group'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'group': 'the-group',
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+        self.assertEqual(message['group'], 'the-group')
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
     def test_send_message_message_rate(self):
         '''Sending a message should increment the message rate counter'''
         clock = yield self.patch_message_rate_clock()

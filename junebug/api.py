@@ -240,6 +240,7 @@ class JunebugApi(object):
             'properties': {
                 'to': {'type': 'string'},
                 'from': {'type': ['string', 'null']},
+                'group': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
                 'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
@@ -252,9 +253,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        if 'to' not in body and 'reply_to' not in body:
+        if 'to' not in body and 'reply_to' not in body and 'group' not in body:
             raise ApiUsageError(
-                'Either "to" or "reply_to" must be specified')
+                'Either "to", "reply_to", or "group must be specified')
 
         if 'to' in body and 'reply_to' in body:
             raise ApiUsageError(
