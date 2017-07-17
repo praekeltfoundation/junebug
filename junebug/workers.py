@@ -201,6 +201,11 @@ class MessageForwardingWorker(ApplicationWorker):
         if url is None:
             return
 
+        # Construct token auth headers if configured
+        auth_header = yield self._get_event_auth(event)
+        if auth_header is None:
+            auth_header = {}
+
         msg = api_from_event(self.channel_id, event)
 
         if msg['event_type'] is None:
@@ -208,7 +213,8 @@ class MessageForwardingWorker(ApplicationWorker):
             return
 
         config = self.get_static_config()
-        resp = yield post(url, msg, timeout=config.event_url_timeout)
+        resp = yield post(url, msg, timeout=config.event_url_timeout,
+                          headers=auth_header)
 
         if resp and request_failed(resp):
             logging.exception(
@@ -236,6 +242,14 @@ class MessageForwardingWorker(ApplicationWorker):
         else:
             logging.warning(
                 "Cannot find event URL, missing user_message_id: %r" % event)
+
+    def _get_event_auth(self, event):
+        msg_id = event['user_message_id']
+        if msg_id is not None:
+            return self.outbounds.load_event_auth(self.channel_id, msg_id)
+        else:
+            logging.warning(
+                "Cannot find event auth, missing user_message_id: %r" % event)
 
 
 class ChannelStatusConfig(BaseConfig):
