@@ -240,6 +240,7 @@ class JunebugApi(object):
             'properties': {
                 'to': {'type': 'string'},
                 'from': {'type': ['string', 'null']},
+                'group': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
                 'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
