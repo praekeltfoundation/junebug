@@ -1,6 +1,6 @@
 import json
 import logging
-from urlparse import urlunparse
+from urlparse import urlunparse, urlparse
 
 import treq
 
@@ -201,6 +201,27 @@ class MessageForwardingWorker(ApplicationWorker):
         if url is None:
             return
 
+        # Parse the basic auth username & password if available
+        url_components = urlparse(url)
+        username = url_components.username
+        password = url_components.password
+        if any([username, password]):
+            url = urlunparse((
+                url_components.scheme,
+                '%s%s' % (
+                    url_components.hostname,
+                    (':%s' % (url_components.port,)
+                     if url_components.port is not None
+                     else '')),
+                url_components.path,
+                url_components.params,
+                url_components.query,
+                url_components.fragment,
+            ))
+            auth = (username, password)
+        else:
+            auth = None
+
         # Construct token auth headers if configured
         auth_header = yield self._get_event_auth(event)
         if auth_header is None:
@@ -214,7 +235,7 @@ class MessageForwardingWorker(ApplicationWorker):
 
         config = self.get_static_config()
         resp = yield post(url, msg, timeout=config.event_url_timeout,
-                          headers=auth_header)
+                          auth=auth, headers=auth_header)
 
         if resp and request_failed(resp):
             logging.exception(
