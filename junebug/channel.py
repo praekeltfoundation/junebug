@@ -253,7 +253,6 @@ class Channel(object):
     @inlineCallbacks
     def send_reply_message(self, sender, outbounds, inbounds, msg):
         '''Sends a reply message.'''
-        print 'sending reply', msg
         in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
 
         if in_msg is None:

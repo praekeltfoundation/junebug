@@ -253,9 +253,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        if 'to' not in body and 'reply_to' not in body and 'group' not in body:
+        if 'to' not in body and 'reply_to' not in body:
             raise ApiUsageError(
-                'Either "to", "reply_to", or "group must be specified')
+                'Either "to" or "reply_to" must be specified')
 
         if 'to' in body and 'reply_to' in body:
             raise ApiUsageError(
