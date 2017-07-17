@@ -1,0 +1,3 @@
+{"timestamp": 1500302093.05292, "logger": "07ab98ca-589d-4e31-ba35-65ba44e90be4", "message": "Test1", "level": 20}
+{"timestamp": 1500302093.05317, "logger": "07ab98ca-589d-4e31-ba35-65ba44e90be4", "message": "Test2", "level": 20}
+{"timestamp": 1500302093.053347, "logger": "07ab98ca-589d-4e31-ba35-65ba44e90be4", "message": "Test3", "level": 20}

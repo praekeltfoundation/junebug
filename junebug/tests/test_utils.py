@@ -141,6 +141,7 @@ class TestUtils(TestCase):
                 },
             'from': '+1234',
             'to': '+5432',
+            'group': None,
             'channel_id': 'testtransport',
             'content': None,
             'reply_to': None,
