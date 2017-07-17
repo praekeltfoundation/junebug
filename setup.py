@@ -8,7 +8,7 @@ def read_file(filename):
 
 setup(
     name='junebug',
-    version='0.1.18',
+    version='0.1.19',
     url='http://github.com/praekelt/junebug',
     license='BSD',
     description=(
