@@ -108,26 +108,8 @@ class MessageForwardingWorker(ApplicationWorker):
         if self.config.get('mo_message_url') is not None:
             config = self.get_static_config()
 
-            # Parse the basic auth username & password if available
-            username = config.mo_message_url.username
-            password = config.mo_message_url.password
-            if any([username, password]):
-                url = urlunparse((
-                    config.mo_message_url.scheme,
-                    '%s%s' % (
-                        config.mo_message_url.hostname,
-                        (':%s' % (config.mo_message_url.port,)
-                         if config.mo_message_url.port is not None
-                         else '')),
-                    config.mo_message_url.path,
-                    config.mo_message_url.params,
-                    config.mo_message_url.query,
-                    config.mo_message_url.fragment,
-                ))
-                auth = (username, password)
-            else:
-                url = config.mo_message_url.geturl()
-                auth = None
+            (url, auth) = self._split_url_and_credentials(
+                config.mo_message_url)
 
             # Construct token auth headers if configured
             auth_token = config.mo_message_url_auth_token
@@ -201,26 +183,7 @@ class MessageForwardingWorker(ApplicationWorker):
         if url is None:
             return
 
-        # Parse the basic auth username & password if available
-        url_components = urlparse(url)
-        username = url_components.username
-        password = url_components.password
-        if any([username, password]):
-            url = urlunparse((
-                url_components.scheme,
-                '%s%s' % (
-                    url_components.hostname,
-                    (':%s' % (url_components.port,)
-                     if url_components.port is not None
-                     else '')),
-                url_components.path,
-                url_components.params,
-                url_components.query,
-                url_components.fragment,
-            ))
-            auth = (username, password)
-        else:
-            auth = None
+        (url, auth) = self._split_url_and_credentials(urlparse(url))
 
         # Construct token auth headers if configured
         auth_token = yield self._get_event_auth_token(event)
@@ -261,6 +224,24 @@ class MessageForwardingWorker(ApplicationWorker):
 
     def consume_delivery_report(self, event):
         return self.store_and_forward_event(event)
+
+    def _split_url_and_credentials(self, url):
+        # Parse the basic auth username & password if available
+        username = url.username
+        password = url.password
+        if any([username, password]):
+            url = urlunparse((
+                url.scheme,
+                '%s%s' % (url.hostname, (':%s' % (url.port,)
+                                         if url.port is not None else '')),
+                url.path,
+                url.params,
+                url.query,
+                url.fragment,
+            ))
+            auth = (username, password)
+            return (url, auth)
+        return (url.geturl(), None)
 
     def _get_event_url(self, event):
         msg_id = event['user_message_id']
