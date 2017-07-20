@@ -198,7 +198,7 @@ class TestOutboundMessageStore(JunebugTestBase):
         yield store.store_event_auth_token(
             'channel_id', 'messageid', "the-auth-token")
         event_auth_token = yield self.redis.hget(
-            'channel_id:outbound_messages:messageid', 'event_auth_token')
+            'channel_id:outbound_messages:messageid', 'event_url_auth_token')
         self.assertEqual(event_auth_token, "the-auth-token")
 
     @inlineCallbacks
@@ -221,7 +221,7 @@ class TestOutboundMessageStore(JunebugTestBase):
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
         yield self.redis.hset(
             'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
-            'event_auth_token', "the-auth-token")
+            'event_url_auth_token', "the-auth-token")
 
         event_auth_token = yield store.load_event_auth_token(
             'channel_id', vumi_msg.get('message_id'))
