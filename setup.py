@@ -29,7 +29,7 @@ setup(
         # We install a newer version of twisted before vumi, since vumi has a
         # lower minimum version requirement.
         'Twisted>=15.3.0',
-        'vumi>=0.6.16',
+        'vumi>=0.6.17',
         'confmodel',
         'PyYAML',
         'raven>=6.0.0,<7.0.0',
