@@ -89,7 +89,7 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
-    PROPERTY_KEYS = ['event_url']
+    PROPERTY_KEYS = ['event_url', 'event_url_auth_token']
 
     def get_key(self, channel_id, message_id):
         return super(OutboundMessageStore, self).get_key(
@@ -100,10 +100,21 @@ class OutboundMessageStore(BaseStore):
         key = self.get_key(channel_id, message_id)
         return self.store_property(key, 'event_url', event_url)
 
+    def store_event_auth_token(self, channel_id, message_id, auth_token):
+        '''Stores the event_auth_token'''
+        key = self.get_key(channel_id, message_id)
+        return self.store_property(key, 'event_url_auth_token', auth_token)
+
     def load_event_url(self, channel_id, message_id):
         '''Retrieves a stored event url, given the channel and message ids'''
         key = self.get_key(channel_id, message_id)
         return self.load_property(key, 'event_url')
+
+    def load_event_auth_token(self, channel_id, message_id):
+        '''Retrieves a stored event auth token, given the channel and message
+        ids'''
+        key = self.get_key(channel_id, message_id)
+        return self.load_property(key, 'event_url_auth_token')
 
     def store_event(self, channel_id, message_id, event):
         '''Stores an event for a message'''
