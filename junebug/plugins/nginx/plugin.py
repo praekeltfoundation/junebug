@@ -55,6 +55,7 @@ class NginxPlugin(JunebugPlugin):
         self.vhost_template = read(self.config.vhost_template)
         self.location_template = read(self.config.location_template)
         write(self.config.vhost_file, self.get_vhost_config())
+        reload_nginx()
 
     def stop_plugin(self):
         ensure_removed(self.config.vhost_file)
@@ -99,6 +100,7 @@ class NginxPlugin(JunebugPlugin):
 
     def get_location_context(self, properties):
         web_path = properties['web_path']
+        web_path = '/%s' % web_path.lstrip('/')
         base_url = 'http://localhost:%s' % (properties['web_port'],)
 
         return {

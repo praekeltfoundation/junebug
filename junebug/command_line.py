@@ -3,12 +3,15 @@ import argparse
 import json
 import logging
 import logging.handlers
+import os
 import sys
 import yaml
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
+from raven import Client
+from raven.transport.twisted import TwistedHTTPTransport
 
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
@@ -33,6 +36,9 @@ def create_parser():
     parser.add_argument(
         '--log-file', '-l', dest='logfile', type=str,
         help='The file to log to. Defaults to not logging to a file')
+    parser.add_argument(
+        '--sentry-dsn', '-sd', dest='sentry_dsn', type=str,
+        help='The DSN to log exceptions to. Defaults to not logging')
     parser.add_argument(
         '--redis-host', '-redish', dest='redis_host', type=str,
         help='The hostname of the redis instance. Defaults to "localhost"')
@@ -112,18 +118,30 @@ def parse_arguments(args):
     return config_from_args(vars(parser.parse_args(args)))
 
 
-def logging_setup(filename):
+class PythonExceptionFilteringLoggingObserver(log.PythonLoggingObserver):
+
+    def emit(self, eventDict):
+        if not eventDict.get('isError') or 'failure' not in eventDict:
+            super(PythonExceptionFilteringLoggingObserver, self).emit(
+                eventDict)
+
+
+def logging_setup(filename, sentry_dsn):
     '''Sets up the logging system to output to stdout and filename,
     if filename is not None'''
 
     LOGGING_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 
-    # Send Twisted Logs to python logger
-    log.PythonLoggingObserver().start()
+    if not os.environ.get('JUNEBUG_DISABLE_LOGGING'):
+        # Send Twisted Logs to python logger
+        if sentry_dsn:
+            PythonExceptionFilteringLoggingObserver().start()
+        else:
+            log.PythonLoggingObserver().start()
 
-    # Set up stdout logger
-    logging.basicConfig(
-        level=logging.INFO, format=LOGGING_FORMAT, stream=sys.stdout)
+        # Set up stdout logger
+        logging.basicConfig(
+            level=logging.INFO, format=LOGGING_FORMAT, stream=sys.stdout)
 
     # Set up file logger
     if filename:
@@ -131,6 +149,22 @@ def logging_setup(filename):
             filename, maxBytes=1024 * 1024, backupCount=5)
         handler.setFormatter(logging.Formatter(LOGGING_FORMAT))
         logging.getLogger().addHandler(handler)
+
+
+def sentry_setup(sentry_dsn):
+    '''Sets up the exception logging to the provided DSN'''
+
+    if sentry_dsn:
+        client = Client(dsn=sentry_dsn, transport=TwistedHTTPTransport)
+
+        def logToSentry(event):
+            if not event.get('isError') or 'failure' not in event:
+                return
+
+            f = event['failure']
+            client.captureException((f.type, f.value, f.getTracebackObject()))
+
+        log.addObserver(logToSentry)
 
 
 @inlineCallbacks
@@ -144,7 +178,8 @@ def start_server(config):
 
 def main():
     config = parse_arguments(sys.argv[1:])
-    logging_setup(config.logfile)
+    logging_setup(config.logfile, config.sentry_dsn)
+    sentry_setup(config.sentry_dsn)
     start_server(config)
     reactor.run()
 

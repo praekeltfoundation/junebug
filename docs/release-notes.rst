@@ -3,9 +3,148 @@
 Release Notes
 =============
 
+v0.1.11
+-------
+
+.. Pull requests 118
+
+- Fixes
+    - Trap ConnectionRefusedError that can happen when trying to relay
+      a message to an event_url of mo_url.
+
+- Fixes
+
+v0.1.10
+-------
+.. Pull requests 114
+
+- Fixes
+    - Make Junebug gracefully handle timeouts and connection failure for
+      events and messages posted to URL endpoints.
+
+v0.1.9
+------
+.. Pull requests 91
+
+- Fixes
+    - Allow one to set the ``status_url`` and the ``mo_url`` for a channel to
+      ``None`` to disable pushing of status events and messages to these URLs.
+
+v0.1.8
+------
+.. Pull requests 112
+
+*18 January 2017*
+
+- Fixes
+    - Change the default smpp channel type from the depricated SmppTransport
+      (SmppTransceiverTransportWithOldConfig), to the new
+      SmppTransceiverTransport.
+
+v0.1.7
+------
+.. Pull requests 110
+
+*10 January 2017*
+
+- Features
+   - Update the minimum version of vumi to get the latest version of the SMPP
+     transport, which allows us to set the keys of the data coding mapping to
+     strings. This allows us to use the data coding mapping setting in Junebug,
+     since in JSON we cannot have integers as keys in an object.
+
+v0.1.6
+------
+.. Pull requests 90, 92, 93, 100, 103, 105, 107, 108
+
+*3 October 2016*
+
+- Fixes
+    - Fix the teardown of the MessageForwardingWorker so that if it didn't
+      start up properly, it would still teardown properly.
+    - Handling for 301 redirect responses improved by providing the URL to be
+      redirected to in the body as well as the Location header.
+    - We no longer crash if we get an event without the user_message_id field.
+      Instead, we just don't store that event.
+
+- Features
+    - Update channel config error responses with the field that is causing the
+      issue.
+    - Set a minimum twisted version that we support (15.3.0), and ensure that
+      we're testing against it in our travis tests.
+    - The logging service now creates the logging directory if it doesn't exist
+      and if we have permissions. Previously we would give an error if the
+      directory didn't exist.
+
+- Documentation
+    - Added instructions to install libssl-dev and libffi-dev to the
+      installation instructions.
+    - Added documentation and diagrams for the internal architecture of
+      Junebug.
+
+v0.1.5
+------
+.. Pull requests 89
+
+*19 April 2016*
+
+- Fixes
+    - Have nginx plugin add a leading slash to location paths if necessary.
+
+v0.1.4
+------
+.. Pull requests 87, 88, 81
+
+*12 April 2016*
+
+- Fixes
+    - Fix nginx plugin to properly support reading of web_path and web_port
+      configuration.
+    - Add endpoint for restarting channels.
+    - Automate deploys.
+
+v0.1.3
+------
+.. Pull requests 86
+
+*5 April 2016*
+
+- Fixes
+    - Reload nginx when nginx plugin starts so that the vhost file is
+      loaded straight away if the nginx plugin is active.
+
+v0.1.2
+------
+.. Pull requests 83, 84, 85
+
+*5 April 2016*
+
+- Fixes
+    - Added manifest file to fix nginx plugin template files that were
+      missing from the built Junebug packages.
+
+- Features
+    - Added environment variable for selecting reactor
+
+- Documentation
+    - Extended AMQP documentation
+
+v0.1.1
+------
+.. Pull requests 80
+
+*1 March 2016*
+
+- Fixes
+    - Junebug now works with PyPy again
+    - Fixed sending messages over AMQP
+
+
 v0.1.0
 ------
-.. Pull requests 60,62-70
+.. Pull requests 60,62-79
+
+*18 December 2015*
 
 - Fixes
     - Fixed config file loading

@@ -141,6 +141,7 @@ class TestUtils(TestCase):
                 },
             'from': '+1234',
             'to': '+5432',
+            'group': None,
             'channel_id': 'testtransport',
             'content': None,
             'reply_to': None,
@@ -302,12 +303,14 @@ class TestUtils(TestCase):
 
     def test_public_http_properties_explicit(self):
         result = channel_public_http_properties({
-            'web_path': '/baz/quux',
-            'web_port': 2121,
+            'config': {
+                'web_path': '/baz/quux',
+                'web_port': 2121,
+            },
             'public_http': {
                 'web_path': '/foo/bar',
                 'web_port': 2323,
-            }
+            },
         })
 
         self.assertEqual(result, {
@@ -354,8 +357,12 @@ class TestUtils(TestCase):
 
     def test_public_http_properties_explicit_implicit_path(self):
         result = channel_public_http_properties({
-            'web_path': '/foo/bar',
-            'public_http': {'web_port': 2323}
+            'config': {
+                'web_path': '/foo/bar',
+            },
+            'public_http': {
+                'web_port': 2323
+            },
         })
 
         self.assertEqual(result, {
@@ -366,8 +373,12 @@ class TestUtils(TestCase):
 
     def test_public_http_properties_explicit_implicit_port(self):
         result = channel_public_http_properties({
-            'web_port': 2323,
-            'public_http': {'web_path': '/foo/bar'}
+            'config': {
+                'web_port': 2323,
+            },
+            'public_http': {
+                'web_path': '/foo/bar',
+            },
         })
 
         self.assertEqual(result, {
@@ -378,8 +389,10 @@ class TestUtils(TestCase):
 
     def test_public_http_properties_implicit(self):
         result = channel_public_http_properties({
-            'web_port': 2323,
-            'web_path': '/foo/bar'
+            'config': {
+                'web_port': 2323,
+                'web_path': '/foo/bar',
+            },
         })
 
         self.assertEqual(result, {

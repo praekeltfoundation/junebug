@@ -1,6 +1,8 @@
 import json
 import logging
 import sys
+import os
+import shutil
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
@@ -16,7 +18,8 @@ from junebug.logging_service import (
 class TestSentryLogObserver(JunebugTestBase):
     def setUp(self):
         self.logpath = self.mktemp()
-        self.logfile = DummyLogFile(None, self.logpath, None, None)
+        os.mkdir(self.logpath)
+        self.logfile = DummyLogFile('worker-1', self.logpath, None, None)
         self.obs = JunebugLogObserver(self.logfile, 'worker-1')
 
     def assert_log(self, log, expected):
@@ -161,7 +164,7 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.startService()
         logfile = self.service.logfile
         self.assertEqual(logfile.worker_id, 'worker-id')
-        self.assertEqual(logfile.path, self.logpath)
+        self.assertEqual(logfile.directory, self.logpath)
         self.assertEqual(logfile.rotateLength, 1000000)
         self.assertEqual(logfile.maxRotatedFiles, 7)
 
@@ -206,6 +209,22 @@ class TestJunebugLoggerService(JunebugTestBase):
         yield self.service.stopService()
         self.assertFalse(self.service.registered())
         self.assertEqual(self.service.logfile.closed_count, 1)
+
+    @inlineCallbacks
+    def test_dir_create(self):
+        '''If log directory already exists, make sure it is not recreated.'''
+        if not os.path.exists(self.service.path):
+            os.makedirs(self.service.path, 0777)
+        stat1 = os.stat(self.service.path)
+        yield self.service.startService()
+        stat2 = os.stat(self.service.path)
+        self.assertTrue(os.path.samestat(stat1, stat2))
+        yield self.service.stopService()
+        shutil.rmtree(self.service.path)
+        self.assertFalse(os.path.exists(self.service.path))
+        yield self.service.startService()
+        self.assertTrue(os.path.exists(self.service.path))
+        yield self.service.stopService()
 
 
 class TestReadingLogs(JunebugTestBase):

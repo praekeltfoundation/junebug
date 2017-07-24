@@ -10,6 +10,8 @@ Junebug's HTTP API.
 HTTP API endpoints
 ------------------
 
+.. _channels:
+
 Channels
 ^^^^^^^^
 
@@ -40,10 +42,8 @@ Channels
    :param str amqp_queue:
        AMQP queue to repost messages onto for mobile originated messages. One
        or both of mo_url or amqp_queue must be specified. If both are
-       specified, messages are sent to both. Sends inbound (mobile originated)
-       messages to '{amqp_queue}.inbound'. Inbound events are sent to
-       '{amqp_queue}.events'. Messages are sent from '{amqp_queue}.outbound'
-       as outbound (mobile terminated) messages on the channel. 
+       specified, messages are sent to both. See :ref:`amqp-integration` for
+       more details.
    :param int rate_limit_count:
        Number of incoming messages to allow in a given time window.
        See ``rate_limit_window``.
@@ -169,6 +169,11 @@ Channels
    Delete a channel.
 
 
+.. http:post:: /channels/(channel_id:str)/restart
+
+   Restart a channel.
+
+
 Logs
 ^^^^
 
@@ -251,11 +256,12 @@ Messages
        if ``reply_to`` is specified.
    :param str from:
        the address the message is from. May be ``null`` if the channel
-       only supports a single from address.
+       only supports a single from address. Should be omitted if ``reply_to``
+       is specified.
    :param str reply_to:
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
-       Optional. Only one of ``to`` or ``reply_to`` may be specified.
+       Optional. Neither ``to`` or ``from`` may be specified.
        The default settings allow 10 minutes to reply to a message, after which
        an error will be returned.
    :param str event_url:
@@ -296,7 +302,7 @@ Messages
         code: "created",
         description: "message submitted",
         result: {
-          id: "message-uuid-1234"
+          message_id: "message-uuid-1234"
         }
       }
 

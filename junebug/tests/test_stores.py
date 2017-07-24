@@ -192,6 +192,16 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_store_event_auth_token(self):
+        '''Stores the event auth token under the message ID'''
+        store = yield self.create_store()
+        yield store.store_event_auth_token(
+            'channel_id', 'messageid', "the-auth-token")
+        event_auth_token = yield self.redis.hget(
+            'channel_id:outbound_messages:messageid', 'event_url_auth_token')
+        self.assertEqual(event_auth_token, "the-auth-token")
+
+    @inlineCallbacks
     def test_load_event_url(self):
         '''Returns a vumi message from the stored json'''
         store = yield self.create_store()
@@ -205,10 +215,30 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_load_event_auth_token(self):
+        '''Returns the event auth token under the message ID'''
+        store = yield self.create_store()
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
+            'event_url_auth_token', "the-auth-token")
+
+        event_auth_token = yield store.load_event_auth_token(
+            'channel_id', vumi_msg.get('message_id'))
+        self.assertEqual(event_auth_token, "the-auth-token")
+
+    @inlineCallbacks
     def test_load_event_url_not_exist(self):
         '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
         self.assertEqual((yield store.load_event_url(
+            'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_load_event_auth_token_not_exist(self):
+        '''`None` should be returned if the event auth token cannot be found'''
+        store = yield self.create_store()
+        self.assertEqual((yield store.load_event_auth_token(
             'bad-channel', 'bad-id')), None)
 
     @inlineCallbacks

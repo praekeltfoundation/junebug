@@ -1,5 +1,5 @@
 from klein import Klein
-import logging
+from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
@@ -13,8 +13,6 @@ from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
     InboundMessageStore, MessageRateStore, OutboundMessageStore)
-
-logging = logging.getLogger(__name__)
 
 
 class ApiUsageError(JunebugError):
@@ -82,16 +80,22 @@ class JunebugApi(object):
 
     @app.handle_errors(HTTPException)
     def http_error(self, request, failure):
+        error = {
+            'code': failure.value.code,
+            'type': failure.value.name,
+            'message': failure.getErrorMessage(),
+        }
+        if getattr(failure.value, 'new_url', None) is not None:
+            request.setHeader('Location', failure.value.new_url)
+            error['new_url'] = failure.value.new_url
+
         return response(request, failure.value.description, {
-            'errors': [{
-                'type': failure.value.name,
-                'message': failure.getErrorMessage(),
-                }]
+            'errors': [error],
             }, code=failure.value.code)
 
     @app.handle_errors
     def generic_error(self, request, failure):
-        logging.exception(failure)
+        log.err(failure)
         return response(request, 'generic error', {
             'errors': [{
                 'type': failure.type.__name__,
@@ -118,6 +122,7 @@ class JunebugApi(object):
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
                 'mo_url': {'type': 'string'},
+                'mo_url_auth_token': {'type': 'string'},
                 'amqp_queue': {'type': 'string'},
                 'rate_limit_count': {
                     'type': 'integer',
@@ -168,8 +173,8 @@ class JunebugApi(object):
                 'label': {'type': 'string'},
                 'config': {'type': 'object'},
                 'metadata': {'type': 'object'},
-                'status_url': {'type': 'string'},
-                'mo_url': {'type': 'string'},
+                'status_url': {'type': ['string', 'null']},
+                'mo_url': {'type': ['string', 'null']},
                 'rate_limit_count': {
                     'type': 'integer',
                     'minimum': 0,
@@ -204,6 +209,16 @@ class JunebugApi(object):
         returnValue(response(
             request, 'channel deleted', {}))
 
+    @app.route('/channels/<string:channel_id>/restart', methods=['POST'])
+    @inlineCallbacks
+    def restart_channel(self, request, channel_id):
+        '''Restart a channel.'''
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+        yield channel.stop()
+        yield channel.start(self.service)
+        returnValue(response(request, 'channel restarted', {}))
+
     @app.route('/channels/<string:channel_id>/logs', methods=['GET'])
     @inlineCallbacks
     def get_logs(self, request, channel_id):
@@ -225,6 +240,7 @@ class JunebugApi(object):
             'properties': {
                 'to': {'type': 'string'},
                 'from': {'type': ['string', 'null']},
+                'group': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
                 'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},

@@ -4,9 +4,11 @@ import logging
 import logging.handlers
 
 from twisted.python.logfile import LogFile
+from twisted.python.failure import Failure
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
+from twisted.internet.error import ConnectionDone
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -30,16 +32,18 @@ from junebug.stores import MessageRateStore
 
 
 class DummyLogFile(object):
-    '''LogFile that has a different path to its worker_id'''
+    '''Dummy log file used for testing.'''
     def __init__(
-            self, worker_id, path, rotateLength, maxRotatedFiles):
+            self, worker_id, directory, rotateLength, maxRotatedFiles):
         self.worker_id = worker_id
-        self.path = path
+        self.directory = directory
         self.rotateLength = rotateLength
         self.maxRotatedFiles = maxRotatedFiles
         self.closed_count = 0
-        self.logfile = LogFile.fromFullPath(
-            path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
+        self.logfile = LogFile(
+            worker_id, directory, rotateLength=rotateLength,
+            maxRotatedFiles=maxRotatedFiles)
+        self.path = self.logfile.path
 
     @property
     def logs(self):
@@ -117,6 +121,19 @@ class RequestLoggingApi(object):
         request.setResponseCode(500)
         return 'test-error-response'
 
+    @app.route('/auth/')
+    def auth_token(self, request):
+        headers = request.requestHeaders
+        self.requests.append({
+            'Authorization': headers.getRawHeaders('Authorization'),
+        })
+        request.setResponseCode(200)
+        return 'auth-response'
+
+    @app.route('/implode/')
+    def imploding_request(self, request):
+        request.transport.connectionLost(reason=Failure(ConnectionDone()))
+
 
 class LoggingTestTransport(Transport):
     def test_log(self, message='Test log'):
@@ -159,6 +176,8 @@ class JunebugTestBase(TestCase):
 
     def create_channel_properties(self, **kw):
         properties = deepcopy(self.default_channel_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
         properties.update(kw)
         return properties
 

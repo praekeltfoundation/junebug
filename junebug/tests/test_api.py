@@ -13,6 +13,9 @@ from junebug.utils import api_from_event, conjoin, omit
 
 
 class TestJunebugApi(JunebugTestBase):
+
+    maxDiff = None
+
     @inlineCallbacks
     def setUp(self):
         self.patch_logger()
@@ -55,10 +58,32 @@ class TestJunebugApi(JunebugTestBase):
             'The requested URL was not found on the server.  If you entered '
             'the URL manually please check your spelling and try again.', {
                 'errors': [{
-                    'message': '404: Not Found',
+                    'code': 404,
+                    'message': ('404 Not Found: The requested URL was not '
+                                'found on the server.  If you entered the URL'
+                                ' manually please check your spelling and try'
+                                ' again.'),
                     'type': 'Not Found',
                     }]
                 })
+
+    @inlineCallbacks
+    def test_redirect_http_error(self):
+        resp = yield self.get('/channels')
+        [redirect] = resp.history()
+        yield self.assert_response(
+            redirect, http.MOVED_PERMANENTLY,
+            None, {
+                'errors': [{
+                    'code': 301,
+                    'message': '301 Moved Permanently: None',
+                    'new_url': '%s/channels/' % self.url,
+                    'type': 'Moved Permanently',
+                }],
+            })
+        yield self.assert_response(
+            resp, http.OK,
+            'channels listed', [])
 
     @inlineCallbacks
     def test_startup_plugins_started(self):
@@ -204,10 +229,14 @@ class TestJunebugApi(JunebugTestBase):
                     {
                         'message': '-3 is less than the minimum of 0',
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'rate_limit_count', 'minimum'],
                     },
                     {
                         'message': "u'a' is not of type 'integer'",
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'character_limit', 'type'],
                     },
                 ])
             })
@@ -308,6 +337,46 @@ class TestJunebugApi(JunebugTestBase):
             }))
 
     @inlineCallbacks
+    def test_modify_channel_config_remove_mo_url(self):
+        redis = yield self.get_redis()
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        properties['config']['name'] = 'bar'
+        properties['mo_url'] = None
+        resp = yield self.post('/channels/test-channel', properties)
+
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', conjoin(properties, {
+                'status': self.generate_status(),
+                'id': 'test-channel',
+            }))
+
+    @inlineCallbacks
+    def test_modify_channel_config_remove_status_url(self):
+        redis = yield self.get_redis()
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        properties['config']['name'] = 'bar'
+        properties['status_url'] = None
+        resp = yield self.post('/channels/test-channel', properties)
+
+        yield self.assert_response(
+            resp, http.OK, 'channel updated', conjoin(properties, {
+                'status': self.generate_status(),
+                'id': 'test-channel',
+            }))
+
+    @inlineCallbacks
     def test_modify_channel_invalid_parameters(self):
         resp = yield self.post('/channels/foo-bar', {
             'rate_limit_count': -3,
@@ -319,10 +388,14 @@ class TestJunebugApi(JunebugTestBase):
                     {
                         'message': '-3 is less than the minimum of 0',
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'rate_limit_count', 'minimum'],
                     },
                     {
                         'message': "u'a' is not of type 'integer'",
                         'type': 'invalid_body',
+                        'schema_path': [
+                            'properties', 'character_limit', 'type'],
                     },
                 ]
             })
@@ -359,6 +432,52 @@ class TestJunebugApi(JunebugTestBase):
         properties = yield self.redis.get('test-channel:properties')
         self.assertEqual(properties, None)
 
+    def record_channel_methods(self, *methods):
+        calls = []
+
+        def method_recorder(meth):
+            orig_method = getattr(Channel, meth)
+
+            def record(self, *args, **kw):
+                result = orig_method(self, *args, **kw)
+                calls.append((meth, self.id))
+                return result
+
+            return record
+
+        for meth in methods:
+            self.patch(Channel, meth, method_recorder(meth))
+        return calls
+
+    @inlineCallbacks
+    def test_restart_channel(self):
+        config = yield self.create_channel_config()
+        properties = self.create_channel_properties()
+        channel = Channel(self.redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        actions = self.record_channel_methods('start', 'stop')
+
+        resp = yield self.post('/channels/test-channel/restart', None)
+        yield self.assert_response(resp, http.OK, 'channel restarted', {})
+
+        self.assertEqual(actions, [
+            ('stop', u'test-channel'),
+            ('start', u'test-channel'),
+        ])
+
+    @inlineCallbacks
+    def test_restart_missing_channel(self):
+        resp = yield self.post('/channels/test-channel/restart', None)
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'channel not found', {
+                'errors': [{
+                    'message': '',
+                    'type': 'ChannelNotFound',
+                }]
+            })
+
     @inlineCallbacks
     def test_send_message_invalid_channel(self):
         resp = yield self.post('/channels/foo-bar/messages/', {
@@ -388,6 +507,7 @@ class TestJunebugApi(JunebugTestBase):
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
+                'group': None,
                 'reply_to': None,
                 'channel_data': {},
                 'content': 'foo',
@@ -396,6 +516,39 @@ class TestJunebugApi(JunebugTestBase):
         [message] = self.get_dispatched_messages('test-channel.outbound')
         message_id = (yield resp.json())['result']['message_id']
         self.assertEqual(message['message_id'], message_id)
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
+    def test_send_group_message(self):
+        '''Sending a group message should place the message on the queue for the
+        channel'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'group': 'the-group'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'group': 'the-group',
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+        self.assertEqual(message['group'], 'the-group')
 
         event_url = yield self.api.outbounds.load_event_url(
             'test-channel', message['message_id'])
@@ -437,6 +590,7 @@ class TestJunebugApi(JunebugTestBase):
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
+                'group': None,
                 'reply_to': None,
                 'channel_data': {},
                 'content': 'foo',
@@ -510,6 +664,7 @@ class TestJunebugApi(JunebugTestBase):
                     'message': "Additional properties are not allowed (u'foo' "
                     "was unexpected)",
                     'type': 'invalid_body',
+                    'schema_path': ['additionalProperties'],
                 }]
             })
 
@@ -565,6 +720,7 @@ class TestJunebugApi(JunebugTestBase):
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
+                'group': None,
                 'reply_to': None,
                 'channel_data': {},
                 'content': 'Under the character limit.',
@@ -589,6 +745,7 @@ class TestJunebugApi(JunebugTestBase):
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
+                'group': None,
                 'reply_to': None,
                 'channel_data': {},
                 'content': content,

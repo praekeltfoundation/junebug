@@ -41,6 +41,7 @@ def api_from_message(msg):
     ret = {}
     ret['to'] = msg['to_addr']
     ret['from'] = msg['from_addr']
+    ret['group'] = msg['group']
     ret['message_id'] = msg['message_id']
     ret['channel_id'] = msg['transport_name']
     ret['timestamp'] = msg['timestamp']
@@ -62,6 +63,7 @@ def message_from_api(channel_id, msg):
     if 'reply_to' not in msg:
         ret['to_addr'] = msg.get('to')
         ret['from_addr'] = msg.get('from')
+        ret['group'] = msg.get('group')
 
     ret['content'] = msg['content']
     ret['transport_name'] = channel_id
@@ -130,10 +132,11 @@ def _api_from_event_dr(channel_id, event):
 
 
 def channel_public_http_properties(properties):
+    config = properties.get('config', {})
     results = conjoin({
         'enabled': True,
-        'web_path': properties.get('web_path'),
-        'web_port': properties.get('web_port'),
+        'web_path': config.get('web_path'),
+        'web_port': config.get('web_port'),
     }, properties.get('public_http', {}))
 
     if results['web_path'] is None or results['web_port'] is None:
