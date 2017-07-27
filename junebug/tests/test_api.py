@@ -601,6 +601,34 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_send_message_event_auth_token(self):
+        '''Sending a message with a specified event url and auth token should
+        store the auth token for sending events in the future'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'event_url': 'http://test.org', 'event_auth_token': 'the_token'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'group': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        event_auth_token = yield self.api.outbounds.load_event_auth_token(
+            'test-channel', (yield resp.json())['result']['message_id'])
+        self.assertEqual(event_auth_token, 'the_token')
+
+    @inlineCallbacks
     def test_send_message_reply(self):
         '''Sending a reply message should fetch the relevant inbound message,
         use it to construct a reply message, and place the reply message on the
