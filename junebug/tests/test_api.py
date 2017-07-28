@@ -678,7 +678,6 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
 
-        self.maxDiff = None
         resp = yield self.post('/channels/test-channel/messages/', {
             'from': None,
             'to': '+1234',
@@ -706,7 +705,6 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
 
-        self.maxDiff = None
         resp = yield self.post('/channels/test-channel/messages/', {
             'from': None,
             'to': '+1234',
@@ -733,7 +731,6 @@ class TestJunebugApi(JunebugTestBase):
         yield channel.save()
         yield channel.start(self.service)
 
-        self.maxDiff = None
         resp = yield self.post('/channels/test-channel/messages/', {
             'from': None,
             'to': '+1234',
