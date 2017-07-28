@@ -75,6 +75,11 @@ def create_parser():
         type=int, help='The maximum time allowed for events to arrive for '
         'messages (in seconds). Defaults to 172800 seconds (2 days)')
     parser.add_argument(
+        '--allow-expired-replies', '-aer', dest='allow_expired_replies',
+        type=bool, help="If enabled messages with a reply_to that arrive "
+        "for which the original inbound cannot be found (possible of the "
+        "TTL expiring) are sent as normal outbound messages. ")
+    parser.add_argument(
         '--channels', '-ch', dest='channels', type=str, action='append',
         help='Add a mapping to the list of channels, in the format '
         '"channel_type:python_class".')
