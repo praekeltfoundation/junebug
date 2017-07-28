@@ -624,12 +624,13 @@ class TestJunebugApi(JunebugTestBase):
         yield self.api.inbounds.store_vumi_message('test-channel', in_msg)
         expected = in_msg.reply(content='testcontent')
         expected = api_from_message(expected)
+        print 'expected', expected
 
         resp = yield self.post('/channels/test-channel/messages/', {
             'reply_to': in_msg['message_id'],
             'content': 'testcontent',
         })
-
+        print (yield resp.json())
         yield self.assert_response(
             resp, http.OK,
             'message sent',
@@ -670,35 +671,81 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {
+
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        self.maxDiff = None
+        resp = yield self.post('/channels/test-channel/messages/', {
             'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
             'content': None,
         })
         yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
+            resp, http.BAD_REQUEST, 'message not found', {
                 'errors': [{
-                    'message': 'Only one of "to" and "reply_to" may be '
-                    'specified',
-                    'type': 'ApiUsageError',
+                    'message': 'Inbound message with id 2e8u9ua8 not found',
+                    'type': 'MessageNotFound',
                 }]
             })
 
     @inlineCallbacks
+    def test_send_message_both_to_and_reply_to_allowing_expiry(self):
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config(
+            allow_expired_replies=True)
+        redis = yield self.get_redis()
+        yield self.stop_server()
+        yield self.start_server(config=config)
+
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        self.maxDiff = None
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'from': None,
+            'to': '+1234',
+            'reply_to': '2e8u9ua8',
+            'content': 'foo',
+        })
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'channel_data': {},
+                'from': None,
+                'to': '+1234',
+                'content': 'foo',
+                'group': None,
+                'channel_id': u'test-channel',
+                'reply_to': None,
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
     def test_send_message_from_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {
-            'from': '+1234',
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        self.maxDiff = None
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'from': None,
+            'to': '+1234',
             'reply_to': '2e8u9ua8',
             'content': None,
         })
-
         yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
+            resp, http.BAD_REQUEST, 'message not found', {
                 'errors': [{
-                    'message': 'Only one of "from" and "reply_to" may be '
-                    'specified',
-                    'type': 'ApiUsageError',
+                    'message': 'Inbound message with id 2e8u9ua8 not found',
+                    'type': 'MessageNotFound',
                 }]
             })
 

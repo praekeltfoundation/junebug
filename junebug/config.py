@@ -48,6 +48,12 @@ class JunebugConfig(Config):
         "Maximum time (in seconds) allowed for events to arrive for messages",
         default=60 * 60 * 24 * 2)
 
+    allow_expired_replies = ConfigBool(
+        "If `True` messages with a reply_to that arrive for which the original "
+        "inbound cannot be found (possible of the TTL expiring) are sent as "
+        "normal outbound messages. ",
+        default=False)
+
     channels = ConfigDict(
         "Mapping between channel types and python classes.",
         default={})
