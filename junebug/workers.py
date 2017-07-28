@@ -1,6 +1,6 @@
 import json
 import logging
-from urlparse import urlunparse
+from urlparse import urlunparse, urlparse
 
 import treq
 
@@ -108,26 +108,8 @@ class MessageForwardingWorker(ApplicationWorker):
         if self.config.get('mo_message_url') is not None:
             config = self.get_static_config()
 
-            # Parse the basic auth username & password if available
-            username = config.mo_message_url.username
-            password = config.mo_message_url.password
-            if any([username, password]):
-                url = urlunparse((
-                    config.mo_message_url.scheme,
-                    '%s%s' % (
-                        config.mo_message_url.hostname,
-                        (':%s' % (config.mo_message_url.port,)
-                         if config.mo_message_url.port is not None
-                         else '')),
-                    config.mo_message_url.path,
-                    config.mo_message_url.params,
-                    config.mo_message_url.query,
-                    config.mo_message_url.fragment,
-                ))
-                auth = (username, password)
-            else:
-                url = config.mo_message_url.geturl()
-                auth = None
+            (url, auth) = self._split_url_and_credentials(
+                config.mo_message_url)
 
             # Construct token auth headers if configured
             auth_token = config.mo_message_url_auth_token
@@ -201,6 +183,19 @@ class MessageForwardingWorker(ApplicationWorker):
         if url is None:
             return
 
+        (url, auth) = self._split_url_and_credentials(urlparse(url))
+
+        # Construct token auth headers if configured
+        auth_token = yield self._get_event_auth_token(event)
+
+        if auth_token:
+            headers = {
+                'Authorization': [
+                    'Token %s' % (auth_token,)]
+            }
+        else:
+            headers = {}
+
         msg = api_from_event(self.channel_id, event)
 
         if msg['event_type'] is None:
@@ -208,7 +203,8 @@ class MessageForwardingWorker(ApplicationWorker):
             return
 
         config = self.get_static_config()
-        resp = yield post(url, msg, timeout=config.event_url_timeout)
+        resp = yield post(url, msg, timeout=config.event_url_timeout,
+                          auth=auth, headers=headers)
 
         if resp and request_failed(resp):
             logging.exception(
@@ -229,6 +225,24 @@ class MessageForwardingWorker(ApplicationWorker):
     def consume_delivery_report(self, event):
         return self.store_and_forward_event(event)
 
+    def _split_url_and_credentials(self, url):
+        # Parse the basic auth username & password if available
+        username = url.username
+        password = url.password
+        if any([username, password]):
+            url = urlunparse((
+                url.scheme,
+                '%s%s' % (url.hostname, (':%s' % (url.port,)
+                                         if url.port is not None else '')),
+                url.path,
+                url.params,
+                url.query,
+                url.fragment,
+            ))
+            auth = (username, password)
+            return (url, auth)
+        return (url.geturl(), None)
+
     def _get_event_url(self, event):
         msg_id = event['user_message_id']
         if msg_id is not None:
@@ -236,6 +250,15 @@ class MessageForwardingWorker(ApplicationWorker):
         else:
             logging.warning(
                 "Cannot find event URL, missing user_message_id: %r" % event)
+
+    def _get_event_auth_token(self, event):
+        msg_id = event['user_message_id']
+        if msg_id is not None:
+            return self.outbounds.load_event_auth_token(
+                self.channel_id, msg_id)
+        else:
+            logging.warning(
+                "Cannot find event auth, missing user_message_id: %r" % event)
 
 
 class ChannelStatusConfig(BaseConfig):

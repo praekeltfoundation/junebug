@@ -245,24 +245,35 @@ class Channel(object):
     def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''
         event_url = msg.get('event_url')
+        event_auth_token = msg.get('event_auth_token', None)
         msg = message_from_api(self.id, msg)
         msg = TransportUserMessage.send(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg,
+                                       event_auth_token)
         returnValue(api_from_message(msg))
 
     @inlineCallbacks
-    def send_reply_message(self, sender, outbounds, inbounds, msg):
+    def send_reply_message(self, sender, outbounds, inbounds, msg,
+                           allow_expired_replies=False):
         '''Sends a reply message.'''
         in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
-
-        if in_msg is None:
+        # NOTE: If we have a `reply_to` that cannot be found but also are
+        #       given a `to` and the config says we can send expired
+        #       replies then pop the `reply_to` from the message
+        #       and handle it like a normal outbound message.
+        if in_msg is None and msg.get('to') and allow_expired_replies:
+            msg.pop('reply_to')
+            returnValue((yield self.send_message(sender, outbounds, msg)))
+        elif in_msg is None:
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
         event_url = msg.get('event_url')
+        event_auth_token = msg.get('event_auth_token', None)
         msg = message_from_api(self.id, msg)
         msg = in_msg.reply(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg,
+                                       event_auth_token)
         returnValue(api_from_message(msg))
 
     def get_logs(self, n):
@@ -426,12 +437,17 @@ class Channel(object):
                 )
 
     @inlineCallbacks
-    def _send_message(self, sender, outbounds, event_url, msg):
+    def _send_message(self, sender, outbounds, event_url, msg,
+                      event_auth_token=None):
         self._check_character_limit(msg['content'])
 
         if event_url is not None:
             yield outbounds.store_event_url(
                 self.id, msg['message_id'], event_url)
+            if event_auth_token is not None:
+                yield outbounds.store_event_auth_token(
+                    self.id, msg['message_id'], event_auth_token
+                )
 
         queue = self.OUTBOUND_QUEUE % (self.id,)
         msg = yield sender.send_message(msg, routing_key=queue)

@@ -220,23 +220,18 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-ottl', '90'])
         self.assertEqual(config.outbound_message_ttl, 90)
 
-    def test_parse_arguments_channels(self):
-        '''Each channel mapping be specified by "--channels" or "-ch"'''
+    def test_parse_arguments_allow_expired_replies(self):
+        '''The allow expired replies line argument can be specified by
+        "--allow-expired-replies" or "-aer" and has a default value of
+        False'''
         config = parse_arguments([])
-        self.assertEqual(config.channels, {})
+        self.assertEqual(config.allow_expired_replies, False)
 
-        config = parse_arguments(['--channels', 'foo:bar'])
-        self.assertEqual(config.channels, {'foo': 'bar'})
+        config = parse_arguments(['--allow-expired-replies'])
+        self.assertEqual(config.allow_expired_replies, True)
 
-        config = parse_arguments([
-            '--channels', 'foo:bar', '--channels', 'bar:foo'])
-        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
-
-        config = parse_arguments(['-ch', 'foo:bar'])
-        self.assertEqual(config.channels, {'foo': 'bar'})
-
-        config = parse_arguments(['-ch', 'foo:bar', '-ch', 'bar:foo'])
-        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
+        config = parse_arguments(['-aer'])
+        self.assertEqual(config.allow_expired_replies, True)
 
     def test_parse_arguments_replace_channels(self):
         '''The replace channels command line argument can be specified by
@@ -509,7 +504,7 @@ class TestCommandLine(JunebugTestBase):
         is not None, both the stdout logger and a file logger is created'''
         logging_setup(None, None)
         [handler] = logging.getLogger().handlers
-        self.assertEqual(handler.stream.name, '<stdout>')
+        self.assertTrue(handler.stream.name in ['<stdout>', '<fdopen>'])
         logging.getLogger().removeHandler(handler)
 
         filename = self.mktemp()
@@ -521,7 +516,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(
             os.path.abspath(handler2.baseFilename),
             os.path.abspath(filename))
-        self.assertEqual(handler1.stream.name, '<stdout>')
+        self.assertTrue(handler.stream.name in ['<stdout>', '<fdopen>'])
 
         logging.getLogger().removeHandler(handler1)
         logging.getLogger().removeHandler(handler2)
