@@ -624,13 +624,12 @@ class TestJunebugApi(JunebugTestBase):
         yield self.api.inbounds.store_vumi_message('test-channel', in_msg)
         expected = in_msg.reply(content='testcontent')
         expected = api_from_message(expected)
-        print 'expected', expected
 
         resp = yield self.post('/channels/test-channel/messages/', {
             'reply_to': in_msg['message_id'],
             'content': 'testcontent',
         })
-        print (yield resp.json())
+
         yield self.assert_response(
             resp, http.OK,
             'message sent',
