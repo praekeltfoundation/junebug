@@ -245,9 +245,11 @@ class Channel(object):
     def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''
         event_url = msg.get('event_url')
+        event_auth_token = msg.get('event_auth_token', None)
         msg = message_from_api(self.id, msg)
         msg = TransportUserMessage.send(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg,
+                                       event_auth_token)
         returnValue(api_from_message(msg))
 
     @inlineCallbacks
@@ -267,9 +269,11 @@ class Channel(object):
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
         event_url = msg.get('event_url')
+        event_auth_token = msg.get('event_auth_token', None)
         msg = message_from_api(self.id, msg)
         msg = in_msg.reply(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
+        msg = yield self._send_message(sender, outbounds, event_url, msg,
+                                       event_auth_token)
         returnValue(api_from_message(msg))
 
     def get_logs(self, n):
@@ -433,12 +437,17 @@ class Channel(object):
                 )
 
     @inlineCallbacks
-    def _send_message(self, sender, outbounds, event_url, msg):
+    def _send_message(self, sender, outbounds, event_url, msg,
+                      event_auth_token=None):
         self._check_character_limit(msg['content'])
 
         if event_url is not None:
             yield outbounds.store_event_url(
                 self.id, msg['message_id'], event_url)
+            if event_auth_token is not None:
+                yield outbounds.store_event_auth_token(
+                    self.id, msg['message_id'], event_auth_token
+                )
 
         queue = self.OUTBOUND_QUEUE % (self.id,)
         msg = yield sender.send_message(msg, routing_key=queue)
