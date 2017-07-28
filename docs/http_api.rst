@@ -253,7 +253,7 @@ Messages
 
    :param str to:
        the address (e.g. MSISDN) to send the message too.
-       If Junebug is configured with ``allow_late_replies`` The ``to``
+       If Junebug is configured with ``allow_expired_replies`` The ``to``
        parameter is used as a fallback in case the value of the ``reply_to``
        parameter does not resolve to an inbound message.
    :param str from:
@@ -264,7 +264,7 @@ Messages
        previous message. Important for session-based transports like USSD.
        Optional.
        Can be combined with ``to`` and ``from`` if Junebug is configured with
-       ``allow_late_replies``. If that is the case the ``to`` and ``from`` values
+       ``allow_expired_replies``. If that is the case the ``to`` and ``from`` values
        will be used as a fallback in case the value of the ``reply_to``
        parameter does not resolve to an inbound message.
        The default settings allow 10 minutes to reply to a message, after which
