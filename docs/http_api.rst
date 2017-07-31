@@ -39,6 +39,8 @@ Channels
        URL to call on incoming messages (mobile originated) from this channel.
        One or both of mo_url or amqp_queue must be specified. If both are
        specified, messages will be sent to both.
+   :param str mo_url_token:
+       The token to use for authentication if the mo_url requires token auth.
    :param str amqp_queue:
        AMQP queue to repost messages onto for mobile originated messages. One
        or both of mo_url or amqp_queue must be specified. If both are
@@ -269,6 +271,8 @@ Messages
        delivery reports) related to this message. The default settings allow
        2 days for events to arrive, after which they will no longer be
        forwarded.
+   :param str event_auth_token:
+       The token to use for authentication if the event_url requires token auth.
    :param int priority:
        Delivery priority from 1 to 5. Higher priority messages are delivered first.
        If omitted, priority is 1.
