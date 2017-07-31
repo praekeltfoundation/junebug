@@ -253,11 +253,18 @@ class Channel(object):
         returnValue(api_from_message(msg))
 
     @inlineCallbacks
-    def send_reply_message(self, sender, outbounds, inbounds, msg):
+    def send_reply_message(self, sender, outbounds, inbounds, msg,
+                           allow_expired_replies=False):
         '''Sends a reply message.'''
         in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
-
-        if in_msg is None:
+        # NOTE: If we have a `reply_to` that cannot be found but also are
+        #       given a `to` and the config says we can send expired
+        #       replies then pop the `reply_to` from the message
+        #       and handle it like a normal outbound message.
+        if in_msg is None and msg.get('to') and allow_expired_replies:
+            msg.pop('reply_to')
+            returnValue((yield self.send_message(sender, outbounds, msg)))
+        elif in_msg is None:
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 

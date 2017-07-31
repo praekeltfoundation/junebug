@@ -244,6 +244,7 @@ class JunebugApi(object):
                 'reply_to': {'type': 'string'},
                 'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
+                'event_auth_token': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
             },
@@ -257,23 +258,16 @@ class JunebugApi(object):
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
 
-        if 'to' in body and 'reply_to' in body:
-            raise ApiUsageError(
-                'Only one of "to" and "reply_to" may be specified')
-
-        if 'from' in body and 'reply_to' in body:
-            raise ApiUsageError(
-                'Only one of "from" and "reply_to" may be specified')
-
         channel = yield Channel.from_id(
             self.redis, self.config, channel_id, self.service, self.plugins)
 
-        if 'to' in body:
+        if 'reply_to' in body:
+            msg = yield channel.send_reply_message(
+                self.message_sender, self.outbounds, self.inbounds, body,
+                allow_expired_replies=self.config.allow_expired_replies)
+        else:
             msg = yield channel.send_message(
                 self.message_sender, self.outbounds, body)
-        else:
-            msg = yield channel.send_reply_message(
-                self.message_sender, self.outbounds, self.inbounds, body)
 
         yield self.message_rate.increment(
             channel_id, 'outbound', self.config.metric_window)

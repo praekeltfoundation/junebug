@@ -601,6 +601,34 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_send_message_event_auth_token(self):
+        '''Sending a message with a specified event url and auth token should
+        store the auth token for sending events in the future'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'to': '+1234', 'content': 'foo', 'from': None,
+            'event_url': 'http://test.org', 'event_auth_token': 'the_token'})
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'group': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        event_auth_token = yield self.api.outbounds.load_event_auth_token(
+            'test-channel', (yield resp.json())['result']['message_id'])
+        self.assertEqual(event_auth_token, 'the_token')
+
+    @inlineCallbacks
     def test_send_message_reply(self):
         '''Sending a reply message should fetch the relevant inbound message,
         use it to construct a reply message, and place the reply message on the
@@ -670,35 +698,78 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_both_to_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {
+
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.post('/channels/test-channel/messages/', {
             'from': None,
             'to': '+1234',
             'reply_to': '2e8u9ua8',
             'content': None,
         })
         yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
+            resp, http.BAD_REQUEST, 'message not found', {
                 'errors': [{
-                    'message': 'Only one of "to" and "reply_to" may be '
-                    'specified',
-                    'type': 'ApiUsageError',
+                    'message': 'Inbound message with id 2e8u9ua8 not found',
+                    'type': 'MessageNotFound',
                 }]
             })
 
     @inlineCallbacks
+    def test_send_message_both_to_and_reply_to_allowing_expiry(self):
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config(
+            allow_expired_replies=True)
+        redis = yield self.get_redis()
+        yield self.stop_server()
+        yield self.start_server(config=config)
+
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'from': None,
+            'to': '+1234',
+            'reply_to': '2e8u9ua8',
+            'content': 'foo',
+        })
+        yield self.assert_response(
+            resp, http.OK, 'message sent', {
+                'channel_data': {},
+                'from': None,
+                'to': '+1234',
+                'content': 'foo',
+                'group': None,
+                'channel_id': u'test-channel',
+                'reply_to': None,
+            }, ignore=['timestamp', 'message_id'])
+
+    @inlineCallbacks
     def test_send_message_from_and_reply_to(self):
-        resp = yield self.post('/channels/foo-bar/messages/', {
-            'from': '+1234',
+        properties = self.create_channel_properties(character_limit=100)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.post('/channels/test-channel/messages/', {
+            'from': None,
+            'to': '+1234',
             'reply_to': '2e8u9ua8',
             'content': None,
         })
-
         yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
+            resp, http.BAD_REQUEST, 'message not found', {
                 'errors': [{
-                    'message': 'Only one of "from" and "reply_to" may be '
-                    'specified',
-                    'type': 'ApiUsageError',
+                    'message': 'Inbound message with id 2e8u9ua8 not found',
+                    'type': 'MessageNotFound',
                 }]
             })
 
