@@ -121,6 +121,15 @@ class RequestLoggingApi(object):
         request.setResponseCode(500)
         return 'test-error-response'
 
+    @app.route('/auth/')
+    def auth_token(self, request):
+        headers = request.requestHeaders
+        self.requests.append({
+            'Authorization': headers.getRawHeaders('Authorization'),
+        })
+        request.setResponseCode(200)
+        return 'auth-response'
+
     @app.route('/implode/')
     def imploding_request(self, request):
         request.transport.connectionLost(reason=Failure(ConnectionDone()))

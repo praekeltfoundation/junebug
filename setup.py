@@ -8,11 +8,11 @@ def read_file(filename):
 
 setup(
     name='junebug',
-    version='0.1.12',
+    version='0.1.25',
     url='http://github.com/praekelt/junebug',
     license='BSD',
     description=(
-        'A system for managing text messaging transports via a RESTful HTTP ',
+        'A system for managing text messaging transports via a RESTful HTTP '
         'interface'),
     long_description=read_file('README.rst'),
     author='Praekelt Foundation',
@@ -29,9 +29,10 @@ setup(
         # We install a newer version of twisted before vumi, since vumi has a
         # lower minimum version requirement.
         'Twisted>=15.3.0',
-        'vumi>=0.6.14',
+        'vumi>=0.6.18',
         'confmodel',
         'PyYAML',
+        'raven>=6.0.0,<7.0.0',
     ],
     entry_points='''
     [console_scripts]
