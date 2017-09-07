@@ -5,7 +5,7 @@ from urlparse import urlunparse, urlparse
 import treq
 
 from twisted.internet.defer import inlineCallbacks, CancelledError
-from twisted.web.client import ResponseFailed
+from twisted.web.client import ResponseFailed, RequestTransmissionFailed
 from twisted.internet.error import (
     ConnectingCancelledError, ConnectionDone, ConnectionRefusedError)
 from twisted.internet.task import TaskStopped
@@ -337,7 +337,9 @@ def post_eb(reason, url):
         TaskStopped,
         # Raised when Deferred is cancelled because of timeouts
         CancelledError,
+        RequestTransmissionFailed,
     )
+
     err_class = reason.trap(*errors)
     logging.exception('Post to %s failed because of %s: %s' % (
         url, err_class, reason.getErrorMessage()))
