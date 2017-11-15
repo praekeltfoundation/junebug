@@ -1,5 +1,4 @@
 Sphinx>=1.2
-sphinx-argparse
 sphinxcontrib-httpdomain>=1.2.0
 sphinxcontrib-blockdiag>=1.5.4
 # txJSON-RPC 0.5 is a vumi requirement, but is not compatible with docutils 0.13
