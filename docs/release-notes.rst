@@ -25,6 +25,7 @@ v0.1.27 (Not yet released)
       actually returns
     - Adding section in getting started to show getting the related events for
       a message
+    - Update HTTP API documentation to what the API actually looks like
 
 v0.1.26
 -------
