@@ -49,12 +49,22 @@ get a response like:
       "code": "OK",
       "description": "channel created",
       "result": {
-        "status": {},
-        "mo_url": "http://www.example.com/first_channel/mo",
+        "status": {
+          "status": null,
+          "inbound_message_rate": 0,
+          "outbound_message_rate": 0,
+          "submitted_event_rate": 0,
+          "rejected_event_rate": 0,
+          "delivery_succeeded_rate": 0
+          "delivery_pending_rate": 0,
+          "delivery_failed_rate": 0,
+          "components": {},
+        },
+        "mo_url": "http://requestb.in/pzvivfpz",
         "label": "My First Channel",
         "type": "telnet",
         "config": {"twisted_endpoint": "tcp:9001"},
-        "id": "6a5c691e-140c-48b0-9f39-a53d4951d7fa"
+        "id": "bc5f2e63-7f53-4996-816d-4f89f45a5842"
       }
     }
 
@@ -75,8 +85,10 @@ channel, we should see something like this:
         "content": null,
         "to": "0.0.0.0:9001",
         "reply_to": null,
+        "group": null,
         "message_id": "35f3336d4a1a46c7b40cd172a41c510d"
       }
+
 
 This message was sent to the channel when we connected to the telnet transport,
 and is equivalent to starting a session for a session-based transport type like USSD.
@@ -92,8 +104,59 @@ Now, lets send a message to the telnet transport via junebug::
 
 Here, we sent a message to the address `127.0.0.1:53378`. We should see a `hello` message appear in our telnet client.
 
+We should also get the message details returned as the response to our request
+
+  .. code-block:: json
+
+    {
+      "status": 200,
+      "code": "OK",
+      "description": "message sent",
+      "result": {
+        "channel_data": {},
+        "from": null,
+        "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+        "timestamp": "2017-11-16 07:22:25.162779",
+        "content": "hello",
+        "to": "127.0.0.1:53378",
+        "reply_to": null,
+        "group": null,
+        "message_id": "5ee304925efd4afcaa6211a9a578a9f1"
+      }
+    }
+
+We can use this message ID to get the details of our sent message::
+
+  $ curl localhost:8000/channels/bc5f2e63-7f53-4996-816d-4f89f45a5842/messages/5ee304925efd4afcaa6211a9a578a9f1
+
+Which should give us a response similar to
+
+  .. code-block:: json
+
+    {
+      "status": 200,
+      "code": "OK",
+      "description": "message status",
+      "result": {
+        "events": [
+          {
+            "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+            "event_type": "submitted",
+            "timestamp": "2017-11-16 07:22:25.169550",
+            "event_details": {},
+            "message_id": "5ee304925efd4afcaa6211a9a578a9f1"
+          }
+        ],
+        "last_event_timestamp": "2017-11-16 07:22:25.169550",
+        "id": "5ee304925efd4afcaa6211a9a578a9f1",
+        "last_event_type": "submitted"
+      }
+    }
+
+Which tells us that our message was successfully submitted.
+
 Now, lets try receive a message via junebug by entering a message in our telnet
-client::
+client (followed by a new line)::
 
    > Hi there
 
@@ -102,14 +165,14 @@ If we take a look at our requestbin url, we should see a new request:
   .. code-block:: json
 
     {
-        "channel_data": {"session_event": "resume"},
-        "from": "127.0.0.1:53378",
-        "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
-        "timestamp": "2015-10-06 14:30:51.876897",
-        "content": "hi there",
-        "to": "0.0.0.0:9001",
-        "reply_to": null,
-        "message_id": "22c9cd74c5ff42d9b8e1a538e2a17175"
+      "channel_data": {"session_event": "resume"},
+      "from": "127.0.0.1:53378",
+      "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+      "timestamp": "2015-10-06 14:30:51.876897",
+      "content": "Hi there",
+      "to": "0.0.0.0:9001",
+      "reply_to": null,
+      "message_id": "22c9cd74c5ff42d9b8e1a538e2a17175"
     }
 
 Now, lets send a reply to this message by referencing its `message_id`::
