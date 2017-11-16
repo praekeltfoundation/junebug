@@ -10,6 +10,9 @@ v0.1.27 (Not yet released)
 
 *16 November 2017*
 
+- Fixes
+    - Change created API endpoint statuses to 201 to match documentation
+
 - Documentation
     - Use older version of docutils in documentation build, since txJSON-RPC
       does not work with the newer version.

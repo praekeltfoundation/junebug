@@ -151,7 +151,8 @@ class JunebugApi(object):
         yield channel.start(self.service)
         yield channel.save()
         returnValue(response(
-            request, 'channel created', (yield channel.status())))
+            request, 'channel created', (yield channel.status()),
+            code=http.CREATED))
 
     @app.route('/channels/<string:channel_id>', methods=['GET'])
     @inlineCallbacks
@@ -272,7 +273,8 @@ class JunebugApi(object):
         yield self.message_rate.increment(
             channel_id, 'outbound', self.config.metric_window)
 
-        returnValue(response(request, 'message sent', msg))
+        returnValue(response(
+            request, 'message submitted', msg, code=http.CREATED))
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
