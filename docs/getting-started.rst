@@ -55,7 +55,7 @@ get a response like:
           "outbound_message_rate": 0,
           "submitted_event_rate": 0,
           "rejected_event_rate": 0,
-          "delivery_succeeded_rate": 0
+          "delivery_succeeded_rate": 0,
           "delivery_pending_rate": 0,
           "delivery_failed_rate": 0,
           "components": {},
