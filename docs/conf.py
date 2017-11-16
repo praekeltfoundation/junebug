@@ -31,7 +31,7 @@ sys.path.append(os.path.abspath('.'))
 # ones.
 extensions = [
     'sphinx.ext.todo',
-    'sphinxarg.ext',
+    'sphinx_argparse.ext',
     'sphinx_confmodel.ext',
     'sphinxcontrib.httpdomain',
     'sphinx.ext.autodoc',

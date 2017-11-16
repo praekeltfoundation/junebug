@@ -102,14 +102,14 @@ If we take a look at our requestbin url, we should see a new request:
   .. code-block:: json
 
     {
-        channel_data: {session_event: "resume"},
-        from: "127.0.0.1:53378",
-        channel_id: "bc5f2e63-7f53-4996-816d-4f89f45a5842",
-        timestamp: "2015-10-06 14:30:51.876897",
-        content: "hi there",
-        to: "0.0.0.0:9001",
-        reply_to: null,
-        message_id: "22c9cd74c5ff42d9b8e1a538e2a17175"
+        "channel_data": {"session_event": "resume"},
+        "from": "127.0.0.1:53378",
+        "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+        "timestamp": "2015-10-06 14:30:51.876897",
+        "content": "hi there",
+        "to": "0.0.0.0:9001",
+        "reply_to": null,
+        "message_id": "22c9cd74c5ff42d9b8e1a538e2a17175"
     }
 
 Now, lets send a reply to this message by referencing its `message_id`::
