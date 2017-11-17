@@ -337,6 +337,121 @@ Messages
         }
       }
 
+Routers
+^^^^^^^
+
+.. http:get:: /routers
+
+   Get a list of routers.
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+      {
+        "status": 200,
+        "code": "OK",
+        "description": "channels retrieved",
+        "results": [
+            "89b9e287-f437-4f71-afcf-3d581716a221",
+            "512cb98c-39f0-49b2-9938-8bb2ab9da704"
+        ]
+      }
+
+
+.. _`creating a router`:
+.. http:post:: /routers
+
+   Create a new router.
+
+   :param str type:
+       the type of router to create. Required.
+   :param str label:
+       user-defined label. Ignored by the router, but can be used to store
+       an application specific label, e.g. the name of the router that you want
+       to appear on the front end. Not required.
+   :param dict config:
+       the config to send to the router type to create the new router. This
+       config differs per router type. Required.
+   :param dict metadata:
+       user-defined data blob. Ignored by the router, but can be used to store
+       application specific information, eg. the owner of the router. Not
+       required.
+
+   Returns:
+
+   :param int status:
+       HTTP status code (201 on success).
+   :param str code:
+       HTTP status string.
+   :param str description:
+       Description of result (``"router created"`` on success).
+   :param dict result:
+       The router created.
+   :param dict status:
+       Status information regarding the router.
+   
+   **Example request**:
+
+   .. sourcecode:: json
+
+      {
+        "type": "from_address",
+        "label": "SMS longcode 12345",
+        "config": {
+          "transport": "65227a53-b785-4679-a8e6-b53115b7995a"
+        },
+        "metadata": {
+          "owner": 7
+        }
+      }
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+      {
+        "status": 201,
+        "code": "Created",
+        "description": "router created",
+        "result": {
+          "id": "512cb98c-39f0-49b2-9938-8bb2ab9da704",
+          "type": "from_address",
+          "label": "SMS longcode 12345",
+          "config": {
+            "transport": "65227a53-b785-4679-a8e6-b53115b7995a"
+          },
+          "metadata": {
+            "owner": 7
+          },
+          "status": {
+            "inbound_message_rate": 1.75,
+            "outbound_message_rate": 7.11,
+            "submitted_event_rate": 6.2,
+            "rejected_event_rate": 2.13,
+            "delivery_succeeded_rate": 5.44,
+            "delivery_failed_rate": 1.27,
+            "delivery_pending_rate": 4.32
+          }
+        }
+      }
+
+.. http:get:: /routers/(router_id:str)
+
+   Get the configuration and status information for a router. Returns in the
+   same format as `creating a router`_.
+
+.. http:put:: /routers/(router_id:str)
+
+   Replace the router's configuration with the one provided. Takes and returns
+   the same parameters as `creating a router`_.
+
+.. http:patch:: /routers/(router_id:str)
+
+   Replace parts of the router's configuration with the parts provided. Takes
+   and returns the same parameters as `creating a router`_, except no
+   parameters are required.
+
 
 Events
 ------
