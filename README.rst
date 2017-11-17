@@ -81,7 +81,8 @@ To run the tests locally::
 Making releases
 ---------------
 Releases are done according to git flow, and sticks to semantic versioning for
-selecting a new version number.
+selecting a new version number. You should ensure that the release notes in
+docs/release-notes.rst are up to date before doing a new release.
 
 To create a new release, make sure you're on the develop branch, and then use
 the utils script to change the package version::
@@ -113,8 +114,18 @@ branches::
 Developing on Junebug
 ---------------------
 
-For every python file in the junebug directory, there is a corrisponding file
+For every python file in the junebug directory, there is a corresponding file
 in the junebug/tests directory, that contains the unit tests for that file.
+
+Any added fixes should have a relevant test added to ensure that any future
+changes cannot reintroduce the bug.
+
+Any added features should have relevant tests to ensure that the features work
+as intended.
+
+Each pull request should include any relevant changes to the documentation,
+including updating the release notes to include the changes made in the pull
+request.
 
 junebug.amqp
 ~~~~~~~~~~~~
