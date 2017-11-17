@@ -180,7 +180,7 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.post('/channels/', properties)
 
         yield self.assert_response(
-            resp, http.OK, 'channel created',
+            resp, http.CREATED, 'channel created',
             conjoin(properties, {'status': self.generate_status()}),
             ignore=['id'])
 
@@ -503,7 +503,7 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.post('/channels/test-channel/messages/', {
             'to': '+1234', 'content': 'foo', 'from': None})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
@@ -535,7 +535,7 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'foo', 'from': None,
             'group': 'the-group'})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
@@ -586,7 +586,7 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'foo', 'from': None,
             'event_url': 'http://test.org'})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
@@ -614,7 +614,7 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'foo', 'from': None,
             'event_url': 'http://test.org', 'event_auth_token': 'the_token'})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
@@ -659,8 +659,8 @@ class TestJunebugApi(JunebugTestBase):
         })
 
         yield self.assert_response(
-            resp, http.OK,
-            'message sent',
+            resp, http.CREATED,
+            'message submitted',
             omit(expected, 'timestamp', 'message_id'),
             ignore=['timestamp', 'message_id'])
 
@@ -740,7 +740,7 @@ class TestJunebugApi(JunebugTestBase):
             'content': 'foo',
         })
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'channel_data': {},
                 'from': None,
                 'to': '+1234',
@@ -787,7 +787,7 @@ class TestJunebugApi(JunebugTestBase):
             'to': '+1234', 'content': 'Under the character limit.',
             'from': None})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,
@@ -812,7 +812,7 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.post('/channels/test-channel/messages/', {
             'to': '+1234', 'content': content, 'from': None})
         yield self.assert_response(
-            resp, http.OK, 'message sent', {
+            resp, http.CREATED, 'message submitted', {
                 'to': '+1234',
                 'channel_id': 'test-channel',
                 'from': None,

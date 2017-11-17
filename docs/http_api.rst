@@ -47,21 +47,22 @@ Channels
        specified, messages are sent to both. See :ref:`amqp-integration` for
        more details.
    :param int rate_limit_count:
-       Number of incoming messages to allow in a given time window.
+       Number of incoming messages to allow in a given time window. Not yet
+       implemented.
        See ``rate_limit_window``.
    :param int rate_limit_window:
-       Size of throttling window in seconds.
+       Size of throttling window in seconds. Not yet implemented.
    :param int character_limit:
        Maximum number of characters allowed per message.
 
    Returns:
 
    :param int status:
-       HTTP status code (usually 201 on success).
+       HTTP status code (201 on success).
    :param str code:
        HTTP status string.
    :param str description:
-       Description of result (usually ``"channel created"``).
+       Description of result (``"channel created"`` on success).
    :param dict result:
        The channel created.
 
@@ -108,54 +109,47 @@ Channels
    .. sourcecode:: json
 
       {
-        status: 200,
-        code: "OK",
-        description: "channel status",
-        result: {
-          id: "uuid-1234",
-          type: "smpp",
-          label: "An SMPP Transport",
-          config: {
-            system_id: "secret_id",
-            password: "secret_password"
+        "status": 200,
+        "code": "OK",
+        "description": "channel found",
+        "result": {
+          "id": "89b71dfe-afd8-4e0d-9290-bba791458627",
+          "type": "smpp",
+          "label": "An SMPP Transport",
+          "config": {
+            "system_id": "secret_id",
+            "password": "secret_password"
           },
-          metadata: {
-            owned_by: "user-5",
+          "metadata": {
+            "owned_by": "user-5"
           },
-          status_url: "http://example.com/user-5/status",
-          mo_url: "http://example.com/user-5/mo",
-          rate_limit_count: 500,
-          rate_limit_window: 10,
-          character_limit: null,
-          status: {
-             status: 'ok',
-             components: {
-                smpp: {
-                   component: 'smpp',
-                   channel_id: "channel-uuid-1234",
-                   status: 'ok',
-                   reasons: [],
-                   details: {}
-                },
-                amqp: {
-                   component: 'amqp',
-                   channel_id: "channel-uuid-1234",
-                   status: 'ok',
-                   reasons: [],
-                   details: {}
+          "status_url": "http://example.com/user-5/status",
+          "mo_url": "http://example.com/user-5/mo",
+          "rate_limit_count": 500,
+          "rate_limit_window": 10,
+          "character_limit": null,
+          "status": {
+             "status": "ok",
+             "components": {
+                "smpp": {
+                   "component": "smpp",
+                   "channel_id": "89b71dfe-afd8-4e0d-9290-bba791458627",
+                   "status": "ok",
+                   "details": {},
+                   "message": "Successfully bound",
+                   "type": "bound"
                 }
             },
-            inbound_message_rate: 1.75,
-            outbound_message_rate: 7.11,
-            submitted_event_rate: 6.2,
-            rejected_event_rate: 2.13,
-            delivery_succeeded_rate: 5.44,
-            delivery_failed_rate: 1.27,
-            delivery_pending_rate: 4.32
+            "inbound_message_rate": 1.75,
+            "outbound_message_rate": 7.11,
+            "submitted_event_rate": 6.2,
+            "rejected_event_rate": 2.13,
+            "delivery_succeeded_rate": 5.44,
+            "delivery_failed_rate": 1.27,
+            "delivery_pending_rate": 4.32
           }
         }
       }
-
 
 .. http:post:: /channels/(channel_id:str)
 
@@ -168,7 +162,7 @@ Channels
 
 .. http:delete:: /channels/(channel_id:str)
 
-   Delete a channel.
+   Stops a channel and deletes it's configuration.
 
 
 .. http:post:: /channels/(channel_id:str)/restart
@@ -219,28 +213,28 @@ Logs
    .. sourcecode:: json
 
       {
-        status: 200,
-        code: "OK",
-        description: "Logs retrieved",
-        result: [
+        "status": 200,
+        "code": "OK",
+        "description": "logs retrieved",
+        "result": [
             {
-                logger: "123-456-7a90",
-                level: 40,
-                timestamp: 987654321.0,
-                message: "Last log for the channel"
-                exception: {
-                    class: "ValueError",
-                    instance: "ValueError("Bad value",)",
-                    stack: [
-                        ...
+                "logger": "123-456-7a90",
+                "level": 40,
+                "timestamp": 987654321.0,
+                "message": "Last log for the channel",
+                "exception": {
+                    "class": "ValueError",
+                    "instance": "ValueError(\"Bad value\",)",
+                    "stack": [
+                        "..."
                     ]
                 }
             },
             {
-                logger: "123-456-7a90",
-                level: 20,
-                timestamp: 987654320.0,
-                message: "Second last log for the channel"
+                "logger": "123-456-7a90",
+                "level": 20,
+                "timestamp": 987654320.0,
+                "message": "Second last log for the channel"
             }
         ]
       }
@@ -261,6 +255,9 @@ Messages
    :param str from:
        the address the message is from. May be ``null`` if the channel
        only supports a single from address.
+   :param str group:
+       If supported by the channel, the group to send the messages to. Not
+       required, and may be ``null``
    :param str reply_to:
        the uuid of the message being replied to if this is a response to a
        previous message. Important for session-based transports like USSD.
@@ -271,6 +268,8 @@ Messages
        parameter does not resolve to an inbound message.
        The default settings allow 10 minutes to reply to a message, after which
        an error will be returned.
+   :param str content:
+       The text content of the message. Required.
    :param str event_url:
        URL to call for status events (e.g. acknowledgements and
        delivery reports) related to this message. The default settings allow
@@ -280,7 +279,7 @@ Messages
        The token to use for authentication if the event_url requires token auth.
    :param int priority:
        Delivery priority from 1 to 5. Higher priority messages are delivered first.
-       If omitted, priority is 1.
+       If omitted, priority is 1. Not yet implemented.
    :param dict channel_data:
        Additional data that is passed to the channel to interpret. E.g.
        ``continue_session`` for USSD, ``direct_message`` or ``tweet`` for
@@ -291,14 +290,14 @@ Messages
    .. sourcecode:: json
 
       {
-        to: "+26612345678",
-        from: "8110",
-        reply_to: "uuid-1234",
-        event_url: "http://example.com/events/msg-1234",
-        content: "Hello world!",
-        priority: 1,
-        channel_data: {
-          continue_session: true,
+        "to": "+26612345678",
+        "from": "8110",
+        "reply_to": "uuid-1234",
+        "event_url": "http://example.com/events/msg-1234",
+        "content": "Hello world!",
+        "priority": 1,
+        "channel_data": {
+          "continue_session": true,
         }
       }
 
@@ -307,11 +306,11 @@ Messages
    .. sourcecode:: json
 
       {
-        status: 201,
-        code: "created",
-        description: "message submitted",
-        result: {
-          message_id: "message-uuid-1234"
+        "status": 201,
+        "code": "created",
+        "description": "message submitted",
+        "result": {
+          "message_id": "message-uuid-1234"
         }
       }
 
@@ -325,15 +324,15 @@ Messages
    .. sourcecode:: json
 
       {
-        status: 200,
-        code: "OK",
-        description: "message status",
-        result: {
-          id: "msg-uuid-1234",
-          last_event_type: "ack",
-          last_event_timestamp: "2015-06-15 13:00:00",
-          events: [
-              /* array of all events; formatted like events */
+        "status": 200,
+        "code": "OK",
+        "description": "message status",
+        "result": {
+          "id": "msg-uuid-1234",
+          "last_event_type": "ack",
+          "last_event_timestamp": "2015-06-15 13:00:00",
+          "events": [
+              "...array of all events; formatted like events..."
           ]
         }
       }
@@ -369,12 +368,12 @@ events will not be forwarded.
 .. sourcecode:: json
 
    {
-     event_type: "submitted",
-     message_id: "msg-uuid-1234",
-     channel_id: "channel-uuid-5678",
-     timestamp: "2015-06-15 13:00:00",
-     event_details: {
-        /* detail specific to the channel implementation. */
+     "event_type": "submitted",
+     "message_id": "msg-uuid-1234",
+     "channel_id": "channel-uuid-5678",
+     "timestamp": "2015-06-15 13:00:00",
+     "event_details": {
+        "...detail specific to the channel implementation..."
      }
    }
 
@@ -425,12 +424,12 @@ Status events ``POST``\ed to the ``status_url`` specified in :http:post:`/channe
 .. sourcecode:: json
 
    {
-      status: "down",
-      component: "smpp",
-      channel_id: "channel-uuid-5678",
-      type: "connection_lost",
-      message: "Connection lost",
-      details: {}
+      "status": "down",
+      "component": "smpp",
+      "channel_id": "channel-uuid-5678",
+      "type": "connection_lost",
+      "message": "Connection lost",
+      "details": {}
    }
 
 
