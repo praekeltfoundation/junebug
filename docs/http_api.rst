@@ -340,9 +340,13 @@ Channel Messages
         }
       }
 
+.. _routers-http-api:
+
 Routers
 ^^^^^^^
-*not yet implemented*
+.. note::
+
+   Not yet implemented
 
 .. http:get:: /routers
 
@@ -401,7 +405,7 @@ Routers
         "type": "from_address",
         "label": "SMS longcode 12345",
         "config": {
-          "transport": "65227a53-b785-4679-a8e6-b53115b7995a"
+          "channel": "65227a53-b785-4679-a8e6-b53115b7995a"
         },
         "metadata": {
           "owner": 7
@@ -421,7 +425,7 @@ Routers
           "type": "from_address",
           "label": "SMS longcode 12345",
           "config": {
-            "transport": "65227a53-b785-4679-a8e6-b53115b7995a"
+            "channel": "65227a53-b785-4679-a8e6-b53115b7995a"
           },
           "metadata": {
             "owner": 7
@@ -460,7 +464,9 @@ Routers
 
 Router Destinations
 ^^^^^^^^^^^^^^^^^^^
-*not yet implemented*
+.. note::
+
+   Not yet implemented
 
 .. http:get:: /routers/(router_id:str)/destinations
 
@@ -593,6 +599,9 @@ Router Destinations
 
 Router logs
 ^^^^^^^^^^^
+.. note::
+
+   Not yet implemented
 
 .. http:get:: /routers/(router_id:str)/logs
 
@@ -607,6 +616,9 @@ Router logs
 
 Router Destination Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. note::
+
+   Not yet implemented
 
 .. http:post:: /routers/(router_id:str)/destinations/(destination_id:str)/messages
 
