@@ -62,6 +62,10 @@ class BaseStore(object):
         '''Returns the value stored at `id`.'''
         return self._redis_op(self.redis.get, id, ttl=ttl)
 
+    def get_set(self, id, ttl=USE_DEFAULT_TTL):
+        '''Returns all elements of the set stored at `id`.'''
+        return self._redis_op(self.redis.smembers, id, ttl=ttl)
+
 
 class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
@@ -210,3 +214,13 @@ class MessageRateStore(BaseStore):
         if rate is None:
             returnValue(0)
         returnValue(float(rate) / bucket_size)
+
+
+class RouterStore(BaseStore):
+    '''Stores all configuration for routers'''
+
+    def get_router_list(self):
+        '''Returns a list of UUIDs for all the current router configurations'''
+        d = self.get_set('routers')
+        d.addCallback(sorted)
+        return d

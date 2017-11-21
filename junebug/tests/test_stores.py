@@ -3,7 +3,7 @@ from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
 from junebug.stores import (
     BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore,
-    MessageRateStore)
+    MessageRateStore, RouterStore)
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -133,6 +133,22 @@ class TestBaseStore(JunebugTestBase):
 
         yield store.get_id('testid3', ttl=None)
         self.assertEqual((yield self.redis.ttl('testid3')), None)
+
+    @inlineCallbacks
+    def test_get_set(self):
+        '''get_set returns the set of values stored at the specified id'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_set('testid')), set())
+
+        yield self.redis.sadd('testid', 'item1')
+        self.assertEqual((yield store.get_set('testid')), set(('item1',)))
+
+        yield self.redis.sadd('testid', 'item2')
+        self.assertEqual(
+            (yield store.get_set('testid')),
+            set(('item1', 'item2'))
+        )
 
 
 class TestInboundMessageStore(JunebugTestBase):
@@ -494,3 +510,30 @@ class TestMessageRateStore(JunebugTestBase):
         self.assertEqual((yield self.redis.get(bucket0)), None)
         self.assertEqual((yield self.redis.get(bucket1)), '1')
         self.assertEqual((yield self.redis.get(bucket2)), '1')
+
+
+class TestRouterStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self):
+        redis = yield self.get_redis()
+        store = RouterStore(redis)
+        returnValue(store)
+
+    @inlineCallbacks
+    def test_get_router_list(self):
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_router_list()), [])
+
+        yield self.redis.sadd(
+            'routers', '64f78582-8e83-40c9-be23-cc93d54e9dcd')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd'])
+
+        yield self.redis.sadd(
+            'routers', 'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd',
+             'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8'])

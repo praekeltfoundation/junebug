@@ -1,3 +1,4 @@
+from functools import partial
 from klein import Klein
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
@@ -12,7 +13,7 @@ from junebug.error import JunebugError
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
-    InboundMessageStore, MessageRateStore, OutboundMessageStore)
+    InboundMessageStore, MessageRateStore, OutboundMessageStore, RouterStore)
 
 
 class ApiUsageError(JunebugError):
@@ -52,6 +53,8 @@ class JunebugApi(object):
             self.redis, self.config.outbound_message_ttl)
 
         self.message_rate = MessageRateStore(self.redis)
+
+        self.router_store = RouterStore(self.redis)
 
         self.plugins = []
         for plugin_config in self.config.plugins:
@@ -297,6 +300,13 @@ class JunebugApi(object):
             'last_event_timestamp': last_event_timestamp,
             'events': events,
         }))
+
+    @app.route('/routers/', methods=['GET'])
+    def get_router_list(self, request):
+        '''List all routers'''
+        d = self.router_store.get_router_list()
+        d.addCallback(partial(response, request, 'routers retrieved'))
+        return d
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):

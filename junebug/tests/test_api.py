@@ -1050,3 +1050,27 @@ class TestJunebugApi(JunebugTestBase):
             'logger': channel.id,
             'message': 'Test2',
             'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_router_list(self):
+        '''A GET request on the routers collection endpoint should result in
+        the list of router UUIDs being returned'''
+        redis = yield self.get_redis()
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [])
+
+        yield redis.sadd('routers', '64f78582-8e83-40c9-be23-cc93d54e9dcd')
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [
+            u'64f78582-8e83-40c9-be23-cc93d54e9dcd',
+        ])
+
+        yield redis.sadd('routers', 'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8')
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [
+            u'64f78582-8e83-40c9-be23-cc93d54e9dcd',
+            u'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8',
+        ])
