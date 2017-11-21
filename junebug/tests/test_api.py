@@ -1,5 +1,6 @@
 import logging
 import json
+import mock
 import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
@@ -10,6 +11,37 @@ from junebug.channel import Channel
 from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
 from junebug.utils import api_from_event, conjoin, omit
+
+
+class MockResponse:
+    def __init__(self, content, status_code):
+        self.content = content
+        self.status_code = status_code
+
+    def json(self):
+        return json.loads(self.content)
+
+
+def mocked_get_queue_good(*args, **kwargs):
+    name = args[0].split('/')[-1]
+    return MockResponse('''{
+                "messages": 1256,
+                "messages_details": {
+                    "rate": 1.25
+                },
+                "name": "%s"
+            }''' % name, 200)
+
+
+def mocked_get_queue_stuck(*args, **kwargs):
+    name = args[0].split('/')[-1]
+    return MockResponse('''{
+                "messages": 134857,
+                "messages_details": {
+                    "rate": 0
+                },
+                "name": "%s"
+            }''' % name, 200)
 
 
 class TestJunebugApi(JunebugTestBase):
@@ -907,6 +939,29 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/health')
         yield self.assert_response(
             resp, http.OK, 'health ok', {})
+
+    @inlineCallbacks
+    def test_get_channels_health_check(self):
+
+        yield self.create_channel(self.service, self.redis)
+
+        with mock.patch('requests.get', side_effect=mocked_get_queue_good):
+            resp = yield self.get('/channels_health')
+            yield self.assert_response(
+                resp, http.OK, 'channels ok', [])
+
+    @inlineCallbacks
+    def test_get_channels_health_check_stuck(self):
+
+        channel = yield self.create_channel(self.service, self.redis)
+
+        with mock.patch('requests.get', side_effect=mocked_get_queue_stuck):
+            resp = yield self.get('/channels_health')
+            yield self.assert_response(
+                resp, http.OK, 'channels stuck',
+                ['%s.inbound' % channel.id,
+                 '%s.outbound' % channel.id,
+                 '%s.event' % channel.id])
 
     @inlineCallbacks
     def test_get_channel_logs_no_logs(self):

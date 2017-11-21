@@ -154,7 +154,14 @@ class JunebugTestBase(TestCase):
 
     default_channel_config = {
         'ttl': 60,
-        'amqp': {},
+        'amqp': {
+            'hostname': 'rabbitmq',
+            'vhost': '/',
+            'port': '5672',
+            'db': '0',
+            'username': 'guest',
+            'password': 'guest'
+        },
     }
 
     def patch_logger(self):

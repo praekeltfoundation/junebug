@@ -1,3 +1,6 @@
+import json
+import requests
+
 from klein import Klein
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
@@ -301,3 +304,33 @@ class JunebugApi(object):
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         return response(request, 'health ok', {})
+
+    @app.route('/channels_health', methods=['GET'])
+    @inlineCallbacks
+    def channels_health(self, request):
+        channels_stuck = []
+
+        base_url = "http://%s:%s/api/queues/%s" % (
+            self.amqp_config['hostname'],
+            self.amqp_config.get('api_port', '15672'),
+            self.amqp_config['vhost'].replace('/', '%2F'))
+
+        ids = yield Channel.get_all(self.redis)
+
+        for channel_id in ids:
+            for sub in ['inbound', 'outbound', 'event']:
+                url = "%s/%s.%s" % (base_url, channel_id, sub)
+
+                queue = requests.get(url, auth=requests.auth.HTTPBasicAuth(
+                    self.amqp_config['username'],
+                    self.amqp_config['password'])).json()
+
+                if (queue.get('messages') > 0 and
+                        queue['messages_details']['rate'] == 0):
+                    channels_stuck.append(queue['name'])
+
+        status = 'channels ok'
+        if channels_stuck:
+            status = "channels stuck"
+
+        returnValue(response(request, status, channels_stuck))
