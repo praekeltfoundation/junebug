@@ -24,6 +24,7 @@ Contents
    http_api
    amqp-integration
    plugins-reference
+   routers
    release-notes
 
 

@@ -170,9 +170,10 @@ Channels
    Restart a channel.
 
 
-Logs
-^^^^
+Channel Logs
+^^^^^^^^^^^^
 
+.. _`channel logs`:
 .. http:get:: /channels/(channel_id:str)/logs
 
    Get the most recent logs for a specific channel.
@@ -240,9 +241,10 @@ Logs
       }
 
 
-Messages
-^^^^^^^^
+Channel Messages
+^^^^^^^^^^^^^^^^
 
+.. _`sending a channel message`:
 .. http:post:: /channels/(channel_id:str)/messages/
 
    Send an outbound (mobile terminated) message.
@@ -315,6 +317,7 @@ Messages
       }
 
 
+.. _`getting the status of a channel message`:
 .. http:get:: /channels/(channel_id:str)/messages/(msg_id:str)
 
    Retrieve a message's status.
@@ -336,6 +339,298 @@ Messages
           ]
         }
       }
+
+.. _routers-http-api:
+
+Routers
+^^^^^^^
+.. note::
+
+   Not yet implemented
+
+.. http:get:: /routers
+
+   Get a list of routers.
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+      {
+        "status": 200,
+        "code": "OK",
+        "description": "channels retrieved",
+        "results": [
+          "89b9e287-f437-4f71-afcf-3d581716a221",
+          "512cb98c-39f0-49b2-9938-8bb2ab9da704"
+        ]
+      }
+
+
+.. _`creating a router`:
+.. http:post:: /routers
+
+   Create a new router.
+
+   :param str type:
+       the type of router to create. Required.
+   :param str label:
+       user-defined label. Ignored by the router, but can be used to store
+       an application specific label, e.g. the name of the router that you want
+       to appear on the front end. Not required.
+   :param dict config:
+       the config to send to the router type to create the new router. This
+       config differs per router type. Required.
+   :param dict metadata:
+       user-defined data blob. Ignored by the router, but can be used to store
+       application specific information, eg. the owner of the router. Not
+       required.
+
+   Returns:
+
+   :param int status:
+       HTTP status code (201 on success).
+   :param str code:
+       HTTP status string.
+   :param str description:
+       Description of result (``"router created"`` on success).
+   :param dict result:
+       The router created.
+   
+   **Example request**:
+
+   .. sourcecode:: json
+
+      {
+        "type": "from_address",
+        "label": "SMS longcode 12345",
+        "config": {
+          "channel": "65227a53-b785-4679-a8e6-b53115b7995a"
+        },
+        "metadata": {
+          "owner": 7
+        }
+      }
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+      {
+        "status": 201,
+        "code": "Created",
+        "description": "router created",
+        "result": {
+          "id": "512cb98c-39f0-49b2-9938-8bb2ab9da704",
+          "type": "from_address",
+          "label": "SMS longcode 12345",
+          "config": {
+            "channel": "65227a53-b785-4679-a8e6-b53115b7995a"
+          },
+          "metadata": {
+            "owner": 7
+          },
+          "status": {
+            "inbound_message_rate": 1.75,
+            "outbound_message_rate": 7.11,
+            "submitted_event_rate": 6.2,
+            "rejected_event_rate": 2.13,
+            "delivery_succeeded_rate": 5.44,
+            "delivery_failed_rate": 1.27,
+            "delivery_pending_rate": 4.32
+          }
+        }
+      }
+
+.. http:get:: /routers/(router_id:str)
+
+   Get the configuration and status information for a router. Returns in the
+   same format as `creating a router`_.
+
+.. http:put:: /routers/(router_id:str)
+
+   Replace the router's configuration with the one provided. Takes and returns
+   the same parameters as `creating a router`_.
+
+.. http:patch:: /routers/(router_id:str)
+
+   Replace parts of the router's configuration with the parts provided. Takes
+   and returns the same parameters as `creating a router`_, except no
+   parameters are required.
+
+.. http:delete:: /routers/(router_id:str)
+
+   Stops a router and deletes its configuration.
+
+Router Destinations
+^^^^^^^^^^^^^^^^^^^
+.. note::
+
+   Not yet implemented
+
+.. http:get:: /routers/(router_id:str)/destinations
+
+   Get a list of destinations for the specified router
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+    {
+        "status": 200,
+        "code": "OK",
+        "description": "destinations retrieved",
+        "result": [
+          "53ed5492-48a1-4aec-9d64-b9080893cb4a",
+          "7b23a20f-9330-4a4e-8bd1-4819470ffa31"
+        ]
+    }
+
+.. _`creating a destination`:
+.. http:post:: /routers/(router_id:str)/destinations
+
+   Create a new destination for a router.
+
+   :param str label:
+       user-defined label. Ignored by the destination, but can be used to store
+       an application specific label, e.g. the name of the destination that you
+       want to appear on the front end. Not required.
+   :param dict config:
+       The configuration for this destination. Configuration is specific to the
+       type of router. Required.
+   :param dict metadata:
+       user-defined data blob. Ignored by the destination, but can be used to
+       store application specific information, eg. the owner of the
+       destination. Not required.
+   :param str mo_url:
+       The url to send inbound (mobile originated) to. None, one, or both of
+       mo_url and amqp_queue may be specified. If none are specified, messages
+       are ignored. If both are specified, messages are sent to both. Optional.
+   :param str mo_url_token:
+       The token to use for authentication if the mo_url requires token auth.
+       Optional.
+   :param str amqp_queue:
+       The queue to place messages on for this destination. Optional.
+   :param int character_limit:
+       Maximum number of characters allowed per message.
+
+   Returns:
+
+   :param int status:
+      HTTP status code (201 on success)
+   :param str code:
+      HTTP status string
+   :param str description:
+      Description of result ("destination created" on success)
+   :param dict result:
+      The destination created.
+
+   **Example request**:
+
+   .. sourcecode:: json
+
+    {
+      "label": "*123*4567*1# subcode",
+      "config": {
+        "regular_expression": "^\*123\*4567\*1#$"
+      },
+      "metadata": {
+        "owner": 7
+      },
+      "mo_url": "https://www.example.org/messages",
+      "mo_url_token": "my-secret-token",
+      "amqp_queue": "subcode_1_queue",
+      "character_limit": 140
+    }
+
+   **Example response**:
+
+   .. sourcecode:: json
+
+    {
+      "status": 201,
+      "code": "Created",
+      "description": "destination created",
+      "result": {
+        "id": "7b23a20f-9330-4a4e-8bd1-4819470ffa31",
+        "label": "*123*4567*1# subcode",
+        "config": {
+          "regular_expression": "^\*123\*4567\*1#$"
+        },
+        "metadata": {
+          "owner": 7
+        },
+        "mo_url": "https://www.example.org/messages",
+        "mo_url_token": "my-secret-token",
+        "amqp_queue": "subcode_1_queue",
+        "character_limit": 140,
+        "status": {
+          "inbound_message_rate": 1.75,
+          "outbound_message_rate": 7.11,
+          "submitted_event_rate": 6.2,
+          "rejected_event_rate": 2.13,
+          "delivery_succeeded_rate": 5.44,
+          "delivery_failed_rate": 1.27,
+          "delivery_pending_rate": 4.32
+        }
+      }
+    }
+
+.. http:get:: /routers/(router_id:str)/destinations/(destination_id:str)
+
+   Get the configuration and status information for a destination. Returns in
+   the same format as `creating a destination`_.
+
+.. http:put:: /routers/(router_id:str)/destinations/(destination_id:str)
+
+   Replace the destination's configuration with the one provided. Takes and
+   returns the same parameters as `creating a destination`_.
+
+.. http:patch:: /routers/(router_id:str)/destinations/(destination_id:str)
+
+   Replace parts of the destination's configuration with the parts provided.
+   Takes and returns the same parameters as `creating a destination`_, except
+   no parameters are required.
+
+.. http:delete:: /routers/(router_id:str)/destinations/(destination_id:str)
+
+   Stops a destination and deletes its configuration.
+
+
+Router logs
+^^^^^^^^^^^
+.. note::
+
+   Not yet implemented
+
+.. http:get:: /routers/(router_id:str)/logs
+
+   Get the latest logs for a router. Takes and returns the same parameters as
+   `channel logs`_.
+
+.. http:get:: /routers/(router_id:str)/destinations/(destination_id:str)/logs
+
+   Get the latest logs for a destination. Takes and returns the same parameters as
+   `channel logs`_.
+
+
+Router Destination Messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. note::
+
+   Not yet implemented
+
+.. http:post:: /routers/(router_id:str)/destinations/(destination_id:str)/messages
+
+   Send a message from a destination of a router. Takes and returns the same
+   parameters as `sending a channel message`_. Messages can also be sent
+   through the `sending a channel message`_ endpoint.
+
+.. http:get:: /routers/(router_id:str)/destinations/(destination_id:str)/messages/(message-id:str)
+
+   Get the status of a message. Takes and returns the same parameters as
+   `getting the status of a channel message`_. Message statuses can also be
+   found at the `getting the status of a channel message`_ endpoint.
 
 
 Events
