@@ -943,20 +943,31 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_channels_health_check(self):
 
+        config = yield self.create_channel_config(
+            channel_health_status=True
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
+
         yield self.create_channel(self.service, self.redis)
 
         with mock.patch('requests.get', side_effect=mocked_get_queue_good):
-            resp = yield self.get('/channels_health')
+            resp = yield self.get('/health')
             yield self.assert_response(
                 resp, http.OK, 'channels ok', [])
 
     @inlineCallbacks
     def test_get_channels_health_check_stuck(self):
+        config = yield self.create_channel_config(
+            channel_health_status=True
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
 
         channel = yield self.create_channel(self.service, self.redis)
 
         with mock.patch('requests.get', side_effect=mocked_get_queue_stuck):
-            resp = yield self.get('/channels_health')
+            resp = yield self.get('/health')
             yield self.assert_response(
                 resp, http.OK, 'channels stuck',
                 ['%s.inbound' % channel.id,

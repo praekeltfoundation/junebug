@@ -85,3 +85,8 @@ class JunebugConfig(Config):
     max_logs = ConfigInt(
         "The maximum amount of logs that is allowed to be retrieved via the "
         "API.", default=100)
+
+    channel_health_status = ConfigBool(
+        "If `True`, the health of each individual channel will be checked. "
+        "This is only available for RabbitMQ",
+        default=False)
