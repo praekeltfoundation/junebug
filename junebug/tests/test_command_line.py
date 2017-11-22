@@ -569,7 +569,7 @@ class TestCommandLine(JunebugTestBase):
         with patch.object(Client, 'captureException') as mock_method:
             try:
                 raise e
-            except:
+            except Exception:
                 tb = sys.exc_info()
                 log.err()
             mock_method.assert_called_once_with(tb)
