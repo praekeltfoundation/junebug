@@ -304,7 +304,6 @@ class JunebugApi(object):
     @inlineCallbacks
     def health_status(self, request):
         if self.config.channel_health_status:
-            channels_stuck = []
 
             base_url = "%s:%s" % (
                 self.amqp_config['hostname'],
@@ -316,6 +315,9 @@ class JunebugApi(object):
 
             ids = yield Channel.get_all(self.redis)
 
+            queues = []
+            stuck = False
+
             for channel_id in ids:
                 for sub in ['inbound', 'outbound', 'event']:
                     queue_name = "%s.%s" % (channel_id, sub)
@@ -323,14 +325,25 @@ class JunebugApi(object):
                     queue = rabbit_client.get_queue(
                         self.amqp_config['vhost'], queue_name)
 
-                    if (queue.get('messages') > 0 and
-                            queue['messages_details']['rate'] == 0):
-                        channels_stuck.append(queue['name'])
+                    if (queue.get('messages')):
+                        details = {
+                            'name': queue['name'],
+                            'stuck': False,
+                            'messages': queue.get('messages'),
+                            'rate': queue['messages_details']['rate']
+                        }
+                        if (details['messages'] > 0 and details['rate'] == 0):
+                            stuck = True
+                            details['stuck'] = True
+
+                        queues.append(details)
 
             status = 'channels ok'
-            if channels_stuck:
+            code = http.OK
+            if stuck:
                 status = "channels stuck"
+                code = http.INTERNAL_SERVER_ERROR
 
-            returnValue(response(request, status, channels_stuck))
+            returnValue(response(request, status, queues, code=code))
         else:
             returnValue(response(request, 'health ok', {}))

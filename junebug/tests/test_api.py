@@ -918,7 +918,7 @@ class TestJunebugApi(JunebugTestBase):
         yield self.stop_server()
         yield self.start_server(config=config)
 
-        yield self.create_channel(self.service, self.redis)
+        channel = yield self.create_channel(self.service, self.redis)
 
         def mocked_get_queue_good(*args, **kwargs):
             return {
@@ -933,7 +933,23 @@ class TestJunebugApi(JunebugTestBase):
                         side_effect=mocked_get_queue_good):
             resp = yield self.get('/health')
             yield self.assert_response(
-                resp, http.OK, 'channels ok', [])
+                resp, http.OK, 'channels ok', [
+                    {
+                        'messages': 1256,
+                        'name': '%s.inbound' % (channel.id),
+                        'rate': 1.25,
+                        'stuck': False
+                    }, {
+                        'messages': 1256,
+                        'name': '%s.outbound' % (channel.id),
+                        'rate': 1.25,
+                        'stuck': False
+                    }, {
+                        'messages': 1256,
+                        'name': u'%s.event' % (channel.id),
+                        'rate': 1.25,
+                        'stuck': False
+                    }])
 
     @inlineCallbacks
     def test_get_channels_health_check_stuck(self):
@@ -958,10 +974,23 @@ class TestJunebugApi(JunebugTestBase):
                         side_effect=mocked_get_queue_stuck):
             resp = yield self.get('/health')
             yield self.assert_response(
-                resp, http.OK, 'channels stuck',
-                ['%s.inbound' % channel.id,
-                 '%s.outbound' % channel.id,
-                 '%s.event' % channel.id])
+                resp, http.INTERNAL_SERVER_ERROR, 'channels stuck', [
+                    {
+                        'messages': 134857,
+                        'name': '%s.inbound' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }, {
+                        'messages': 134857,
+                        'name': '%s.outbound' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }, {
+                        'messages': 134857,
+                        'name': u'%s.event' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }])
 
     @inlineCallbacks
     def test_get_channel_logs_no_logs(self):
