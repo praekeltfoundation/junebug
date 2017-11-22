@@ -1,3 +1,4 @@
+import json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
@@ -537,3 +538,16 @@ class TestRouterStore(JunebugTestBase):
             (yield store.get_router_list()),
             ['64f78582-8e83-40c9-be23-cc93d54e9dcd',
              'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8'])
+
+    @inlineCallbacks
+    def test_save_router(self):
+        """save_router should save the router config at the router's uuid and
+        add the uuid to the router list"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield store.save_router(config)
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set(['test-uuid']))
+        self.assertEqual(
+            (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))

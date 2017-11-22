@@ -1,6 +1,7 @@
+import json
 from math import ceil
 import time
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, gatherResults
 
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
@@ -65,6 +66,10 @@ class BaseStore(object):
     def get_set(self, id, ttl=USE_DEFAULT_TTL):
         '''Returns all elements of the set stored at `id`.'''
         return self._redis_op(self.redis.smembers, id, ttl=ttl)
+
+    def add_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Adds an item to a set'''
+        return self._redis_op(self.redis.sadd, id, value, ttl=ttl)
 
 
 class InboundMessageStore(BaseStore):
@@ -224,3 +229,9 @@ class RouterStore(BaseStore):
         d = self.get_set('routers')
         d.addCallback(sorted)
         return d
+
+    def save_router(self, config):
+        '''Saves the configuration of a router'''
+        d1 = self.store_property(config['id'], 'config', json.dumps(config))
+        d2 = self.add_set_item('routers', config['id'])
+        return gatherResults([d1, d2])
