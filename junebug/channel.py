@@ -1,4 +1,3 @@
-import collections
 from copy import deepcopy
 import json
 import uuid
@@ -10,7 +9,8 @@ from vumi.servicemaker import VumiOptions
 
 from junebug.logging_service import JunebugLoggerService, read_logs
 from junebug.stores import StatusStore, MessageRateStore
-from junebug.utils import api_from_message, message_from_api, api_from_status
+from junebug.utils import (
+    api_from_message, message_from_api, api_from_status, convert_unicode)
 from junebug.error import JunebugError
 
 
@@ -290,7 +290,7 @@ class Channel(object):
     @property
     def _transport_config(self):
         config = self._properties['config']
-        config = self._convert_unicode(config)
+        config = convert_unicode(config)
         config['transport_name'] = self.id
         config['worker_name'] = self.id
         config['publish_status'] = True
@@ -415,17 +415,6 @@ class Channel(object):
         self.application_worker = service.getServiceNamed(self.application_id)
         self.status_application_worker = service.getServiceNamed(
             self.status_application_id)
-
-    def _convert_unicode(self, data):
-        # Twisted doesn't like it when we give unicode in for config things
-        if isinstance(data, basestring):
-            return str(data)
-        elif isinstance(data, collections.Mapping):
-            return dict(map(self._convert_unicode, data.iteritems()))
-        elif isinstance(data, collections.Iterable):
-            return type(data)(map(self._convert_unicode, data))
-        else:
-            return data
 
     def _check_character_limit(self, content):
         count = len(content)
