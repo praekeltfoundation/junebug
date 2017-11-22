@@ -20,12 +20,14 @@ from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
 from vumi.transports import Transport
+from vumi.worker import BaseWorker
 
 import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
+from junebug.router import InvalidRouterConfig
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -140,6 +142,16 @@ class LoggingTestTransport(Transport):
         self.log.msg(message, source=self)
 
 
+class TestRouter(BaseWorker):
+    """Router used for testing the API."""
+    # TODO: Create a proper base class for Junebug routers
+    @classmethod
+    def validate_config(cls, config):
+        """Testing config requires the ``test`` parameter to be ``pass``"""
+        if config.get('test') != 'pass':
+            raise InvalidRouterConfig('test must be pass')
+
+
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
     helper functions'''
@@ -152,9 +164,19 @@ class JunebugTestBase(TestCase):
         'mo_url': 'http://foo.bar',
     }
 
+    default_router_properties = {
+        'type': 'testing',
+        'config': {
+            'test': 'pass',
+        },
+    }
+
     default_channel_config = {
         'ttl': 60,
         'amqp': {},
+        'routers': {
+            'testing': 'junebug.tests.helpers.TestRouter',
+        }
     }
 
     def patch_logger(self):
@@ -192,6 +214,13 @@ class JunebugTestBase(TestCase):
         channel_config = self.persistencehelper.mk_config(config)
         channel_config['redis'] = channel_config['redis_manager']
         returnValue(JunebugConfig(channel_config))
+
+    def create_router_config(self, **kw):
+        properties = deepcopy(self.default_router_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
+        properties.update(kw)
+        return properties
 
     @inlineCallbacks
     def create_channel(
