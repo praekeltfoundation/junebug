@@ -303,14 +303,9 @@ class JunebugApi(object):
     @app.route('/health', methods=['GET'])
     @inlineCallbacks
     def health_status(self, request):
-        if self.config.channel_health_status:
-
-            base_url = "%s:%s" % (
-                self.amqp_config['hostname'],
-                self.amqp_config.get('management_port', '15672')
-            )
-
-            rabbit_client = Client(base_url, self.amqp_config['username'],
+        if self.config.rabbitmq_management_interface:
+            rabbit_client = Client(self.config.rabbitmq_management_interface,
+                                   self.amqp_config['username'],
                                    self.amqp_config['password'])
 
             ids = yield Channel.get_all(self.redis)

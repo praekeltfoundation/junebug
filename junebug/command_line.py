@@ -115,9 +115,10 @@ def create_parser():
         dest='max_logs', help='the maximum number of log entries to '
         'to allow to be fetched through the API. Defaults to 100.')
     parser.add_argument(
-        '--channel-health-status', '-chs', dest='channel_health_status',
-        type=bool, help='If `True`, the health of each individual channel will'
-        ' be checked. This is only available for RabbitMQ')
+        '--rabbitmq-management-interface', '-rmi',
+        dest='rabbitmq_management_interface', type=str,
+        help='If `True`, the health of each individual channel will be '
+        'checked. This is only available for RabbitMQ')
 
     return parser
 

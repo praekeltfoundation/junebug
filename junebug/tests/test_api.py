@@ -913,7 +913,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_get_channels_health_check(self):
 
         config = yield self.create_channel_config(
-            channel_health_status=True
+            rabbitmq_management_interface="rabbitmq:15672"
         )
         yield self.stop_server()
         yield self.start_server(config=config)
@@ -954,7 +954,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_channels_health_check_stuck(self):
         config = yield self.create_channel_config(
-            channel_health_status=True
+            rabbitmq_management_interface="rabbitmq:15672"
         )
         yield self.stop_server()
         yield self.start_server(config=config)
