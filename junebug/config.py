@@ -49,9 +49,9 @@ class JunebugConfig(Config):
         default=60 * 60 * 24 * 2)
 
     allow_expired_replies = ConfigBool(
-        "If `True` messages with a reply_to that arrive for which the original "
-        "inbound cannot be found (possible of the TTL expiring) are sent as "
-        "normal outbound messages. ",
+        "If `True` messages with a reply_to that arrive for which the "
+        "original inbound cannot be found (possible of the TTL expiring) are "
+        "sent as normal outbound messages. ",
         default=False)
 
     channels = ConfigDict(
