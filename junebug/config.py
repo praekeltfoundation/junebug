@@ -63,6 +63,15 @@ class JunebugConfig(Config):
         " `channels` is added to the default channels.",
         default=False)
 
+    routers = ConfigDict(
+        "Mapping between router types and python classes.",
+        default={})
+
+    replace_routers = ConfigBool(
+        "If `True`, replaces the default routers with `routers`. If `False`,"
+        "`routers` is added to the default routers.",
+        default=False)
+
     plugins = ConfigList(
         "A list of dictionaries describing all of the enabled plugins. Each "
         "item should have a `type` key, with the full python class name of "
