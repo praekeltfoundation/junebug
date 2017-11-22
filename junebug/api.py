@@ -1,6 +1,4 @@
-import json
-import requests
-import urllib
+from pyrabbit.api import Client
 
 from klein import Klein
 from twisted.python import log
@@ -308,21 +306,22 @@ class JunebugApi(object):
         if self.config.channel_health_status:
             channels_stuck = []
 
-            base_url = "http://%s:%s/api/queues/%s" % (
+            base_url = "%s:%s" % (
                 self.amqp_config['hostname'],
-                self.amqp_config.get('management_port', '15672'),
-                urllib.quote(self.amqp_config['vhost'], safe='')
+                self.amqp_config.get('management_port', '15672')
             )
+
+            rabbit_client = Client(base_url, self.amqp_config['username'],
+                                   self.amqp_config['password'])
 
             ids = yield Channel.get_all(self.redis)
 
             for channel_id in ids:
                 for sub in ['inbound', 'outbound', 'event']:
-                    url = "%s/%s.%s" % (base_url, channel_id, sub)
+                    queue_name = "%s.%s" % (channel_id, sub)
 
-                    queue = requests.get(url, auth=requests.auth.HTTPBasicAuth(
-                        self.amqp_config['username'],
-                        self.amqp_config['password'])).json()
+                    queue = rabbit_client.get_queue(
+                        self.amqp_config['vhost'], queue_name)
 
                     if (queue.get('messages') > 0 and
                             queue['messages_details']['rate'] == 0):

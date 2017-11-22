@@ -13,37 +13,6 @@ from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
 from junebug.utils import api_from_event, conjoin, omit
 
 
-class MockResponse:
-    def __init__(self, content, status_code):
-        self.content = content
-        self.status_code = status_code
-
-    def json(self):
-        return json.loads(self.content)
-
-
-def mocked_get_queue_good(*args, **kwargs):
-    name = args[0].split('/')[-1]
-    return MockResponse('''{
-                "messages": 1256,
-                "messages_details": {
-                    "rate": 1.25
-                },
-                "name": "%s"
-            }''' % name, 200)
-
-
-def mocked_get_queue_stuck(*args, **kwargs):
-    name = args[0].split('/')[-1]
-    return MockResponse('''{
-                "messages": 134857,
-                "messages_details": {
-                    "rate": 0
-                },
-                "name": "%s"
-            }''' % name, 200)
-
-
 class TestJunebugApi(JunebugTestBase):
 
     maxDiff = None
@@ -951,7 +920,17 @@ class TestJunebugApi(JunebugTestBase):
 
         yield self.create_channel(self.service, self.redis)
 
-        with mock.patch('requests.get', side_effect=mocked_get_queue_good):
+        def mocked_get_queue_good(*args, **kwargs):
+            return {
+                        "messages": 1256,
+                        "messages_details": {
+                            "rate": 1.25
+                        },
+                        "name": args[0].split('/')[-1]
+                    }
+
+        with mock.patch('pyrabbit.http.HTTPClient.do_call',
+                        side_effect=mocked_get_queue_good):
             resp = yield self.get('/health')
             yield self.assert_response(
                 resp, http.OK, 'channels ok', [])
@@ -966,7 +945,17 @@ class TestJunebugApi(JunebugTestBase):
 
         channel = yield self.create_channel(self.service, self.redis)
 
-        with mock.patch('requests.get', side_effect=mocked_get_queue_stuck):
+        def mocked_get_queue_stuck(*args, **kwargs):
+            return {
+                        "messages": 134857,
+                        "messages_details": {
+                            "rate": 0
+                        },
+                        "name": args[0].split('/')[-1]
+                    }
+
+        with mock.patch('pyrabbit.http.HTTPClient.do_call',
+                        side_effect=mocked_get_queue_stuck):
             resp = yield self.get('/health')
             yield self.assert_response(
                 resp, http.OK, 'channels stuck',
