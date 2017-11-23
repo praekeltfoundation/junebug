@@ -107,3 +107,16 @@ class Router(object):
         Returns the config and status of this router
         """
         return succeed(self.router_config)
+
+    def _restore(self, service):
+        self.router_worker = service.namedServices.get(
+            self.router_config['id'])
+        return self
+
+    @classmethod
+    def from_id(cls, router_store, junebug_config, parent_service, router_id):
+        d = router_store.get_router_config(router_id)
+        d.addCallback(lambda router_config: cls(
+            router_store, junebug_config, router_config))
+        d.addCallback(lambda router: router._restore(parent_service))
+        return d
