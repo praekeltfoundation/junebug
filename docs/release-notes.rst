@@ -29,6 +29,13 @@ v0.1.27 (Not yet released)
     - Update Readme to give more information to someone who wants to work on
       the project.
 
+.. Pull requests 141
+*24 November 2017*
+
+- Features
+    - Added a config option for RabbitMQ Management Interface to see status of
+      each queue with the health check.
+
 v0.1.26
 -------
 

@@ -396,7 +396,7 @@ Routers
        Description of result (``"router created"`` on success).
    :param dict result:
        The router created.
-   
+
    **Example request**:
 
    .. sourcecode:: json
@@ -752,3 +752,16 @@ A status event can be categorised under one of the following levels:
     throttled.
   - ``down``: The component is not operational as a result of the issue
     described by the event.
+
+.. _health:
+
+Health
+^^^^^^
+
+.. http:get:: /health/
+
+   Provides HTTP GET access to test or verify the health of the system.
+
+   If the ``rabbitmq_management_interface`` config item is set it will also
+   query the RabbitMQ Management interface to check the health of each queue.
+   This is only available for RabbitMQ.
