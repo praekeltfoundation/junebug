@@ -32,6 +32,13 @@ class TestJunebugApi(JunebugTestBase):
             persistent=False,
             headers=headers)
 
+    def put(self, url, data, headers=None):
+        return treq.put(
+            "%s%s" % (self.url, url),
+            json.dumps(data),
+            persistent=False,
+            headers=headers)
+
     def delete(self, url):
         return treq.delete("%s%s" % (self.url, url), persistent=False)
 
@@ -1146,3 +1153,58 @@ class TestJunebugApi(JunebugTestBase):
                 'type': 'RouterNotFound',
             }]
         })
+
+    @inlineCallbacks
+    def test_replace_router_config(self):
+        """When creating a PUT request, the router configuration should be
+        replaced"""
+        old_config = self.create_router_config(label='test', config={
+            'test': 'pass', 'foo': 'bar'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        old_config['id'] = router_id
+        self.assertEqual(router_config, old_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, old_config['config'])
+
+        new_config = self.create_router_config(config={'test': 'pass'})
+        new_config.pop('label', None)
+        resp = yield self.put('/routers/{}'.format(router_id), new_config)
+        new_config['id'] = router_id
+
+        yield self.assert_response(
+            resp, http.OK, 'router updated', new_config)
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        self.assertEqual(router_config, new_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, new_config['config'])
+
+        router_worker = self.api.service.namedServices[router_id]
+
+    @inlineCallbacks
+    def test_replace_router_config_invalid_worker_config(self):
+        """Before replacing the worker config, the new config should be
+        validated."""
+        old_config = self.create_router_config(config={'test': 'pass'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        new_config = self.create_router_config(config={'test': 'fail'})
+        resp = yield self.put('/routers/{}'.format(router_id), new_config)
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router config', {
+                'errors': [{
+                    'message': 'test must be pass',
+                    'type': 'InvalidRouterConfig',
+                }]
+            })
+
+        resp = yield self.get('/routers/{}'.format(router_id))
+        yield self.assert_response(
+            resp, http.OK, 'router found', old_config, ignore=['id'])
