@@ -29,7 +29,7 @@ theSemaphore = None
 def getSemaphore():
     global theSemaphore
     if theSemaphore is None:
-        theSemaphore = defer.DeferredSemaphore(2)
+        theSemaphore = defer.DeferredSemaphore(TPS_LIMIT)
     return theSemaphore
 
 
