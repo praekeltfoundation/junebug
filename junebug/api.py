@@ -337,6 +337,15 @@ class JunebugApi(object):
             code=http.CREATED
         ))
 
+    @app.route('/routers/<string:router_id>', methods=['GET'])
+    def get_router(self, request, router_id):
+        """Get the configuration details and status of a specific router"""
+        d = Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        d.addCallback(lambda router: router.status())
+        d.addCallback(partial(response, request, 'router found'))
+        return d
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         return response(request, 'health ok', {})

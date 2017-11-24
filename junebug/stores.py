@@ -236,8 +236,14 @@ class RouterStore(BaseStore):
         d2 = self.add_set_item('routers', config['id'])
         return gatherResults([d1, d2])
 
+    def _handle_read_router_error(self, err):
+        if isinstance(err, TypeError):
+            # Trying to decode ``None`` means missing router. Return None
+            return None
+
     def get_router_config(self, router_id):
         """Gets the configuration of a router with the id ``router_id``"""
         d = self.load_property(router_id, 'config')
         d.addCallback(json.loads)
+        d.addErrback(self._handle_read_router_error)
         return d
