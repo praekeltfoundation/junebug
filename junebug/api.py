@@ -1,4 +1,5 @@
 import treq
+import urllib
 
 from functools import partial
 from klein import Klein
@@ -22,6 +23,14 @@ from junebug.stores import (
     InboundMessageStore, MessageRateStore, OutboundMessageStore, RouterStore)
 
 TPS_LIMIT = 20
+theSemaphore = None
+
+
+def getSemaphore():
+    global theSemaphore
+    if theSemaphore is None:
+        theSemaphore = defer.DeferredSemaphore(2)
+    return theSemaphore
 
 
 class ApiUsageError(JunebugError):
@@ -30,6 +39,26 @@ class ApiUsageError(JunebugError):
     name = 'ApiUsageError'
     description = 'api usage error'
     code = http.BAD_REQUEST
+
+
+class RabbitmqManagementClient(object):
+
+    def __init__(self,  base_url, username, password, http_client):
+        self.base_url = base_url
+        self.username = username
+        self.password = password
+        self.http_client = http_client
+
+    def get_queue(self, vhost, queue_name):
+        url = 'http://%s/api/queues/%s/%s' % (
+            self.base_url,
+            urllib.quote(vhost, safe=''),
+            queue_name
+        )
+
+        d = self.http_client.get(url, auth=(self.username, self.password))
+        d.addCallback(treq.json_content)
+        return d
 
 
 class JunebugApi(object):
@@ -355,33 +384,35 @@ class JunebugApi(object):
             code=http.CREATED
         ))
 
+    # @inlineCallbacks
     @app.route('/health', methods=['GET'])
-    @inlineCallbacks
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
 
-            ids = yield Channel.get_all(self.redis)
+            http_client = HTTPClient(
+                self.agent_factory(
+                    self.clock,
+                    pool=self.pool_factory(self.clock)))
+
+            rabbitmq_management_client = RabbitmqManagementClient(
+                self.config.rabbitmq_management_interface,
+                self.amqp_config['username'],
+                self.amqp_config['password'],
+                http_client)
+
+            sem = getSemaphore()
 
             def get_queues(channel_ids):
+
                 gets = []
+
                 for channel_id in channel_ids:
                     for sub in ['inbound', 'outbound', 'event']:
-
                         queue_name = "%s.%s" % (channel_id, sub)
-                        url = 'http://%s/api/queues/%s/%s' % (
-                            self.config.rabbitmq_management_interface,
-                            self.amqp_config['vhost'].replace('/', '%2F'),
-                            queue_name
-                        )
-                        http_client = HTTPClient(
-                            self.agent_factory(
-                                self.clock,
-                                pool=self.pool_factory(self.clock)))
 
-                        get = http_client.get(
-                            url, auth=(self.amqp_config['username'],
-                                       self.amqp_config['password']))
-                        get.addCallback(treq.json_content)
+                        get = sem.run(
+                            rabbitmq_management_client.get_queue,
+                            self.amqp_config['vhost'], queue_name)
                         gets.append(get)
 
                 return gets
@@ -414,12 +445,10 @@ class JunebugApi(object):
 
                 return response(request, status, queues, code=code)
 
-            outputs = get_queues(ids)
-
-            final = defer.DeferredList(outputs)
-            final.addCallback(return_queue_results)
-
-            result = yield final
-            returnValue(result)
+            d = Channel.get_all(self.redis)
+            d.addCallback(get_queues)
+            d.addCallback(defer.DeferredList)
+            d.addCallback(return_queue_results)
+            return d
         else:
-            returnValue(response(request, 'health ok', {}))
+            return response(request, 'health ok', {})
