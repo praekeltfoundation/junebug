@@ -394,7 +394,7 @@ class JunebugApi(object):
         }))
     @inlineCallbacks
     def update_router_config(self, request, body, router_id):
-        """Replace the router config with the one specified"""
+        """Update the router config with the one specified"""
         router = yield Router.from_id(
             self.router_store, self.config, self.service, router_id)
 
