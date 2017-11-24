@@ -1,6 +1,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from junebug.router import Router, InvalidRouterConfig
+from junebug.router.base import InvalidRouterType
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -59,6 +60,16 @@ class TestRouter(JunebugTestBase):
         with self.assertRaises(InvalidRouterConfig):
             config = self.create_router_config(config={'test': 'fail'})
             router = Router(self.api.router_store, self.api.config, config)
+            yield router.validate_config()
+
+    @inlineCallbacks
+    def test_validate_config_invalid_worker_name(self):
+        """If validate_config is given a config with an unknown worker name,
+        an appropriate error should be raised."""
+        config = self.create_router_config(type='invalid')
+        router = Router(self.api.router_store, self.api.config, config)
+
+        with self.assertRaises(InvalidRouterType):
             yield router.validate_config()
 
     def test_start(self):
