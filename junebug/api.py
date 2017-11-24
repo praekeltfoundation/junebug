@@ -384,7 +384,6 @@ class JunebugApi(object):
             code=http.CREATED
         ))
 
-    # @inlineCallbacks
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
