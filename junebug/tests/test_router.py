@@ -96,6 +96,23 @@ class TestRouter(JunebugTestBase):
         self.assertNotIn(router.id, self.service.namedServices)
 
     @inlineCallbacks
+    def test_stop_already_stopped(self):
+        """Calling stop on a non-running router should not raise any
+        exceptions"""
+
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        router.start(self.service)
+
+        self.assertIn(router.id, self.service.namedServices)
+
+        yield router.stop()
+
+        self.assertNotIn(router.id, self.service.namedServices)
+
+        yield router.stop()
+
+    @inlineCallbacks
     def test_status(self):
         """status should return the current config of the router"""
         config = self.create_router_config()
