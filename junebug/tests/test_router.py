@@ -1,6 +1,6 @@
 from twisted.internet.defer import inlineCallbacks
 
-from junebug.router import Router, InvalidRouterConfig
+from junebug.router import Router, InvalidRouterConfig, RouterNotFound
 from junebug.router.base import InvalidRouterType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -105,3 +105,12 @@ class TestRouter(JunebugTestBase):
 
         self.assertEqual(router.router_config, restored_router.router_config)
         self.assertEqual(router.router_worker, restored_router.router_worker)
+
+    @inlineCallbacks
+    def test_from_id_doesnt_exist(self):
+        """If we don't have a router for the specified ID, then we should raise
+        the appropriate error"""
+        with self.assertRaises(RouterNotFound):
+            yield Router.from_id(
+                self.api.router_store, self.api.config, self.api.service,
+                'bad-router-id')

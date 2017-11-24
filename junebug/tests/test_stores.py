@@ -563,3 +563,11 @@ class TestRouterStore(JunebugTestBase):
 
         value = yield store.get_router_config('test-uuid')
         self.assertEqual(value, config)
+
+    @inlineCallbacks
+    def test_get_router_config_doesnt_exist(self):
+        """If we don't have a config stored for the specified router ID, then
+        we should return None"""
+        store = yield self.create_store()
+        value = yield store.get_router_config('bad-uuid')
+        self.assertEqual(value, None)
