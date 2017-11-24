@@ -5,6 +5,9 @@ import treq
 from twisted.internet.defer import inlineCallbacks
 from twisted.web import http
 
+from treq.testing import StubTreq
+from treq.testing import RequestSequence, StringStubbingResource
+
 from vumi.message import TransportEvent, TransportUserMessage
 
 from junebug.channel import Channel
@@ -25,6 +28,10 @@ class TestJunebugApi(JunebugTestBase):
     def get(self, url, params={}):
         return treq.get(
             "%s%s" % (self.url, url), params=params, persistent=False)
+
+    def request(self, method, url, params={}):
+        return treq.request(
+            method, "%s%s" % (self.url, url), params=params, persistent=False)
 
     def post(self, url, data, headers=None):
         return treq.post(
@@ -920,18 +927,28 @@ class TestJunebugApi(JunebugTestBase):
 
         channel = yield self.create_channel(self.service, self.redis)
 
-        def mocked_get_queue_good(*args, **kwargs):
-            return {
-                        "messages": 1256,
-                        "messages_details": {
-                            "rate": 1.25
-                        },
-                        "name": args[0].split('/')[-1]
-                    }
+        request_list = []
 
-        with mock.patch('pyrabbit.http.HTTPClient.do_call',
-                        side_effect=mocked_get_queue_good):
-            resp = yield self.get('/health')
+        for sub in ['inbound', 'outbound', 'event']:
+            queue_name = "%s.%s" % (channel.id, sub)
+            url = 'http://rabbitmq:15672/api/queues/%%2F/%s' % (queue_name)
+            request_list.append(
+                ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
+                 (http.OK, {b'Content-Type': b'application/json'},
+                  b'{"messages": 1256, "messages_details": {"rate": 1.25}, "name": "%s"}' % queue_name)))  # noqa
+
+        async_failures = []
+        sequence_stubs = RequestSequence(request_list, async_failures.append)
+        stub_treq = StubTreq(StringStubbingResource(sequence_stubs))
+
+        def new_get(*args, **kwargs):
+            return stub_treq.request("GET", args[0])
+
+        with (mock.patch('treq.client.HTTPClient.get', side_effect=new_get)):
+            with sequence_stubs.consume(self.fail):
+                resp = yield self.request('GET', '/health')
+
+            yield self.assertEqual(async_failures, [])
             yield self.assert_response(
                 resp, http.OK, 'channels ok', [
                     {
@@ -946,13 +963,14 @@ class TestJunebugApi(JunebugTestBase):
                         'stuck': False
                     }, {
                         'messages': 1256,
-                        'name': u'%s.event' % (channel.id),
+                        'name': '%s.event' % (channel.id),
                         'rate': 1.25,
                         'stuck': False
                     }])
 
     @inlineCallbacks
     def test_get_channels_health_check_stuck(self):
+
         config = yield self.create_channel_config(
             rabbitmq_management_interface="rabbitmq:15672"
         )
@@ -961,33 +979,43 @@ class TestJunebugApi(JunebugTestBase):
 
         channel = yield self.create_channel(self.service, self.redis)
 
-        def mocked_get_queue_stuck(*args, **kwargs):
-            return {
-                        "messages": 134857,
-                        "messages_details": {
-                            "rate": 0
-                        },
-                        "name": args[0].split('/')[-1]
-                    }
+        request_list = []
 
-        with mock.patch('pyrabbit.http.HTTPClient.do_call',
-                        side_effect=mocked_get_queue_stuck):
-            resp = yield self.get('/health')
+        for sub in ['inbound', 'outbound', 'event']:
+            queue_name = "%s.%s" % (channel.id, sub)
+            url = 'http://rabbitmq:15672/api/queues/%%2F/%s' % (queue_name)
+            request_list.append(
+                ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
+                 (http.OK, {b'Content-Type': b'application/json'},
+                  b'{"messages": 1256, "messages_details": {"rate": 0}, "name": "%s"}' % queue_name)))  # noqa
+
+        async_failures = []
+        sequence_stubs = RequestSequence(request_list, async_failures.append)
+        stub_treq = StubTreq(StringStubbingResource(sequence_stubs))
+
+        def new_get(*args, **kwargs):
+            return stub_treq.request("GET", args[0])
+
+        with (mock.patch('treq.client.HTTPClient.get', side_effect=new_get)):
+            with sequence_stubs.consume(self.fail):
+                resp = yield self.request('GET', '/health')
+
+            yield self.assertEqual(async_failures, [])
             yield self.assert_response(
                 resp, http.INTERNAL_SERVER_ERROR, 'channels stuck', [
                     {
-                        'messages': 134857,
+                        'messages': 1256,
                         'name': '%s.inbound' % (channel.id),
                         'rate': 0,
                         'stuck': True
                     }, {
-                        'messages': 134857,
+                        'messages': 1256,
                         'name': '%s.outbound' % (channel.id),
                         'rate': 0,
                         'stuck': True
                     }, {
-                        'messages': 134857,
-                        'name': u'%s.event' % (channel.id),
+                        'messages': 1256,
+                        'name': '%s.event' % (channel.id),
                         'rate': 0,
                         'stuck': True
                     }])

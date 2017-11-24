@@ -1,10 +1,13 @@
-from pyrabbit.api import Client
+import treq
 
 from klein import Klein
+from treq.client import HTTPClient
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+from twisted.web.client import Agent, HTTPConnectionPool
+from twisted.internet import reactor, defer
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.utils import load_class_by_string
 
@@ -15,6 +18,8 @@ from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
     InboundMessageStore, MessageRateStore, OutboundMessageStore)
+
+TPS_LIMIT = 20
 
 
 class ApiUsageError(JunebugError):
@@ -28,11 +33,22 @@ class ApiUsageError(JunebugError):
 class JunebugApi(object):
     app = Klein()
 
+    clock = reactor
+
     def __init__(self, service, config):
         self.service = service
         self.redis_config = config.redis
         self.amqp_config = config.amqp
         self.config = config
+
+    @classmethod
+    def pool_factory(cls, reactor):
+        pool = HTTPConnectionPool(reactor, persistent=True)
+        pool.maxPersistentPerHost = TPS_LIMIT
+
+    @classmethod
+    def agent_factory(cls, reactor, pool=None):
+        return Agent(reactor, pool=pool)
 
     @inlineCallbacks
     def setup(self, redis=None, message_sender=None):
@@ -304,23 +320,41 @@ class JunebugApi(object):
     @inlineCallbacks
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
-            rabbit_client = Client(self.config.rabbitmq_management_interface,
-                                   self.amqp_config['username'],
-                                   self.amqp_config['password'])
 
             ids = yield Channel.get_all(self.redis)
 
-            queues = []
-            stuck = False
+            def get_queues(channel_ids):
+                gets = []
+                for channel_id in channel_ids:
+                    for sub in ['inbound', 'outbound', 'event']:
 
-            for channel_id in ids:
-                for sub in ['inbound', 'outbound', 'event']:
-                    queue_name = "%s.%s" % (channel_id, sub)
+                        queue_name = "%s.%s" % (channel_id, sub)
+                        url = 'http://%s/api/queues/%s/%s' % (
+                            self.config.rabbitmq_management_interface,
+                            self.amqp_config['vhost'].replace('/', '%2F'),
+                            queue_name
+                        )
+                        http_client = HTTPClient(
+                            self.agent_factory(
+                                self.clock,
+                                pool=self.pool_factory(self.clock)))
 
-                    queue = rabbit_client.get_queue(
-                        self.amqp_config['vhost'], queue_name)
+                        get = http_client.get(
+                            url, auth=(self.amqp_config['username'],
+                                       self.amqp_config['password']))
+                        get.addCallback(treq.json_content)
+                        gets.append(get)
 
-                    if (queue.get('messages')):
+                return gets
+
+            def return_queue_results(results):
+                queues = []
+                stuck = False
+
+                for result in results:
+                    queue = result[1]
+
+                    if ('messages' in queue):
                         details = {
                             'name': queue['name'],
                             'stuck': False,
@@ -333,12 +367,20 @@ class JunebugApi(object):
 
                         queues.append(details)
 
-            status = 'channels ok'
-            code = http.OK
-            if stuck:
-                status = "channels stuck"
-                code = http.INTERNAL_SERVER_ERROR
+                status = 'channels ok'
+                code = http.OK
+                if stuck:
+                    status = "channels stuck"
+                    code = http.INTERNAL_SERVER_ERROR
 
-            returnValue(response(request, status, queues, code=code))
+                return response(request, status, queues, code=code)
+
+            outputs = get_queues(ids)
+
+            final = defer.DeferredList(outputs)
+            final.addCallback(return_queue_results)
+
+            result = yield final
+            returnValue(result)
         else:
             returnValue(response(request, 'health ok', {}))

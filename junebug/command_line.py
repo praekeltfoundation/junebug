@@ -117,7 +117,8 @@ def create_parser():
     parser.add_argument(
         '--rabbitmq-management-interface', '-rmi',
         dest='rabbitmq_management_interface', type=str,
-        help='If `True`, the health of each individual channel will be '
+        help='This should be the url string of the rabbitmq management '
+        'interface. If set, the health of each individual queue will be '
         'checked. This is only available for RabbitMQ')
 
     return parser

@@ -87,6 +87,7 @@ class JunebugConfig(Config):
         "API.", default=100)
 
     rabbitmq_management_interface = ConfigText(
+        "This should be the url string of the rabbitmq management interface."
         "If set, the health of each individual queue will be checked. "
         "This is only available for RabbitMQ",
         default=None)

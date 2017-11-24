@@ -33,7 +33,6 @@ setup(
         'confmodel',
         'PyYAML',
         'raven>=6.0.0,<7.0.0',
-        'pyrabbit',
     ],
     entry_points='''
     [console_scripts]
