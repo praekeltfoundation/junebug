@@ -1,3 +1,4 @@
+import collections
 import json
 
 from twisted.web import http
@@ -143,3 +144,15 @@ def channel_public_http_properties(properties):
         return None
     else:
         return results
+
+
+def convert_unicode(data):
+    """Converts unicode to strings"""
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert_unicode, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert_unicode, data))
+    else:
+        return data

@@ -22,6 +22,7 @@ cache:
 sudo: false
 script:
   - if [ -z "$NO_COVERAGE" ]; then COVERAGE_CMD="coverage run --source=junebug"; else COVERAGE_CMD=""; fi
+  - flake8 junebug
   - $COVERAGE_CMD `which trial` junebug
 after_success:
   - coveralls

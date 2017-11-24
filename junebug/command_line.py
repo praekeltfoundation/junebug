@@ -90,6 +90,15 @@ def create_parser():
         'If False, adds `channels` to the list of default channels. Defaults'
         ' to False.')
     parser.add_argument(
+        '--routers', dest='routers', type=str, action='append',
+        help='Add a mapping to the list of routers, in the format '
+        '"router_type:python_class".')
+    parser.add_argument(
+        '--replace-routers', dest='replace_routers', type=bool,
+        help='If True, replaces the default routers with `routers`. '
+        'If False, adds `routers` to the list of default routers. Defaults'
+        ' to False.')
+    parser.add_argument(
         '--plugin', '-pl', dest='plugins', type=str, action='append',
         help='Add a plugins to the list of plugins, as a json blob of the '
         'plugin config. Must contain a `type` key, with the full python class '
@@ -202,6 +211,7 @@ def config_from_args(args):
     config['redis'] = parse_redis(config.get('redis', {}), args)
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     parse_channels(args)
+    parse_routers(args)
     args['plugins'] = parse_plugins(config.get('plugins', []), args)
 
     combined = conjoin(config, args)
@@ -248,6 +258,18 @@ def parse_channels(args):
 
     if len(channels) > 0:
         args['channels'] = channels
+
+
+def parse_routers(args):
+    routers = {}
+    for router in args.get('routers', {}):
+        key, value = router.split(':')
+        routers[key] = value
+
+    # If there are command line arguments, use that to override the config file
+    # arguments
+    if len(routers) > 0:
+        args['routers'] = routers
 
 
 def parse_plugins(config, args):

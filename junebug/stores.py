@@ -1,6 +1,7 @@
+import json
 from math import ceil
 import time
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, gatherResults
 
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
@@ -61,6 +62,14 @@ class BaseStore(object):
     def get_id(self, id, ttl=USE_DEFAULT_TTL):
         '''Returns the value stored at `id`.'''
         return self._redis_op(self.redis.get, id, ttl=ttl)
+
+    def get_set(self, id, ttl=USE_DEFAULT_TTL):
+        '''Returns all elements of the set stored at `id`.'''
+        return self._redis_op(self.redis.smembers, id, ttl=ttl)
+
+    def add_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Adds an item to a set'''
+        return self._redis_op(self.redis.sadd, id, value, ttl=ttl)
 
 
 class InboundMessageStore(BaseStore):
@@ -210,3 +219,19 @@ class MessageRateStore(BaseStore):
         if rate is None:
             returnValue(0)
         returnValue(float(rate) / bucket_size)
+
+
+class RouterStore(BaseStore):
+    '''Stores all configuration for routers'''
+
+    def get_router_list(self):
+        '''Returns a list of UUIDs for all the current router configurations'''
+        d = self.get_set('routers')
+        d.addCallback(sorted)
+        return d
+
+    def save_router(self, config):
+        '''Saves the configuration of a router'''
+        d1 = self.store_property(config['id'], 'config', json.dumps(config))
+        d2 = self.add_set_item('routers', config['id'])
+        return gatherResults([d1, d2])
