@@ -378,6 +378,36 @@ class JunebugApi(object):
         returnValue(response(
             request, 'router updated', (yield router.status())))
 
+    @app.route('/routers/<string:router_id>', methods=['PATCH'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+            },
+            'additionalProperties': False,
+            'required': [],
+        }))
+    @inlineCallbacks
+    def update_router_config(self, request, body, router_id):
+        """Replace the router config with the one specified"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+
+        router.router_config.update(body)
+        yield router.validate_config()
+
+        # Stop and start the router for the worker to get the new config
+        yield router.stop()
+        router.start(self.service)
+        yield router.save()
+        returnValue(response(
+            request, 'router updated', (yield router.status())))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         return response(request, 'health ok', {})
