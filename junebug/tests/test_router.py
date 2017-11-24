@@ -78,10 +78,22 @@ class TestRouter(JunebugTestBase):
         router = Router(self.api.router_store, self.api.config, config)
         router.start(self.service)
 
-        id = router.router_config['id']
-        transport = self.service.namedServices[id]
-        self.assertEqual(transport.parent, self.service)
-        self.assertEqual(transport.config, config['config'])
+        router_worker = self.service.namedServices[router.id]
+        self.assertEqual(router_worker.parent, self.service)
+        self.assertEqual(router_worker.config, config['config'])
+
+    @inlineCallbacks
+    def test_stop(self):
+        """stop should stop the router worker if it is running"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        router.start(self.service)
+
+        self.assertIn(router.id, self.service.namedServices)
+
+        yield router.stop()
+
+        self.assertNotIn(router.id, self.service.namedServices)
 
     @inlineCallbacks
     def test_status(self):

@@ -42,12 +42,17 @@ class Router(object):
         self.router_store = router_store
         self.junebug_config = junebug_config
         self.router_config = router_config
+        self.router_worker = None
 
         if self.router_config.get('id', None) is None:
             self.router_config['id'] = str(uuid4())
 
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
         self.vumi_options.update(self.junebug_config.amqp)
+
+    @property
+    def id(self):
+        return self.router_config['id']
 
     @staticmethod
     def get_all(router_store):
@@ -109,6 +114,16 @@ class Router(object):
         worker.setName(self.router_config['id'])
         worker.setServiceParent(service)
         self.router_worker = worker
+
+    def stop(self):
+        """
+        Stops the router from running
+        """
+        if self.router_worker:
+            worker = self.router_worker
+            self.router_worker = None
+            return worker.disownServiceParent()
+        return succeed(None)
 
     def status(self):
         """
