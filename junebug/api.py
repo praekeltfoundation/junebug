@@ -1,36 +1,24 @@
-import treq
-import urllib
-
 from functools import partial
 from klein import Klein
-from treq.client import HTTPClient
+
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
-from twisted.web.client import Agent, HTTPConnectionPool
-from twisted.internet import reactor, defer
+
+from twisted.internet import defer
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.utils import load_class_by_string
 
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
+from junebug.rabbitmq import RabbitmqManagementClient
 from junebug.router import Router
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
     InboundMessageStore, MessageRateStore, OutboundMessageStore, RouterStore)
-
-TPS_LIMIT = 20
-theSemaphore = None
-
-
-def getSemaphore():
-    global theSemaphore
-    if theSemaphore is None:
-        theSemaphore = defer.DeferredSemaphore(TPS_LIMIT)
-    return theSemaphore
 
 
 class ApiUsageError(JunebugError):
@@ -41,45 +29,14 @@ class ApiUsageError(JunebugError):
     code = http.BAD_REQUEST
 
 
-class RabbitmqManagementClient(object):
-
-    def __init__(self,  base_url, username, password, http_client):
-        self.base_url = base_url
-        self.username = username
-        self.password = password
-        self.http_client = http_client
-
-    def get_queue(self, vhost, queue_name):
-        url = 'http://%s/api/queues/%s/%s' % (
-            self.base_url,
-            urllib.quote(vhost, safe=''),
-            queue_name
-        )
-
-        d = self.http_client.get(url, auth=(self.username, self.password))
-        d.addCallback(treq.json_content)
-        return d
-
-
 class JunebugApi(object):
     app = Klein()
-
-    clock = reactor
 
     def __init__(self, service, config):
         self.service = service
         self.redis_config = config.redis
         self.amqp_config = config.amqp
         self.config = config
-
-    @classmethod
-    def pool_factory(cls, reactor):
-        pool = HTTPConnectionPool(reactor, persistent=True)
-        pool.maxPersistentPerHost = TPS_LIMIT
-
-    @classmethod
-    def agent_factory(cls, reactor, pool=None):
-        return Agent(reactor, pool=pool)
 
     @inlineCallbacks
     def setup(self, redis=None, message_sender=None):
@@ -387,19 +344,10 @@ class JunebugApi(object):
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
-
-            http_client = HTTPClient(
-                self.agent_factory(
-                    self.clock,
-                    pool=self.pool_factory(self.clock)))
-
             rabbitmq_management_client = RabbitmqManagementClient(
                 self.config.rabbitmq_management_interface,
                 self.amqp_config['username'],
-                self.amqp_config['password'],
-                http_client)
-
-            sem = getSemaphore()
+                self.amqp_config['password'])
 
             def get_queues(channel_ids):
 
@@ -409,8 +357,7 @@ class JunebugApi(object):
                     for sub in ['inbound', 'outbound', 'event']:
                         queue_name = "%s.%s" % (channel_id, sub)
 
-                        get = sem.run(
-                            rabbitmq_management_client.get_queue,
+                        get = rabbitmq_management_client.get_queue(
                             self.amqp_config['vhost'], queue_name)
                         gets.append(get)
 
