@@ -246,6 +246,32 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-rch', 'true'])
         self.assertEqual(config.replace_channels, True)
 
+    def test_parse_arguments_routers(self):
+        """The routers command line argument can be specified by "--routers"
+        and should parse the given properties into a dictionary"""
+        config = parse_arguments([])
+        self.assertEqual(config.routers, {})
+
+        config = parse_arguments(['--routers', 'router:router.class'])
+        self.assertEqual(config.routers, {'router': 'router.class'})
+
+        config = parse_arguments([
+            '--routers', 'router1:router.class.1',
+            '--routers', 'router2:router.class.2'])
+        self.assertEqual(config.routers, {
+            'router1': 'router.class.1',
+            'router2': 'router.class.2'})
+
+    def test_parse_arguments_replace_routers(self):
+        '''The replace routers command line argument can be specified by
+        "--replace-routers" and has a default value of False
+        '''
+        config = parse_arguments([])
+        self.assertEqual(config.replace_routers, False)
+
+        config = parse_arguments(['--replace-routers', 'true'])
+        self.assertEqual(config.replace_routers, True)
+
     def test_parse_arguments_plugins(self):
         '''Each plugin config is specified by "--plugin" or "-pl"'''
         config = parse_arguments([])
@@ -367,6 +393,7 @@ class TestCommandLine(JunebugTestBase):
                 'inbound_message_ttl': 80,
                 'outbound_message_ttl': 90,
                 'channels': {'foo': 'bar'},
+                'routers': {'router': 'router.class'},
                 'plugins': [{'type': 'foo.bar'}],
                 'metric_window': 2.0,
                 'logging_path': 'other-logs/',
@@ -393,6 +420,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.routers, {'router': 'router.class'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
@@ -417,6 +445,7 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.routers, {'router': 'router.class'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
@@ -540,7 +569,7 @@ class TestCommandLine(JunebugTestBase):
         with patch.object(Client, 'captureException') as mock_method:
             try:
                 raise e
-            except:
+            except Exception:
                 tb = sys.exc_info()
                 log.err()
             mock_method.assert_called_once_with(tb)

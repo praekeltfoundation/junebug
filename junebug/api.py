@@ -1,3 +1,4 @@
+from functools import partial
 from klein import Klein
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
@@ -9,10 +10,11 @@ from vumi.utils import load_class_by_string
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
+from junebug.router import Router
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
-    InboundMessageStore, MessageRateStore, OutboundMessageStore)
+    InboundMessageStore, MessageRateStore, OutboundMessageStore, RouterStore)
 
 
 class ApiUsageError(JunebugError):
@@ -52,6 +54,8 @@ class JunebugApi(object):
             self.redis, self.config.outbound_message_ttl)
 
         self.message_rate = MessageRateStore(self.redis)
+
+        self.router_store = RouterStore(self.redis)
 
         self.plugins = []
         for plugin_config in self.config.plugins:
@@ -297,6 +301,41 @@ class JunebugApi(object):
             'last_event_timestamp': last_event_timestamp,
             'events': events,
         }))
+
+    @app.route('/routers/', methods=['GET'])
+    def get_router_list(self, request):
+        """List all routers"""
+        d = Router.get_all(self.router_store)
+        d.addCallback(partial(response, request, 'routers retrieved'))
+        return d
+
+    @app.route('/routers/', methods=['POST'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'config'],
+        }))
+    @inlineCallbacks
+    def create_router(self, request, body):
+        """Create a new router"""
+        router = Router(self.router_store, self.config, body)
+        yield router.validate_config()
+        router.start(self.service)
+        yield router.save()
+        returnValue(response(
+            request,
+            'router created',
+            (yield router.status()),
+            code=http.CREATED
+        ))
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):

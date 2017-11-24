@@ -511,28 +511,6 @@ class TestChannel(JunebugTestBase):
         self.assertTrue(channel2.id in self.service.namedServices)
 
     @inlineCallbacks
-    def test_convert_unicode(self):
-        channel = yield self.create_channel(
-            self.service, self.redis, id='channel-id')
-        resp = channel._convert_unicode({
-            u'both': u'unicode',
-            u'key': 'unicode',
-            'value': u'unicode',
-            'nested': {
-                u'unicode': u'nested'
-                },
-            })
-        for key, value in resp.iteritems():
-            self.assertTrue(isinstance(key, str))
-            if not isinstance(value, dict):
-                self.assertTrue(isinstance(value, str))
-        for key, value in resp['nested'].iteritems():
-            self.assertTrue(isinstance(key, str))
-            self.assertTrue(isinstance(value, str))
-
-        self.assertTrue(isinstance(channel._convert_unicode(1), int))
-
-    @inlineCallbacks
     def test_send_message(self):
         '''The send_message function should place the message on the correct
         queue'''

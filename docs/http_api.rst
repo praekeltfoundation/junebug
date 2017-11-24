@@ -348,7 +348,7 @@ Routers
 
    Not yet implemented
 
-.. http:get:: /routers
+.. http:get:: /routers/
 
    Get a list of routers.
 
@@ -359,7 +359,7 @@ Routers
       {
         "status": 200,
         "code": "OK",
-        "description": "channels retrieved",
+        "description": "routers retrieved",
         "results": [
           "89b9e287-f437-4f71-afcf-3d581716a221",
           "512cb98c-39f0-49b2-9938-8bb2ab9da704"
@@ -368,7 +368,7 @@ Routers
 
 
 .. _`creating a router`:
-.. http:post:: /routers
+.. http:post:: /routers/
 
    Create a new router.
 

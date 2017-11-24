@@ -1050,3 +1050,75 @@ class TestJunebugApi(JunebugTestBase):
             'logger': channel.id,
             'message': 'Test2',
             'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_router_list(self):
+        '''A GET request on the routers collection endpoint should result in
+        the list of router UUIDs being returned'''
+        redis = yield self.get_redis()
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [])
+
+        yield redis.sadd('routers', '64f78582-8e83-40c9-be23-cc93d54e9dcd')
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [
+            u'64f78582-8e83-40c9-be23-cc93d54e9dcd',
+        ])
+
+        yield redis.sadd('routers', 'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8')
+
+        resp = yield self.get('/routers/')
+        yield self.assert_response(resp, http.OK, 'routers retrieved', [
+            u'64f78582-8e83-40c9-be23-cc93d54e9dcd',
+            u'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8',
+        ])
+
+    @inlineCallbacks
+    def test_create_router(self):
+        """Creating a router with a valid config should succeed"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+
+        yield self.assert_response(
+            resp, http.CREATED, 'router created', config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_create_router_invalid_worker_config(self):
+        """The worker config should be sent to the router for validation"""
+        config = self.create_router_config(config={'test': 'fail'})
+        resp = yield self.post('/routers/', config)
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router config', {
+                'errors': [{
+                    'message': 'test must be pass',
+                    'type': 'InvalidRouterConfig',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_create_router_worker(self):
+        """When creating a new router, the router worker should successfully
+        be started"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+
+        # Check that the worker is created with the correct config
+        id = (yield resp.json())['result']['id']
+        transport = self.service.namedServices[id]
+
+        self.assertEqual(transport.parent, self.service)
+
+        self.assertEqual(transport.config, config['config'])
+
+    @inlineCallbacks
+    def test_create_router_saves_config(self):
+        """When creating a worker, the config should be saved inside the router
+        store"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+
+        routers = yield self.api.router_store.get_router_list()
+        self.assertEqual(routers, [(yield resp.json())['result']['id']])
