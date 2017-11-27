@@ -10,6 +10,8 @@ import yaml
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
+from raven import Client
+from raven.transport.twisted import TwistedHTTPTransport
 
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
@@ -34,6 +36,9 @@ def create_parser():
     parser.add_argument(
         '--log-file', '-l', dest='logfile', type=str,
         help='The file to log to. Defaults to not logging to a file')
+    parser.add_argument(
+        '--sentry-dsn', '-sd', dest='sentry_dsn', type=str,
+        help='The DSN to log exceptions to. Defaults to not logging')
     parser.add_argument(
         '--redis-host', '-redish', dest='redis_host', type=str,
         help='The hostname of the redis instance. Defaults to "localhost"')
@@ -70,6 +75,12 @@ def create_parser():
         type=int, help='The maximum time allowed for events to arrive for '
         'messages (in seconds). Defaults to 172800 seconds (2 days)')
     parser.add_argument(
+        '--allow-expired-replies', '-aer',
+        dest='allow_expired_replies', action='store_true', default=False,
+        help="If enabled messages with a reply_to that arrive for which "
+        "the original inbound cannot be found (possible of the TTL "
+        "expiring) are sent as normal outbound messages. ")
+    parser.add_argument(
         '--channels', '-ch', dest='channels', type=str, action='append',
         help='Add a mapping to the list of channels, in the format '
         '"channel_type:python_class".')
@@ -77,6 +88,15 @@ def create_parser():
         '--replace-channels', '-rch', dest='replace_channels', type=bool,
         help='If True, replaces the default channels with `channels`. '
         'If False, adds `channels` to the list of default channels. Defaults'
+        ' to False.')
+    parser.add_argument(
+        '--routers', dest='routers', type=str, action='append',
+        help='Add a mapping to the list of routers, in the format '
+        '"router_type:python_class".')
+    parser.add_argument(
+        '--replace-routers', dest='replace_routers', type=bool,
+        help='If True, replaces the default routers with `routers`. '
+        'If False, adds `routers` to the list of default routers. Defaults'
         ' to False.')
     parser.add_argument(
         '--plugin', '-pl', dest='plugins', type=str, action='append',
@@ -103,6 +123,12 @@ def create_parser():
         '--max-logs', '-ml', type=int,
         dest='max_logs', help='the maximum number of log entries to '
         'to allow to be fetched through the API. Defaults to 100.')
+    parser.add_argument(
+        '--rabbitmq-management-interface', '-rmi',
+        dest='rabbitmq_management_interface', type=str,
+        help='This should be the url string of the rabbitmq management '
+        'interface. If set, the health of each individual queue will be '
+        'checked. This is only available for RabbitMQ')
 
     return parser
 
@@ -113,7 +139,15 @@ def parse_arguments(args):
     return config_from_args(vars(parser.parse_args(args)))
 
 
-def logging_setup(filename):
+class PythonExceptionFilteringLoggingObserver(log.PythonLoggingObserver):
+
+    def emit(self, eventDict):
+        if not eventDict.get('isError') or 'failure' not in eventDict:
+            super(PythonExceptionFilteringLoggingObserver, self).emit(
+                eventDict)
+
+
+def logging_setup(filename, sentry_dsn):
     '''Sets up the logging system to output to stdout and filename,
     if filename is not None'''
 
@@ -121,7 +155,10 @@ def logging_setup(filename):
 
     if not os.environ.get('JUNEBUG_DISABLE_LOGGING'):
         # Send Twisted Logs to python logger
-        log.PythonLoggingObserver().start()
+        if sentry_dsn:
+            PythonExceptionFilteringLoggingObserver().start()
+        else:
+            log.PythonLoggingObserver().start()
 
         # Set up stdout logger
         logging.basicConfig(
@@ -135,6 +172,22 @@ def logging_setup(filename):
         logging.getLogger().addHandler(handler)
 
 
+def sentry_setup(sentry_dsn):
+    '''Sets up the exception logging to the provided DSN'''
+
+    if sentry_dsn:
+        client = Client(dsn=sentry_dsn, transport=TwistedHTTPTransport)
+
+        def logToSentry(event):
+            if not event.get('isError') or 'failure' not in event:
+                return
+
+            f = event['failure']
+            client.captureException((f.type, f.value, f.getTracebackObject()))
+
+        log.addObserver(logToSentry)
+
+
 @inlineCallbacks
 def start_server(config):
     '''Starts a new Junebug HTTP API server on the specified resource and
@@ -146,7 +199,8 @@ def start_server(config):
 
 def main():
     config = parse_arguments(sys.argv[1:])
-    logging_setup(config.logfile)
+    logging_setup(config.logfile, config.sentry_dsn)
+    sentry_setup(config.sentry_dsn)
     start_server(config)
     reactor.run()
 
@@ -157,6 +211,7 @@ def config_from_args(args):
     config['redis'] = parse_redis(config.get('redis', {}), args)
     config['amqp'] = parse_amqp(config.get('amqp', {}), args)
     parse_channels(args)
+    parse_routers(args)
     args['plugins'] = parse_plugins(config.get('plugins', []), args)
 
     combined = conjoin(config, args)
@@ -203,6 +258,18 @@ def parse_channels(args):
 
     if len(channels) > 0:
         args['channels'] = channels
+
+
+def parse_routers(args):
+    routers = {}
+    for router in args.get('routers', {}):
+        key, value = router.split(':')
+        routers[key] = value
+
+    # If there are command line arguments, use that to override the config file
+    # arguments
+    if len(routers) > 0:
+        args['routers'] = routers
 
 
 def parse_plugins(config, args):

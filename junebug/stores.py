@@ -1,6 +1,7 @@
+import json
 from math import ceil
 import time
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, gatherResults
 
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
@@ -62,6 +63,14 @@ class BaseStore(object):
         '''Returns the value stored at `id`.'''
         return self._redis_op(self.redis.get, id, ttl=ttl)
 
+    def get_set(self, id, ttl=USE_DEFAULT_TTL):
+        '''Returns all elements of the set stored at `id`.'''
+        return self._redis_op(self.redis.smembers, id, ttl=ttl)
+
+    def add_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Adds an item to a set'''
+        return self._redis_op(self.redis.sadd, id, value, ttl=ttl)
+
 
 class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
@@ -89,7 +98,7 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
-    PROPERTY_KEYS = ['event_url']
+    PROPERTY_KEYS = ['event_url', 'event_url_auth_token']
 
     def get_key(self, channel_id, message_id):
         return super(OutboundMessageStore, self).get_key(
@@ -100,10 +109,21 @@ class OutboundMessageStore(BaseStore):
         key = self.get_key(channel_id, message_id)
         return self.store_property(key, 'event_url', event_url)
 
+    def store_event_auth_token(self, channel_id, message_id, auth_token):
+        '''Stores the event_auth_token'''
+        key = self.get_key(channel_id, message_id)
+        return self.store_property(key, 'event_url_auth_token', auth_token)
+
     def load_event_url(self, channel_id, message_id):
         '''Retrieves a stored event url, given the channel and message ids'''
         key = self.get_key(channel_id, message_id)
         return self.load_property(key, 'event_url')
+
+    def load_event_auth_token(self, channel_id, message_id):
+        '''Retrieves a stored event auth token, given the channel and message
+        ids'''
+        key = self.get_key(channel_id, message_id)
+        return self.load_property(key, 'event_url_auth_token')
 
     def store_event(self, channel_id, message_id, event):
         '''Stores an event for a message'''
@@ -199,3 +219,19 @@ class MessageRateStore(BaseStore):
         if rate is None:
             returnValue(0)
         returnValue(float(rate) / bucket_size)
+
+
+class RouterStore(BaseStore):
+    '''Stores all configuration for routers'''
+
+    def get_router_list(self):
+        '''Returns a list of UUIDs for all the current router configurations'''
+        d = self.get_set('routers')
+        d.addCallback(sorted)
+        return d
+
+    def save_router(self, config):
+        '''Saves the configuration of a router'''
+        d1 = self.store_property(config['id'], 'config', json.dumps(config))
+        d2 = self.add_set_item('routers', config['id'])
+        return gatherResults([d1, d2])

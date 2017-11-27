@@ -1,3 +1,4 @@
+import collections
 import json
 
 from twisted.web import http
@@ -41,6 +42,7 @@ def api_from_message(msg):
     ret = {}
     ret['to'] = msg['to_addr']
     ret['from'] = msg['from_addr']
+    ret['group'] = msg['group']
     ret['message_id'] = msg['message_id']
     ret['channel_id'] = msg['transport_name']
     ret['timestamp'] = msg['timestamp']
@@ -62,6 +64,7 @@ def message_from_api(channel_id, msg):
     if 'reply_to' not in msg:
         ret['to_addr'] = msg.get('to')
         ret['from_addr'] = msg.get('from')
+        ret['group'] = msg.get('group')
 
     ret['content'] = msg['content']
     ret['transport_name'] = channel_id
@@ -141,3 +144,15 @@ def channel_public_http_properties(properties):
         return None
     else:
         return results
+
+
+def convert_unicode(data):
+    """Converts unicode to strings"""
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert_unicode, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert_unicode, data))
+    else:
+        return data

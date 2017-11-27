@@ -4,9 +4,11 @@ import logging
 import logging.handlers
 
 from twisted.python.logfile import LogFile
+from twisted.python.failure import Failure
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
+from twisted.internet.error import ConnectionDone
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -18,12 +20,14 @@ from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
 from vumi.transports import Transport
+from vumi.worker import BaseWorker
 
 import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
+from junebug.router import InvalidRouterConfig
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -119,10 +123,33 @@ class RequestLoggingApi(object):
         request.setResponseCode(500)
         return 'test-error-response'
 
+    @app.route('/auth/')
+    def auth_token(self, request):
+        headers = request.requestHeaders
+        self.requests.append({
+            'Authorization': headers.getRawHeaders('Authorization'),
+        })
+        request.setResponseCode(200)
+        return 'auth-response'
+
+    @app.route('/implode/')
+    def imploding_request(self, request):
+        request.transport.connectionLost(reason=Failure(ConnectionDone()))
+
 
 class LoggingTestTransport(Transport):
     def test_log(self, message='Test log'):
         self.log.msg(message, source=self)
+
+
+class TestRouter(BaseWorker):
+    """Router used for testing the API."""
+    # TODO: Create a proper base class for Junebug routers
+    @classmethod
+    def validate_config(cls, config):
+        """Testing config requires the ``test`` parameter to be ``pass``"""
+        if config.get('test') != 'pass':
+            raise InvalidRouterConfig('test must be pass')
 
 
 class JunebugTestBase(TestCase):
@@ -137,9 +164,18 @@ class JunebugTestBase(TestCase):
         'mo_url': 'http://foo.bar',
     }
 
+    default_router_properties = {
+        'type': 'testing',
+        'config': {
+            'test': 'pass',
+        },
+    }
+
     default_channel_config = {
         'ttl': 60,
-        'amqp': {},
+        'routers': {
+            'testing': 'junebug.tests.helpers.TestRouter',
+        }
     }
 
     def patch_logger(self):
@@ -177,6 +213,13 @@ class JunebugTestBase(TestCase):
         channel_config = self.persistencehelper.mk_config(config)
         channel_config['redis'] = channel_config['redis_manager']
         returnValue(JunebugConfig(channel_config))
+
+    def create_router_config(self, **kw):
+        properties = deepcopy(self.default_router_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
+        properties.update(kw)
+        return properties
 
     @inlineCallbacks
     def create_channel(

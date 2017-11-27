@@ -1,20 +1,24 @@
+from functools import partial
 from klein import Klein
-import logging
+
+from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+
+from twisted.internet import defer
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.utils import load_class_by_string
 
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
+from junebug.rabbitmq import RabbitmqManagementClient
+from junebug.router import Router
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
 from junebug.stores import (
-    InboundMessageStore, MessageRateStore, OutboundMessageStore)
-
-logging = logging.getLogger(__name__)
+    InboundMessageStore, MessageRateStore, OutboundMessageStore, RouterStore)
 
 
 class ApiUsageError(JunebugError):
@@ -55,6 +59,8 @@ class JunebugApi(object):
 
         self.message_rate = MessageRateStore(self.redis)
 
+        self.router_store = RouterStore(self.redis)
+
         self.plugins = []
         for plugin_config in self.config.plugins:
             cls = load_class_by_string(plugin_config['type'])
@@ -64,6 +70,12 @@ class JunebugApi(object):
 
         yield Channel.start_all_channels(
             self.redis, self.config, self.service, self.plugins)
+
+        if self.config.rabbitmq_management_interface:
+            self.rabbitmq_management_client = RabbitmqManagementClient(
+                self.config.rabbitmq_management_interface,
+                self.amqp_config['username'],
+                self.amqp_config['password'])
 
     @inlineCallbacks
     def teardown(self):
@@ -97,7 +109,7 @@ class JunebugApi(object):
 
     @app.handle_errors
     def generic_error(self, request, failure):
-        logging.exception(failure)
+        log.err(failure)
         return response(request, 'generic error', {
             'errors': [{
                 'type': failure.type.__name__,
@@ -124,6 +136,7 @@ class JunebugApi(object):
                 'metadata': {'type': 'object'},
                 'status_url': {'type': 'string'},
                 'mo_url': {'type': 'string'},
+                'mo_url_auth_token': {'type': 'string'},
                 'amqp_queue': {'type': 'string'},
                 'rate_limit_count': {
                     'type': 'integer',
@@ -152,7 +165,8 @@ class JunebugApi(object):
         yield channel.start(self.service)
         yield channel.save()
         returnValue(response(
-            request, 'channel created', (yield channel.status())))
+            request, 'channel created', (yield channel.status()),
+            code=http.CREATED))
 
     @app.route('/channels/<string:channel_id>', methods=['GET'])
     @inlineCallbacks
@@ -174,8 +188,8 @@ class JunebugApi(object):
                 'label': {'type': 'string'},
                 'config': {'type': 'object'},
                 'metadata': {'type': 'object'},
-                'status_url': {'type': 'string'},
-                'mo_url': {'type': 'string'},
+                'status_url': {'type': ['string', 'null']},
+                'mo_url': {'type': ['string', 'null']},
                 'rate_limit_count': {
                     'type': 'integer',
                     'minimum': 0,
@@ -241,9 +255,11 @@ class JunebugApi(object):
             'properties': {
                 'to': {'type': 'string'},
                 'from': {'type': ['string', 'null']},
+                'group': {'type': ['string', 'null']},
                 'reply_to': {'type': 'string'},
                 'content': {'type': ['string', 'null']},
                 'event_url': {'type': 'string'},
+                'event_auth_token': {'type': 'string'},
                 'priority': {'type': 'string'},
                 'channel_data': {'type': 'object'},
             },
@@ -257,28 +273,22 @@ class JunebugApi(object):
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
 
-        if 'to' in body and 'reply_to' in body:
-            raise ApiUsageError(
-                'Only one of "to" and "reply_to" may be specified')
-
-        if 'from' in body and 'reply_to' in body:
-            raise ApiUsageError(
-                'Only one of "from" and "reply_to" may be specified')
-
         channel = yield Channel.from_id(
             self.redis, self.config, channel_id, self.service, self.plugins)
 
-        if 'to' in body:
+        if 'reply_to' in body:
+            msg = yield channel.send_reply_message(
+                self.message_sender, self.outbounds, self.inbounds, body,
+                allow_expired_replies=self.config.allow_expired_replies)
+        else:
             msg = yield channel.send_message(
                 self.message_sender, self.outbounds, body)
-        else:
-            msg = yield channel.send_reply_message(
-                self.message_sender, self.outbounds, self.inbounds, body)
 
         yield self.message_rate.increment(
             channel_id, 'outbound', self.config.metric_window)
 
-        returnValue(response(request, 'message sent', msg))
+        returnValue(response(
+            request, 'message submitted', msg, code=http.CREATED))
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
@@ -302,6 +312,91 @@ class JunebugApi(object):
             'events': events,
         }))
 
+    @app.route('/routers/', methods=['GET'])
+    def get_router_list(self, request):
+        """List all routers"""
+        d = Router.get_all(self.router_store)
+        d.addCallback(partial(response, request, 'routers retrieved'))
+        return d
+
+    @app.route('/routers/', methods=['POST'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'config'],
+        }))
+    @inlineCallbacks
+    def create_router(self, request, body):
+        """Create a new router"""
+        router = Router(self.router_store, self.config, body)
+        yield router.validate_config()
+        router.start(self.service)
+        yield router.save()
+        returnValue(response(
+            request,
+            'router created',
+            (yield router.status()),
+            code=http.CREATED
+        ))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
-        return response(request, 'health ok', {})
+        if self.config.rabbitmq_management_interface:
+
+            def get_queues(channel_ids):
+
+                gets = []
+
+                for channel_id in channel_ids:
+                    for sub in ['inbound', 'outbound', 'event']:
+                        queue_name = "%s.%s" % (channel_id, sub)
+
+                        get = self.rabbitmq_management_client.get_queue(
+                            self.amqp_config['vhost'], queue_name)
+                        gets.append(get)
+
+                return gets
+
+            def return_queue_results(results):
+                queues = []
+                stuck = False
+
+                for result in results:
+                    queue = result[1]
+
+                    if ('messages' in queue):
+                        details = {
+                            'name': queue['name'],
+                            'stuck': False,
+                            'messages': queue.get('messages'),
+                            'rate': queue['messages_details']['rate']
+                        }
+                        if (details['messages'] > 0 and details['rate'] == 0):
+                            stuck = True
+                            details['stuck'] = True
+
+                        queues.append(details)
+
+                status = 'queues ok'
+                code = http.OK
+                if stuck:
+                    status = "queues stuck"
+                    code = http.INTERNAL_SERVER_ERROR
+
+                return response(request, status, queues, code=code)
+
+            d = Channel.get_all(self.redis)
+            d.addCallback(get_queues)
+            d.addCallback(defer.DeferredList)
+            d.addCallback(return_queue_results)
+            return d
+        else:
+            return response(request, 'health ok', {})

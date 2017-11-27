@@ -6,6 +6,9 @@ Design
 An HTTP API for managing text-based messaging channels such as SMS,
 USSD, XMPP, Twitter, IRC.
 
+Any design goals marked in italics are goals that are not yet implemented in
+the code base.
+
 
 Features
 --------
@@ -45,33 +48,33 @@ Outbound message sending
   fail.
 * Does not handle routing. Channel to send to is specified when making
   the HTTP API request.
-* Configurable rate-limiting on each connection.
+* *Configurable rate-limiting on each connection.*
 * Queues for each connection.
-* Multiple priority levels supported for each connection. We need at
-  least two priority levels: "bulk" and "realtime".
+* *Multiple priority levels supported for each connection. We need at
+  least two priority levels: "bulk" and "realtime".*
 
 Delivery and status reports for outbound messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Can specify an HTTP URL with each outgoing request, as the callback
   for delivery status reports for that message.
-* Callback URL supports template variables (like Kannel does).
+* *Callback URL supports template variables (like Kannel does).*
 
 Channel creation and management
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * CRUD operations on channels.
 * Possible to list channels.
-* Possible to query the queue length.
+* *Possible to query the queue length.*
 * Possible to query the message sending, delivery and failure rates.
-* Possible to cancel the sending of all queued messages.
+* *Possible to cancel the sending of all queued messages.*
 
 Inbound messages
 ^^^^^^^^^^^^^^^^
 
-* Able to specify a URL, per channel, that is called with configurable
-  (substituted) parameters.
-* Retries delivery on failures (not for version 1.0).
+* Able to specify a URL, per channel
+* *Inbound message URL supports configurable (substituted) parameters.*
+* *Retries delivery on failures*
 
 
 Logging
@@ -81,7 +84,8 @@ Accessing detailed log messages is a vital requirement for debugging
 issues with connections to third parties.
 
 * Be able to access PDUs or similar detailed channel message logs for recent messages.
-* Logs should be retrieval by associated message or channel id.
+* Logs should be retrievable by associated channel id.
+* *Logs should be retrievable by associated message id.*
 
 
 Relevant prior works
