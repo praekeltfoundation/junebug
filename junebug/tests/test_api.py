@@ -950,7 +950,7 @@ class TestJunebugApi(JunebugTestBase):
 
             yield self.assertEqual(async_failures, [])
             yield self.assert_response(
-                resp, http.OK, 'channels ok', [
+                resp, http.OK, 'queues ok', [
                     {
                         'messages': 1256,
                         'name': '%s.inbound' % (channel.id),
@@ -1002,7 +1002,7 @@ class TestJunebugApi(JunebugTestBase):
 
             yield self.assertEqual(async_failures, [])
             yield self.assert_response(
-                resp, http.INTERNAL_SERVER_ERROR, 'channels stuck', [
+                resp, http.INTERNAL_SERVER_ERROR, 'queues stuck', [
                     {
                         'messages': 1256,
                         'name': '%s.inbound' % (channel.id),

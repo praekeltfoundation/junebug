@@ -71,6 +71,12 @@ class JunebugApi(object):
         yield Channel.start_all_channels(
             self.redis, self.config, self.service, self.plugins)
 
+        if self.config.rabbitmq_management_interface:
+            self.rabbitmq_management_client = RabbitmqManagementClient(
+                self.config.rabbitmq_management_interface,
+                self.amqp_config['username'],
+                self.amqp_config['password'])
+
     @inlineCallbacks
     def teardown(self):
         yield self.redis.close_manager()
@@ -344,10 +350,6 @@ class JunebugApi(object):
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
-            rabbitmq_management_client = RabbitmqManagementClient(
-                self.config.rabbitmq_management_interface,
-                self.amqp_config['username'],
-                self.amqp_config['password'])
 
             def get_queues(channel_ids):
 
@@ -357,7 +359,7 @@ class JunebugApi(object):
                     for sub in ['inbound', 'outbound', 'event']:
                         queue_name = "%s.%s" % (channel_id, sub)
 
-                        get = rabbitmq_management_client.get_queue(
+                        get = self.rabbitmq_management_client.get_queue(
                             self.amqp_config['vhost'], queue_name)
                         gets.append(get)
 
@@ -383,10 +385,10 @@ class JunebugApi(object):
 
                         queues.append(details)
 
-                status = 'channels ok'
+                status = 'queues ok'
                 code = http.OK
                 if stuck:
-                    status = "channels stuck"
+                    status = "queues stuck"
                     code = http.INTERNAL_SERVER_ERROR
 
                 return response(request, status, queues, code=code)
