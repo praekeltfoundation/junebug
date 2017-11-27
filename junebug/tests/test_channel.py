@@ -511,28 +511,6 @@ class TestChannel(JunebugTestBase):
         self.assertTrue(channel2.id in self.service.namedServices)
 
     @inlineCallbacks
-    def test_convert_unicode(self):
-        channel = yield self.create_channel(
-            self.service, self.redis, id='channel-id')
-        resp = channel._convert_unicode({
-            u'both': u'unicode',
-            u'key': 'unicode',
-            'value': u'unicode',
-            'nested': {
-                u'unicode': u'nested'
-                },
-            })
-        for key, value in resp.iteritems():
-            self.assertTrue(isinstance(key, str))
-            if not isinstance(value, dict):
-                self.assertTrue(isinstance(value, str))
-        for key, value in resp['nested'].iteritems():
-            self.assertTrue(isinstance(key, str))
-            self.assertTrue(isinstance(value, str))
-
-        self.assertTrue(isinstance(channel._convert_unicode(1), int))
-
-    @inlineCallbacks
     def test_send_message(self):
         '''The send_message function should place the message on the correct
         queue'''
@@ -569,6 +547,26 @@ class TestChannel(JunebugTestBase):
             'channel-id', msg['message_id'])
 
         self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_send_message_with_event_auth_token(self):
+        '''Sending a message with a specified event_auth_token should store the
+        token for sending events in the future'''
+        channel = yield self.create_channel(
+            self.service, self.redis, id='channel-id')
+
+        msg = yield channel.send_message(
+            self.message_sender, self.outbounds, {
+                'from': '+1234',
+                'content': 'testcontent',
+                'event_url': 'http://test.org',
+                'event_auth_token': "the-auth-token",
+            })
+
+        event_auth_token = yield self.outbounds.load_event_auth_token(
+            'channel-id', msg['message_id'])
+
+        self.assertEqual(event_auth_token, "the-auth-token")
 
     @inlineCallbacks
     def test_send_reply_message(self):
@@ -644,6 +642,35 @@ class TestChannel(JunebugTestBase):
             'channel-id', msg['message_id'])
 
         self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_send_reply_message_with_event_auth_token(self):
+        '''Sending a message with a specified event auth token should store the
+        token for sending events in the future'''
+        channel = yield self.create_channel(
+            self.service, self.redis, id='channel-id')
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='channel-id',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message('channel-id', in_msg)
+
+        msg = yield channel.send_reply_message(
+            self.message_sender, self.outbounds, self.inbounds, {
+                'reply_to': in_msg['message_id'],
+                'content': 'testcontent',
+                'event_url': 'http://test.org',
+                'event_auth_token': "the-auth-token",
+            })
+
+        event_auth_token = yield self.outbounds.load_event_auth_token(
+            'channel-id', msg['message_id'])
+
+        self.assertEqual(event_auth_token, "the-auth-token")
 
     @inlineCallbacks
     def test_channel_status_inbound_message_rates(self):

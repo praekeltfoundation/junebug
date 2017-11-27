@@ -233,6 +233,49 @@ class TestMessageForwardingWorker(JunebugTestBase):
         yield self.assert_event_stored(event)
 
     @inlineCallbacks
+    def test_forward_ack_http_with_token_auth(self):
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.outbounds.store_event_url(
+            self.worker.channel_id, 'msg-21', self.url + '/auth/')
+        yield self.worker.outbounds.store_event_auth_token(
+            self.worker.channel_id, 'msg-21', "the-auth-token"
+        )
+
+        yield self.worker.consume_ack(event)
+        [req] = self.logging_api.requests
+
+        self.assertEqual(req, {
+            'Authorization': ['Token the-auth-token']
+        })
+        yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_ack_http_with_basic_auth(self):
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        # Inject the auth parameters
+        url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
+        yield self.worker.outbounds.store_event_url(
+            self.worker.channel_id, 'msg-21', url)
+
+        yield self.worker.consume_ack(event)
+        [req] = self.logging_api.requests
+
+        self.assertEqual(req, {
+            'Authorization': ['Basic %s' % (b64encode('foo:bar'),)]
+        })
+        yield self.assert_event_stored(event)
+
+    @inlineCallbacks
     def test_forward_ack_amqp(self):
         '''A sent ack event should be forwarded to the correct AMQP queue if
         the config option is set.'''

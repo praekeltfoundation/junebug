@@ -90,8 +90,7 @@ class TestSentryLogObserver(JunebugTestBase):
         '''Logging an warning level log should generate the correct level log
         message'''
         self.obs({
-            'message': ["a"], 'system': 'foo', 'logLevel': logging.WARN,
-            'system': 'worker-1'})
+            'message': ["a"], 'system': 'worker-1', 'logLevel': logging.WARN})
         [log] = self.logfile.logs
         self.assert_log(log, {
             'level': logging.WARN,

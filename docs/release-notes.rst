@@ -1,22 +1,228 @@
-.. _release-notes
+.. _release-notes:
 
 Release Notes
 =============
+
+v0.1.27
+-------
+
+.. Pull requests 138, 141
+
+*27 November 2017*
+
+- Features
+    - Added a config option for RabbitMQ Management Interface to see status of
+      each queue with the health check.
+
+- Fixes
+    - Change created API endpoint statuses to 201 to match documentation
+
+- Documentation
+    - Use older version of docutils in documentation build, since txJSON-RPC
+      does not work with the newer version.
+    - Create minimal sphinx argparse implementation to use until official
+      sphinx-argparse is made to work with readthedocs again
+    - Bring release notes up to date
+    - Update design notes to mark what has been implemented and what is yet to
+      be implemented
+    - Bring getting started section up to date with what the current API
+      actually returns
+    - Adding section in getting started to show getting the related events for
+      a message
+    - Update HTTP API documentation to what the API actually looks like
+    - Update Readme to give more information to someone who wants to work on
+      the project.
+
+v0.1.26
+-------
+
+.. Pull requests 137
+
+*07 September 2017*
+
+- Fixes
+    - Also catch RequestTransmissionFailed for HTTP requests. This should fix
+      the issue where messages or events would stop being processed in the case
+      of an HTTP error
+
+v0.1.25
+-------
+
+.. Pull requests 136
+
+*28 August 2017*
+
+- Features
+    - Update to vumi 0.6.18
+
+v0.1.24
+-------
+
+.. Pull requests 134
+
+*31 July 2017*
+
+- Features
+    - Allow event auth token to be specified when sending a message
+
+- Documentation
+    - Add documentation mentioning specifying an auth token for the mo_url and
+      for the event URL
+
+
+v0.1.23
+-------
+
+.. Pull requests 135
+
+*28 July 2017*
+
+- Features
+    - Allow specifying all of to, from, and reply to when sending a message,
+      defaulting to using reply_to if specified.
+    - If allow_expired_replies is specified in the configuration, then if to,
+      from, and reply_to is specified, and reply_to does not resolve to a valid
+      message in the message store, then we will fall back to to and from for
+      creating the message.
+
+v0.1.22
+-------
+
+.. Pull requests 132
+
+*24 July 2017*
+
+- Features
+    - Allow token and basic auth for sending of event messages
+
+
+v0.1.21
+-------
+
+.. Pull requests: None
+
+*21 July 2017*
+
+- Features
+    - Upgrade to vumi 0.6.17
+
+
+v0.1.20
+-------
+
+.. Pull requests 133
+
+*18 July 2017*
+
+- Fixes
+    - Allow any 6.x.x version for Raven (Sentry)
+
+
+v0.1.19
+-------
+
+.. Pull requests 119, 130, 131
+
+*17 July 2017*
+
+- Features
+    - Expose 'group' attribute from vumi message in message payload
+
+- Documentation
+    - Add newline in cli reference so that documentation renders correctly
+    - Fix example response for message creation
+    - Update documentation for reply_to change
+
+
+v0.1.18
+-------
+
+.. Pull requests 127
+
+*12 July 2017*
+
+- Fixes
+    - Change to setup.py to allow Junebug to be installable on python 3
+
+v0.1.17
+-------
+
+.. Pull requests 128, 129
+
+*10 July 2017*
+
+- Features
+    - Display more information on HTTP failure when logging failure
+    - Allow an auth token to be specified for inbound (mobile originated)
+      messages being sent over HTTP
+- Fixes
+    - Also catch CancelledError for HTTP timeouts
+
+
+v0.1.16
+-------
+
+.. Pull requests 126
+
+*7 June 2017*
+
+- Features
+    - Upgrade to pypy 5.7.1
+    - Add ability to log exceptions to Sentry
+
+
+v0.1.15
+-------
+
+.. Pull requests: None
+
+*29 May 2017*
+
+- Features
+    - Upgrade vumi to 0.6.16
+
+v0.1.14
+-------
+
+.. Pull requests: None
+
+*31 March 2017*
+
+- Fixes
+    - Fix tests for new Twisted error output
+
+v0.1.13
+-------
+
+Skipped
+
+
+v0.1.12
+-------
+
+.. Pull requests 119
+
+*31 March 2017*
+
+- Features
+    - Upgrade vumi to 0.6.14
 
 v0.1.11
 -------
 
 .. Pull requests 118
 
+*10 February 2017*
+
 - Fixes
     - Trap ConnectionRefusedError that can happen when trying to relay
       a message to an event_url of mo_url.
 
-- Fixes
-
 v0.1.10
 -------
 .. Pull requests 114
+
+*06 February 2017*
 
 - Fixes
     - Make Junebug gracefully handle timeouts and connection failure for
@@ -25,6 +231,8 @@ v0.1.10
 v0.1.9
 ------
 .. Pull requests 91
+
+*02 February 2017*
 
 - Fixes
     - Allow one to set the ``status_url`` and the ``mo_url`` for a channel to

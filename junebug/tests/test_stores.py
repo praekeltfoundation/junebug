@@ -1,9 +1,10 @@
+import json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
 
 from junebug.stores import (
     BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore,
-    MessageRateStore)
+    MessageRateStore, RouterStore)
 from junebug.tests.helpers import JunebugTestBase
 
 
@@ -134,6 +135,22 @@ class TestBaseStore(JunebugTestBase):
         yield store.get_id('testid3', ttl=None)
         self.assertEqual((yield self.redis.ttl('testid3')), None)
 
+    @inlineCallbacks
+    def test_get_set(self):
+        '''get_set returns the set of values stored at the specified id'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_set('testid')), set())
+
+        yield self.redis.sadd('testid', 'item1')
+        self.assertEqual((yield store.get_set('testid')), set(('item1',)))
+
+        yield self.redis.sadd('testid', 'item2')
+        self.assertEqual(
+            (yield store.get_set('testid')),
+            set(('item1', 'item2'))
+        )
+
 
 class TestInboundMessageStore(JunebugTestBase):
     @inlineCallbacks
@@ -192,6 +209,16 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_store_event_auth_token(self):
+        '''Stores the event auth token under the message ID'''
+        store = yield self.create_store()
+        yield store.store_event_auth_token(
+            'channel_id', 'messageid', "the-auth-token")
+        event_auth_token = yield self.redis.hget(
+            'channel_id:outbound_messages:messageid', 'event_url_auth_token')
+        self.assertEqual(event_auth_token, "the-auth-token")
+
+    @inlineCallbacks
     def test_load_event_url(self):
         '''Returns a vumi message from the stored json'''
         store = yield self.create_store()
@@ -205,10 +232,30 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(event_url, 'http://test.org')
 
     @inlineCallbacks
+    def test_load_event_auth_token(self):
+        '''Returns the event auth token under the message ID'''
+        store = yield self.create_store()
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        yield self.redis.hset(
+            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
+            'event_url_auth_token', "the-auth-token")
+
+        event_auth_token = yield store.load_event_auth_token(
+            'channel_id', vumi_msg.get('message_id'))
+        self.assertEqual(event_auth_token, "the-auth-token")
+
+    @inlineCallbacks
     def test_load_event_url_not_exist(self):
         '''`None` should be returned if the message cannot be found'''
         store = yield self.create_store()
         self.assertEqual((yield store.load_event_url(
+            'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_load_event_auth_token_not_exist(self):
+        '''`None` should be returned if the event auth token cannot be found'''
+        store = yield self.create_store()
+        self.assertEqual((yield store.load_event_auth_token(
             'bad-channel', 'bad-id')), None)
 
     @inlineCallbacks
@@ -464,3 +511,43 @@ class TestMessageRateStore(JunebugTestBase):
         self.assertEqual((yield self.redis.get(bucket0)), None)
         self.assertEqual((yield self.redis.get(bucket1)), '1')
         self.assertEqual((yield self.redis.get(bucket2)), '1')
+
+
+class TestRouterStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self):
+        redis = yield self.get_redis()
+        store = RouterStore(redis)
+        returnValue(store)
+
+    @inlineCallbacks
+    def test_get_router_list(self):
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_router_list()), [])
+
+        yield self.redis.sadd(
+            'routers', '64f78582-8e83-40c9-be23-cc93d54e9dcd')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd'])
+
+        yield self.redis.sadd(
+            'routers', 'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd',
+             'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8'])
+
+    @inlineCallbacks
+    def test_save_router(self):
+        """save_router should save the router config at the router's uuid and
+        add the uuid to the router list"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield store.save_router(config)
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set(['test-uuid']))
+        self.assertEqual(
+            (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))

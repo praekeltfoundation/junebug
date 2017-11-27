@@ -3,7 +3,7 @@
 Installation
 ============
 
-Junebug requires `Python`_ (version 2.6 or 2.7) to be installed. This
+Junebug requires `Python`_ (version 2.7) to be installed. This
 installation method also requires `pip`_. Both of these must be installed before
 following the installation steps below.
 
