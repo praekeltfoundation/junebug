@@ -776,12 +776,23 @@ Returns:
    HTTP status string.
 :param str description:
    Description of result
-        - ``"queues ok"``: Everything is healthy.
-        - ``"queues stuck"``: There are queues stuck.
+        - ``"health ok"``: Everything is healthy and ``rabbitmq_management_interface`` is not set.
+        - ``"queues ok"``: Everything is healthy and ``rabbitmq_management_interface`` is set.
+        - ``"queues stuck"``: There are queues stuck and ``rabbitmq_management_interface`` is set.
 :param dict result:
-   A list of queues with details.
+   A list of queues with details (Only if ``rabbitmq_management_interface`` is set).
 
-**Response Example**:
+**Response Example without ``rabbitmq_management_interface``**:
+
+.. sourcecode:: json
+
+  {
+    "status": 200,
+    "code": "OK",
+    "description": "health ok"
+  }
+
+**Response Example with ``rabbitmq_management_interface``**:
 
 .. sourcecode:: json
 
