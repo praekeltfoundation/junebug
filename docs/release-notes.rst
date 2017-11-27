@@ -6,9 +6,13 @@ Release Notes
 v0.1.27 (Not yet released)
 --------------------------
 
-.. Pull requests 138
+.. Pull requests 138, 141
 
 *16 November 2017*
+
+- Features
+    - Added a config option for RabbitMQ Management Interface to see status of
+      each queue with the health check.
 
 - Fixes
     - Change created API endpoint statuses to 201 to match documentation

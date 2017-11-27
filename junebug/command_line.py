@@ -123,6 +123,12 @@ def create_parser():
         '--max-logs', '-ml', type=int,
         dest='max_logs', help='the maximum number of log entries to '
         'to allow to be fetched through the API. Defaults to 100.')
+    parser.add_argument(
+        '--rabbitmq-management-interface', '-rmi',
+        dest='rabbitmq_management_interface', type=str,
+        help='This should be the url string of the rabbitmq management '
+        'interface. If set, the health of each individual queue will be '
+        'checked. This is only available for RabbitMQ')
 
     return parser
 

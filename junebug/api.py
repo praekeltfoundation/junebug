@@ -1,15 +1,19 @@
 from functools import partial
 from klein import Klein
+
 from twisted.python import log
 from werkzeug.exceptions import HTTPException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import http
+
+from twisted.internet import defer
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.utils import load_class_by_string
 
 from junebug.amqp import MessageSender
 from junebug.channel import Channel
 from junebug.error import JunebugError
+from junebug.rabbitmq import RabbitmqManagementClient
 from junebug.router import Router
 from junebug.utils import api_from_event, json_body, response
 from junebug.validate import body_schema, validate
@@ -66,6 +70,12 @@ class JunebugApi(object):
 
         yield Channel.start_all_channels(
             self.redis, self.config, self.service, self.plugins)
+
+        if self.config.rabbitmq_management_interface:
+            self.rabbitmq_management_client = RabbitmqManagementClient(
+                self.config.rabbitmq_management_interface,
+                self.amqp_config['username'],
+                self.amqp_config['password'])
 
     @inlineCallbacks
     def teardown(self):
@@ -339,4 +349,54 @@ class JunebugApi(object):
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
-        return response(request, 'health ok', {})
+        if self.config.rabbitmq_management_interface:
+
+            def get_queues(channel_ids):
+
+                gets = []
+
+                for channel_id in channel_ids:
+                    for sub in ['inbound', 'outbound', 'event']:
+                        queue_name = "%s.%s" % (channel_id, sub)
+
+                        get = self.rabbitmq_management_client.get_queue(
+                            self.amqp_config['vhost'], queue_name)
+                        gets.append(get)
+
+                return gets
+
+            def return_queue_results(results):
+                queues = []
+                stuck = False
+
+                for result in results:
+                    queue = result[1]
+
+                    if ('messages' in queue):
+                        details = {
+                            'name': queue['name'],
+                            'stuck': False,
+                            'messages': queue.get('messages'),
+                            'rate': queue['messages_details']['rate']
+                        }
+                        if (details['messages'] > 0 and details['rate'] == 0):
+                            stuck = True
+                            details['stuck'] = True
+
+                        queues.append(details)
+
+                status = 'queues ok'
+                code = http.OK
+                if stuck:
+                    status = "queues stuck"
+                    code = http.INTERNAL_SERVER_ERROR
+
+                return response(request, status, queues, code=code)
+
+            d = Channel.get_all(self.redis)
+            d.addCallback(get_queues)
+            d.addCallback(defer.DeferredList)
+            d.addCallback(return_queue_results)
+            return d
+        else:
+            return response(request, 'health ok', {})

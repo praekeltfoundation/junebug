@@ -94,3 +94,9 @@ class JunebugConfig(Config):
     max_logs = ConfigInt(
         "The maximum amount of logs that is allowed to be retrieved via the "
         "API.", default=100)
+
+    rabbitmq_management_interface = ConfigText(
+        "This should be the url string of the rabbitmq management interface."
+        "If set, the health of each individual queue will be checked. "
+        "This is only available for RabbitMQ",
+        default=None)

@@ -173,7 +173,6 @@ class JunebugTestBase(TestCase):
 
     default_channel_config = {
         'ttl': 60,
-        'amqp': {},
         'routers': {
             'testing': 'junebug.tests.helpers.TestRouter',
         }

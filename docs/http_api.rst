@@ -396,7 +396,7 @@ Routers
        Description of result (``"router created"`` on success).
    :param dict result:
        The router created.
-   
+
    **Example request**:
 
    .. sourcecode:: json
@@ -752,3 +752,66 @@ A status event can be categorised under one of the following levels:
     throttled.
   - ``down``: The component is not operational as a result of the issue
     described by the event.
+
+.. _health:
+
+Health
+------
+
+.. http:get:: /health/
+
+Provides HTTP GET access to test or verify the health of the system.
+
+If the ``rabbitmq_management_interface`` config item is set it will also
+query the RabbitMQ Management interface to check the health of each queue.
+This is only available for RabbitMQ.
+
+Returns:
+
+:param int status:
+   HTTP status code.
+        - ``200``: Everything is healthy.
+        - ``500``: There are queues stuck.
+:param str code:
+   HTTP status string.
+:param str description:
+   Description of result
+        - ``"health ok"``: Everything is healthy and ``rabbitmq_management_interface`` is not set.
+        - ``"queues ok"``: Everything is healthy and ``rabbitmq_management_interface`` is set.
+        - ``"queues stuck"``: There are queues stuck and ``rabbitmq_management_interface`` is set.
+:param dict result:
+   A list of queues with details (Only if ``rabbitmq_management_interface`` is set).
+
+**Response Example without ``rabbitmq_management_interface``**:
+
+.. sourcecode:: json
+
+  {
+    "status": 200,
+    "code": "OK",
+    "description": "health ok"
+  }
+
+**Response Example with ``rabbitmq_management_interface``**:
+
+.. sourcecode:: json
+
+  {
+    "status": 200,
+    "code": "OK",
+    "description": "queues ok",
+    "result": [
+        {
+            "stuck": false,
+            "rate": 1.3,
+            "messages": 4583,
+            "name": "b4fda175-011f-40bd-91da-5c88789e1e2a.inbound"
+        },
+        {
+            "stuck": false,
+            "rate": 1.6,
+            "messages": 43,
+            "name": "b4fda175-011f-40bd-91da-5c88789e1e2a.outbound"
+        }
+    ]
+  }
