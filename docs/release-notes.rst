@@ -3,12 +3,12 @@
 Release Notes
 =============
 
-v0.1.27 (Not yet released)
---------------------------
+v0.1.27
+-------
 
 .. Pull requests 138, 141
 
-*16 November 2017*
+*27 November 2017*
 
 - Features
     - Added a config option for RabbitMQ Management Interface to see status of
