@@ -14,13 +14,14 @@ class TestJunebugApi(TestCase):
     @inlineCallbacks
     def test_get_channels_health_check(self):
 
-        url = b'http://rabbitmq:15672/api/queues/%2F/our_fancy_queue.inbound'
+        url = b'http://rabbitmq:15672/api/queues/%2F/queue-1234-1234.inbound'
 
         async_failures = []
         sequence_stubs = RequestSequence(
             [((b'get', url, mock.ANY, mock.ANY, mock.ANY),
              (http.OK, {b'Content-Type': b'application/json'},
-              b'{"messages": 1256}'))], async_failures.append)  # noqa
+              b'{"messages": 1256, "messages_details": {"rate": 1.25}, "name": "queue-1234-1234.inbound"}'))],  # noqa
+            async_failures.append)
         stub_treq = StubTreq(StringStubbingResource(sequence_stubs))
 
         def new_get(*args, **kwargs):
@@ -32,6 +33,9 @@ class TestJunebugApi(TestCase):
         with (mock.patch('treq.client.HTTPClient.get', side_effect=new_get)):
             with sequence_stubs.consume(self.fail):
                 response = yield rabbitmq_management_client.get_queue(
-                    "/", "our_fancy_queue.inbound")
+                    "/", "queue-1234-1234.inbound")
 
-                yield self.assertEqual(response, {'messages': 1256})
+                yield self.assertEqual(response, {
+                    "messages": 1256,
+                    "messages_details": {"rate": 1.25},
+                    "name": "queue-1234-1234.inbound"})
