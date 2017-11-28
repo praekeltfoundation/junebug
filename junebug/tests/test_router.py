@@ -143,3 +143,26 @@ class TestRouter(JunebugTestBase):
             yield Router.from_id(
                 self.api.router_store, self.api.config, self.api.service,
                 'bad-router-id')
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Removes the router config from the store"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        yield router.save()
+        self.assertEqual(
+            (yield self.api.router_store.get_router_list()),
+            [router.router_config['id']])
+
+        yield router.delete()
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+    @inlineCallbacks
+    def test_delete_router_not_in_store(self):
+        """Removing a non-existing router should not result in an error"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+        yield router.delete()
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])

@@ -67,6 +67,12 @@ class Router(object):
         """
         return self.router_store.save_router(self.router_config)
 
+    def delete(self):
+        """
+        Removes the router data from the router store
+        """
+        return self.router_store.delete_router(self.id)
+
     @property
     def _available_router_types(self):
         if self.junebug_config.replace_routers:
