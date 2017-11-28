@@ -245,6 +245,7 @@ class RouterStore(BaseStore):
     '''Stores all configuration for routers'''
 
     def get_router_key(self, router_id):
+        """Gets the key for a router with id ``router_id``"""
         return self.get_key('routers', router_id)
 
     def get_router_list(self):
@@ -273,6 +274,7 @@ class RouterStore(BaseStore):
         return d
 
     def delete_router(self, router_id):
+        """Removes the configuration of the router with id ``router_id``"""
         d1 = self.remove_value(self.get_router_key(router_id))
         d2 = self.remove_set_item('routers', router_id)
         return gatherResults([d1, d2])
