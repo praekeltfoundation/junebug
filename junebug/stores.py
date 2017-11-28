@@ -79,6 +79,18 @@ class BaseStore(object):
         '''Removes the item `value` from the set at `id`'''
         return self._redis_op(self.redis.srem, id, value, ttl=ttl)
 
+    def store_value(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Stores `value` at `id`'''
+        return self._redis_op(self.redis.set, id, value, ttl=ttl)
+
+    def load_value(self, id, ttl=USE_DEFAULT_TTL):
+        '''Gets the value stored at `id`'''
+        return self._redis_op(self.redis.get, id, ttl=ttl)
+
+    def remove_value(self, id, ttl=USE_DEFAULT_TTL):
+        '''Deletes the value stored at `id`'''
+        return self._redis_op(self.redis.delete, id, ttl=ttl)
+
 
 class InboundMessageStore(BaseStore):
     '''Stores the entire inbound message, in order to later construct
@@ -232,6 +244,9 @@ class MessageRateStore(BaseStore):
 class RouterStore(BaseStore):
     '''Stores all configuration for routers'''
 
+    def get_router_key(self, router_id):
+        return self.get_key('routers', router_id)
+
     def get_router_list(self):
         '''Returns a list of UUIDs for all the current router configurations'''
         d = self.get_set('routers')
@@ -240,7 +255,8 @@ class RouterStore(BaseStore):
 
     def save_router(self, config):
         '''Saves the configuration of a router'''
-        d1 = self.store_property(config['id'], 'config', json.dumps(config))
+        d1 = self.store_value(
+            self.get_router_key(config['id']), json.dumps(config))
         d2 = self.add_set_item('routers', config['id'])
         return gatherResults([d1, d2])
 
@@ -251,12 +267,12 @@ class RouterStore(BaseStore):
 
     def get_router_config(self, router_id):
         """Gets the configuration of a router with the id ``router_id``"""
-        d = self.load_property(router_id, 'config')
+        d = self.load_value(self.get_router_key(router_id))
         d.addCallback(json.loads)
         d.addErrback(self._handle_read_router_error)
         return d
 
     def delete_router(self, router_id):
-        d1 = self.remove_property(router_id, 'config')
+        d1 = self.remove_value(self.get_router_key(router_id))
         d2 = self.remove_set_item('routers', router_id)
         return gatherResults([d1, d2])

@@ -186,6 +186,42 @@ class TestBaseStore(JunebugTestBase):
         self.assertEqual(
             (yield self.redis.smembers('testid')), set(('item2',)))
 
+    @inlineCallbacks
+    def test_store_value(self):
+        '''stores the given value at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield store.store_value('testid', 'testvalue')
+
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_load_value(self):
+        '''loads the value stored at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.load_value('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+
+        self.assertEqual((yield store.load_value('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_remove_value(self):
+        '''removes the value stored at the given key'''
+        store = yield self.create_store()
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
+
 
 class TestInboundMessageStore(JunebugTestBase):
     @inlineCallbacks
@@ -585,7 +621,7 @@ class TestRouterStore(JunebugTestBase):
         self.assertEqual(
             (yield self.redis.smembers('routers')), set(['test-uuid']))
         self.assertEqual(
-            (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
 
     @inlineCallbacks
     def test_get_router_config(self):
@@ -594,7 +630,7 @@ class TestRouterStore(JunebugTestBase):
         store = yield self.create_store()
 
         config = self.create_router_config(id='test-uuid')
-        yield self.redis.hset('test-uuid', 'config', json.dumps(config))
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
 
         value = yield store.get_router_config('test-uuid')
         self.assertEqual(value, config)
@@ -614,15 +650,15 @@ class TestRouterStore(JunebugTestBase):
 
         config = self.create_router_config(id='test-uuid')
         yield self.redis.sadd('routers', 'test-uuid')
-        yield self.redis.hset('test-uuid', 'config', json.dumps(config))
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
         self.assertEqual(
             (yield self.redis.smembers('routers')), set(['test-uuid']))
         self.assertEqual(
-            (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
 
         yield store.delete_router('test-uuid')
 
         self.assertEqual(
             (yield self.redis.smembers('routers')), set())
         self.assertEqual(
-            (yield self.redis.hget('test-uuid', 'config')), None)
+            (yield self.redis.get('routers:test-uuid')), None)
