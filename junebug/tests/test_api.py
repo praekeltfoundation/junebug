@@ -1234,3 +1234,27 @@ class TestJunebugApi(JunebugTestBase):
 
         routers = yield self.api.router_store.get_router_list()
         self.assertEqual(routers, [(yield resp.json())['result']['id']])
+
+    @inlineCallbacks
+    def test_get_router(self):
+        """The get router endpoint should return the config and status of the
+        specified router"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+
+        router_id = (yield resp.json())['result']['id']
+        resp = yield self.get('/routers/{}'.format(router_id))
+        self.assert_response(
+            resp, http.OK, 'router found', config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_get_non_existing_router(self):
+        """If a router for the given ID does not exist, then a not found error
+        should be returned"""
+        resp = yield self.get('/routers/bad-router-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })

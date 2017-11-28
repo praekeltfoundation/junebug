@@ -551,3 +551,23 @@ class TestRouterStore(JunebugTestBase):
             (yield self.redis.smembers('routers')), set(['test-uuid']))
         self.assertEqual(
             (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))
+
+    @inlineCallbacks
+    def test_get_router_config(self):
+        """get_router_config should return the router config for the uuid
+        specified"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield self.redis.hset('test-uuid', 'config', json.dumps(config))
+
+        value = yield store.get_router_config('test-uuid')
+        self.assertEqual(value, config)
+
+    @inlineCallbacks
+    def test_get_router_config_doesnt_exist(self):
+        """If we don't have a config stored for the specified router ID, then
+        we should return None"""
+        store = yield self.create_store()
+        value = yield store.get_router_config('bad-uuid')
+        self.assertEqual(value, None)
