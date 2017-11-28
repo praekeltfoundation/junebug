@@ -27,7 +27,7 @@ from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
-from junebug.router import InvalidRouterConfig
+from junebug.router import InvalidRouterConfig, InvalidRouterDestinationConfig
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -150,6 +150,13 @@ class TestRouter(BaseWorker):
         """Testing config requires the ``test`` parameter to be ``pass``"""
         if config.get('test') != 'pass':
             raise InvalidRouterConfig('test must be pass')
+
+    @classmethod
+    def validate_destination_config(cls, config):
+        """Testing destination config requires the ``target`` parameter to be
+        ``valid``"""
+        if config.get('target') != 'valid':
+            raise InvalidRouterDestinationConfig('target must be valid')
 
 
 class JunebugTestBase(TestCase):

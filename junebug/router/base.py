@@ -27,6 +27,14 @@ class InvalidRouterConfig(JunebugError):
     code = http.BAD_REQUEST
 
 
+class InvalidRouterDestinationConfig(JunebugError):
+    """Raised when an invalid destination config is passed to a router worker
+    """
+    name = "InvalidRotuerDestinationConfig",
+    description = "invalid router destination config"
+    code = http.BAD_REQUEST
+
+
 class RouterNotFound(JunebugError):
     """Raised when we cannot find a router for the given ID"""
     name = "RouterNotFound"
@@ -109,6 +117,14 @@ class Router(object):
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
             worker_class.validate_config, self._worker_config)
+
+    def validate_destination_config(self, config):
+        """
+        Passes the config to the specified worker class for validation
+        """
+        worker_class = load_class_by_string(self._worker_class_name)
+        return maybeDeferred(
+            worker_class.validate_destination_config, config)
 
     def start(self, service):
         """

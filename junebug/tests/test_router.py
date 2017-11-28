@@ -1,6 +1,8 @@
 from twisted.internet.defer import inlineCallbacks
 
-from junebug.router import Router, InvalidRouterConfig, RouterNotFound
+from junebug.router import (
+    Router, InvalidRouterConfig, InvalidRouterDestinationConfig, RouterNotFound
+)
 from junebug.router.base import InvalidRouterType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -71,6 +73,20 @@ class TestRouter(JunebugTestBase):
 
         with self.assertRaises(InvalidRouterType):
             yield router.validate_config()
+
+    @inlineCallbacks
+    def test_validate_destination_config(self):
+        """validate_destination_config should run the validate destination
+        config on the router worker class"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+
+        destination_config = {'target': 'valid'}
+        yield router.validate_destination_config(destination_config)
+
+        with self.assertRaises(InvalidRouterDestinationConfig):
+            destination_config = {'target': 'invalid'}
+            yield router.validate_destination_config(destination_config)
 
     def test_start(self):
         """start should start the router worker with the correct config"""
