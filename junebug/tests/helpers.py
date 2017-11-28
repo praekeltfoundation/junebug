@@ -178,6 +178,12 @@ class JunebugTestBase(TestCase):
         },
     }
 
+    default_destination_properties = {
+        'config': {
+            'target': 'valid',
+        },
+    }
+
     default_channel_config = {
         'ttl': 60,
         'routers': {
@@ -225,6 +231,11 @@ class JunebugTestBase(TestCase):
         properties = deepcopy(self.default_router_properties)
         config = kw.pop('config', {})
         properties['config'].update(config)
+        properties.update(kw)
+        return properties
+
+    def create_destination_config(self, **kw):
+        properties = deepcopy(self.default_destination_properties)
         properties.update(kw)
         return properties
 

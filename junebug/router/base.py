@@ -58,6 +58,8 @@ class Router(object):
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
         self.vumi_options.update(self.junebug_config.amqp)
 
+        self.destinations = {}
+
     @property
     def id(self):
         return self.router_config['id']
@@ -176,3 +178,27 @@ class Router(object):
         d.addCallback(partial(cls, router_store, junebug_config))
         d.addCallback(lambda router: router._restore(parent_service))
         return d
+
+    def add_destination(self, destination_config):
+        """
+        Create a destination with the specified config
+        """
+        destination = Destination(self, destination_config)
+        self.destinations[destination.id] = destination
+        return destination
+
+
+class Destination(object):
+    """
+    Represents a Junebug Router Destination.
+    """
+    def __init__(self, router, destination_config):
+        self.router = router
+        self.destination_config = destination_config
+
+        if self.destination_config.get('id', None) is None:
+            self.destination_config['id'] = str(uuid4())
+
+    @property
+    def id(self):
+        return self.destination_config['id']

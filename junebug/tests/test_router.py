@@ -182,3 +182,14 @@ class TestRouter(JunebugTestBase):
 
         yield router.delete()
         self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+    def test_add_destination(self):
+        """add_destination should create and add the destination"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+
+        self.assertEqual(router.destinations, {})
+
+        destination = router.add_destination(self.create_destination_config())
+
+        self.assertEqual(router.destinations, {destination.id: destination})
