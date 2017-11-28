@@ -22,7 +22,7 @@ sudo: false
 script:
   - if [ -z "$NO_COVERAGE" ]; then COVERAGE_CMD="coverage run --source=junebug"; else COVERAGE_CMD=""; fi
   - flake8 junebug
-  - $COVERAGE_CMD `which trial` junebug
+  - $COVERAGE_CMD `which trial` --jobs=4 junebug
 after_success:
   - coveralls
 deploy:
