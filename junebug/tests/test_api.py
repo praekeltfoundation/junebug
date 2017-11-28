@@ -1386,3 +1386,31 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/routers/{}'.format(router_id))
         yield self.assert_response(
             resp, http.OK, 'router found', old_config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Should stop the router from running, and delete its config"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+        router_id = (yield resp.json())['result']['id']
+
+        self.assertTrue(router_id in self.service.namedServices)
+        routers = yield self.api.router_store.get_router_list()
+        self.assertEqual(routers, [router_id])
+
+        resp = yield self.delete('/routers/{}'.format(router_id))
+        self.assert_response(resp, http.OK, 'router deleted', {})
+        self.assertFalse(router_id in self.service.namedServices)
+        routers = yield self.api.router_store.get_router_list()
+        self.assertEqual(routers, [])
+
+    @inlineCallbacks
+    def test_delete_non_existing_router(self):
+        """Should return a router not found"""
+        resp = yield self.delete('/routers/bad-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })

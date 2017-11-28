@@ -418,6 +418,15 @@ class JunebugApi(object):
         returnValue(response(
             request, 'router updated', (yield router.status())))
 
+    @app.route('/routers/<string:router_id>', methods=['DELETE'])
+    @inlineCallbacks
+    def delete_router(self, request, router_id):
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        yield router.stop()
+        yield router.delete()
+        returnValue(response(request, 'router deleted', {}))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:

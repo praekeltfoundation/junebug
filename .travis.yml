@@ -17,8 +17,7 @@ install:
   - "pip install -r requirements-dev.txt"
   - "pip install coveralls"
 cache:
-  directories:
-    - $HOME/.cache/pip
+  - pip
 sudo: false
 script:
   - if [ -z "$NO_COVERAGE" ]; then COVERAGE_CMD="coverage run --source=junebug"; else COVERAGE_CMD=""; fi

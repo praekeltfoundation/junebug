@@ -45,6 +45,10 @@ class BaseStore(object):
         '''Stores a single key with a value as a hash at the key `id`'''
         return self._redis_op(self.redis.hset, id, key, value, ttl=ttl)
 
+    def remove_property(self, id, key, ttl=USE_DEFAULT_TTL):
+        '''Removes the property specified key from `id`'''
+        return self._redis_op(self.redis.hdel, id, key, ttl=ttl)
+
     @inlineCallbacks
     def load_all(self, id, ttl=USE_DEFAULT_TTL):
         '''Retrieves all the keys and values stored as a hash at the key
@@ -70,6 +74,10 @@ class BaseStore(object):
     def add_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
         '''Adds an item to a set'''
         return self._redis_op(self.redis.sadd, id, value, ttl=ttl)
+
+    def remove_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Removes the item `value` from the set at `id`'''
+        return self._redis_op(self.redis.srem, id, value, ttl=ttl)
 
 
 class InboundMessageStore(BaseStore):
@@ -247,3 +255,8 @@ class RouterStore(BaseStore):
         d.addCallback(json.loads)
         d.addErrback(self._handle_read_router_error)
         return d
+
+    def delete_router(self, router_id):
+        d1 = self.remove_property(router_id, 'config')
+        d2 = self.remove_set_item('routers', router_id)
+        return gatherResults([d1, d2])
