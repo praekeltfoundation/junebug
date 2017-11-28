@@ -662,3 +662,27 @@ class TestRouterStore(JunebugTestBase):
             (yield self.redis.smembers('routers')), set())
         self.assertEqual(
             (yield self.redis.get('routers:test-uuid')), None)
+
+    @inlineCallbacks
+    def test_save_router_destination(self):
+        """Saves the destination for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+
+        destination_config = self.create_destination_config(
+            id='destination-id')
+        yield store.save_router_destination('router-id', destination_config)
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set(['destination-id']))
+        self.assertEqual(
+            json.loads((yield self.redis.get(
+                'routers:router-id:destinations:destination-id'))),
+            destination_config)

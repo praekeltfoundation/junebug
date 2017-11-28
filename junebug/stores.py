@@ -244,13 +244,27 @@ class MessageRateStore(BaseStore):
 class RouterStore(BaseStore):
     '''Stores all configuration for routers'''
 
+    def get_router_set_key(self):
+        """Gets the key for the set of routers"""
+        return self.get_key('routers')
+
     def get_router_key(self, router_id):
         """Gets the key for a router with id ``router_id``"""
         return self.get_key('routers', router_id)
 
+    def get_router_destination_set_key(self, router_id):
+        """Gets the key for the set of destinations for the router"""
+        return self.get_key('routers', router_id, 'destinations')
+
+    def get_router_destination_key(self, router_id, destination_id):
+        """Gets the key for the destination with ID ``destination_id`` for the
+        router with ID ``router_id``"""
+        return self.get_key(
+            'routers', router_id, 'destinations', destination_id)
+
     def get_router_list(self):
         '''Returns a list of UUIDs for all the current router configurations'''
-        d = self.get_set('routers')
+        d = self.get_set(self.get_router_set_key())
         d.addCallback(sorted)
         return d
 
@@ -258,7 +272,7 @@ class RouterStore(BaseStore):
         '''Saves the configuration of a router'''
         d1 = self.store_value(
             self.get_router_key(config['id']), json.dumps(config))
-        d2 = self.add_set_item('routers', config['id'])
+        d2 = self.add_set_item(self.get_router_set_key(), config['id'])
         return gatherResults([d1, d2])
 
     def _handle_read_router_error(self, err):
@@ -276,5 +290,16 @@ class RouterStore(BaseStore):
     def delete_router(self, router_id):
         """Removes the configuration of the router with id ``router_id``"""
         d1 = self.remove_value(self.get_router_key(router_id))
-        d2 = self.remove_set_item('routers', router_id)
+        d2 = self.remove_set_item(self.get_router_set_key(), router_id)
+        return gatherResults([d1, d2])
+
+    def save_router_destination(self, router_id, destination_config):
+        """Saves the configuration of a destination of a router"""
+        destination_id = destination_config['id']
+        d1 = self.store_value(
+            self.get_router_destination_key(router_id, destination_id),
+            json.dumps(destination_config)
+        )
+        d2 = self.add_set_item(
+            self.get_router_destination_set_key(router_id), destination_id)
         return gatherResults([d1, d2])
