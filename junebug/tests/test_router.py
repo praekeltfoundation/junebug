@@ -41,15 +41,23 @@ class TestRouter(JunebugTestBase):
 
     @inlineCallbacks
     def test_save(self):
-        """save should save the configuration into the router store"""
+        """save should save the configuration of the router and all the
+        destinations into the router store"""
         config = self.create_router_config()
         router = Router(self.api.router_store, self.api.config, config)
+        dest_config = self.create_destination_config()
+        destination = router.add_destination(dest_config)
 
         self.assertEqual((yield self.api.router_store.get_router_list()), [])
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router.id)), [])
         yield router.save()
         self.assertEqual(
-            (yield self.api.router_store.get_router_list()),
-            [router.router_config['id']])
+            (yield self.api.router_store.get_router_list()), [router.id])
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router.id)), [destination.id])
 
     @inlineCallbacks
     def test_validate_config(self):
@@ -209,3 +217,20 @@ class TestRouter(JunebugTestBase):
         self.assertEqual(
             router_worker.config['destinations'],
             [destination.destination_config])
+
+    @inlineCallbacks
+    def test_destination_save(self):
+        """Saving a destination should save the destination's configuration to
+        the router store"""
+        router_store = self.api.router_store
+        router_config = self.create_router_config()
+        router = Router(router_store, self.api.config, router_config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(
+            (yield router_store.get_router_destination_list(router.id)), [])
+        yield destination.save()
+        self.assertEqual(
+            (yield router_store.get_router_destination_list(router.id)),
+            [destination.id])

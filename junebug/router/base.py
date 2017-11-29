@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from junebug.error import JunebugError
 from junebug.utils import convert_unicode
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import DeferredList, succeed, maybeDeferred
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
@@ -75,7 +75,10 @@ class Router(object):
         """
         Saves the router data into the router store.
         """
-        return self.router_store.save_router(self.router_config)
+        router_save = self.router_store.save_router(self.router_config)
+        dest_save = DeferredList(
+            [d.save() for d in self.destinations.values()])
+        return DeferredList([router_save, dest_save])
 
     def delete(self):
         """
@@ -207,3 +210,8 @@ class Destination(object):
     @property
     def id(self):
         return self.destination_config['id']
+
+    def save(self):
+        """Saves this destination to the router store"""
+        return self.router.router_store.save_router_destination(
+            self.router.id, self.destination_config)
