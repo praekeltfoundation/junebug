@@ -276,9 +276,10 @@ class RouterStore(BaseStore):
         return gatherResults([d1, d2])
 
     def _handle_read_router_error(self, err):
-        if isinstance(err, TypeError):
+        if err.type == TypeError:
             # Trying to decode ``None`` means missing router. Return None
             return None
+        raise err
 
     def get_router_config(self, router_id):
         """Gets the configuration of a router with the id ``router_id``"""
@@ -303,3 +304,9 @@ class RouterStore(BaseStore):
         d2 = self.add_set_item(
             self.get_router_destination_set_key(router_id), destination_id)
         return gatherResults([d1, d2])
+
+    def get_router_destination_list(self, router_id):
+        """Returns the list of destinations for a router"""
+        d = self.get_set(self.get_router_destination_set_key(router_id))
+        d.addCallback(sorted)
+        return d

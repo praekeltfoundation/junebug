@@ -686,3 +686,20 @@ class TestRouterStore(JunebugTestBase):
             json.loads((yield self.redis.get(
                 'routers:router-id:destinations:destination-id'))),
             destination_config)
+
+    @inlineCallbacks
+    def test_get_router_destination_list(self):
+        """Gets the list of available router destinations for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), [])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest1')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), ['dest1'])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest2')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')),
+            ['dest1', 'dest2'])
