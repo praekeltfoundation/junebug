@@ -212,6 +212,14 @@ class Destination(object):
         return self.destination_config['id']
 
     def save(self):
-        """Saves this destination to the router store"""
+        """
+        Saves this destination to the router store
+        """
         return self.router.router_store.save_router_destination(
             self.router.id, self.destination_config)
+
+    def status(self):
+        """
+        Returns the config and status of this destination
+        """
+        return succeed(self.destination_config)

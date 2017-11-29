@@ -234,3 +234,14 @@ class TestRouter(JunebugTestBase):
         self.assertEqual(
             (yield router_store.get_router_destination_list(router.id)),
             [destination.id])
+
+    @inlineCallbacks
+    def test_destination_status(self):
+        """Getting the destination status should return the configuration of
+        the destination"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(destination_config, (yield destination.status()))
