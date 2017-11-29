@@ -310,3 +310,17 @@ class RouterStore(BaseStore):
         d = self.get_set(self.get_router_destination_set_key(router_id))
         d.addCallback(sorted)
         return d
+
+    def _handle_read_router_destination_error(self, err):
+        if err.type == TypeError:
+            # Trying to decode ``None`` means missing router. Return None
+            return None
+        raise err
+
+    def get_router_destination_config(self, router_id, destination_id):
+        """Returns the stored configuration of a router's destination"""
+        d = self.load_value(
+            self.get_router_destination_key(router_id, destination_id))
+        d.addCallback(json.loads)
+        d.addErrback(self._handle_read_router_destination_error)
+        return d

@@ -703,3 +703,26 @@ class TestRouterStore(JunebugTestBase):
         self.assertEqual(
             (yield store.get_router_destination_list('router-id')),
             ['dest1', 'dest2'])
+
+    @inlineCallbacks
+    def test_get_router_destination_config(self):
+        """Should return the router destination config, or None if no config is
+        stored"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id',
+            json.dumps({'test': 'config'}))
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), {'test': 'config'})
+
+    @inlineCallbacks
+    def test_get_router_destination_config_non_existing(self):
+        """If we don't have a config saved for the specified router destination
+        return None"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), None)
