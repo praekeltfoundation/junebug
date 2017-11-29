@@ -30,7 +30,7 @@ class InvalidRouterConfig(JunebugError):
 class InvalidRouterDestinationConfig(JunebugError):
     """Raised when an invalid destination config is passed to a router worker
     """
-    name = "InvalidRotuerDestinationConfig",
+    name = "InvalidRouterDestinationConfig"
     description = "invalid router destination config"
     code = http.BAD_REQUEST
 

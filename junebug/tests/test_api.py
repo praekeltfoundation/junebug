@@ -1424,3 +1424,64 @@ class TestJunebugApi(JunebugTestBase):
                 'type': 'RouterNotFound',
             }]
         })
+
+    @inlineCallbacks
+    def test_create_destination_invalid_router_id(self):
+        """If the router specified by the router ID doesn't exist, a not found
+        error should be returned"""
+        resp = yield self.post('/routers/bad-router-id/destinations/', {
+            'config': {}
+        })
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_create_destination_invalid_config(self):
+        """The destination config should be sent to the router worker to
+        validate before the destination is created"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(config={
+            'target': 'invalid',
+        })
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router destination config', {
+                'errors': [{
+                    'message': 'target must be valid',
+                    'type': 'InvalidRouterDestinationConfig',
+                }]
+            }
+        )
+
+    @inlineCallbacks
+    def test_create_destination(self):
+        """A created destination should be saved in the router store, and be
+        passed to the router worker config"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.CREATED, 'destination created', dest_config,
+            ignore=['id'])
+        dest_id = (yield resp.json())['result']['id']
+
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router_id)),
+            [dest_id])
+
+        dest_config['id'] = dest_id
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config['destinations'], [dest_config])
