@@ -1238,7 +1238,9 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(transport.parent, self.service)
 
-        self.assertEqual(transport.config, config['config'])
+        worker_config = config['config']
+        worker_config['destinations'] = []
+        self.assertEqual(transport.config, worker_config)
 
     @inlineCallbacks
     def test_create_router_saves_config(self):
@@ -1288,7 +1290,9 @@ class TestJunebugApi(JunebugTestBase):
         old_config['id'] = router_id
         self.assertEqual(router_config, old_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, old_config['config'])
+        router_worker_config = old_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         new_config = self.create_router_config(config={'test': 'pass'})
         new_config.pop('label', None)
@@ -1302,7 +1306,9 @@ class TestJunebugApi(JunebugTestBase):
             router_id)
         self.assertEqual(router_config, new_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, new_config['config'])
+        router_worker_config = new_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         router_worker = self.api.service.namedServices[router_id]
 
@@ -1343,7 +1349,9 @@ class TestJunebugApi(JunebugTestBase):
         old_config['id'] = router_id
         self.assertEqual(router_config, old_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, old_config['config'])
+        router_worker_config = old_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         update = {'config': {'test': 'pass', 'new': 'new'}}
         new_config = deepcopy(old_config)
@@ -1359,6 +1367,8 @@ class TestJunebugApi(JunebugTestBase):
             router_id)
         self.assertEqual(router_config, new_config)
         router_worker = self.api.service.namedServices[router_id]
+        router_worker_config = new_config['config']
+        router_worker_config['destinations'] = []
         self.assertEqual(router_worker.config, new_config['config'])
 
         router_worker = self.api.service.namedServices[router_id]

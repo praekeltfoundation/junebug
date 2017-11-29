@@ -96,6 +96,8 @@ class TestRouter(JunebugTestBase):
 
         router_worker = self.service.namedServices[router.id]
         self.assertEqual(router_worker.parent, self.service)
+        router_worker_config = config['config']
+        router_worker_config['destinations'] = []
         self.assertEqual(router_worker.config, config['config'])
 
     @inlineCallbacks
@@ -193,3 +195,17 @@ class TestRouter(JunebugTestBase):
         destination = router.add_destination(self.create_destination_config())
 
         self.assertEqual(router.destinations, {destination.id: destination})
+
+    def test_destinations_are_passed_to_router_worker(self):
+        """The destination configs should be passed to the router worker when
+        the router is started."""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        router.start(self.service)
+        router_worker = self.service.namedServices[router.id]
+        self.assertEqual(
+            router_worker.config['destinations'],
+            [destination.destination_config])

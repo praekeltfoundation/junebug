@@ -107,8 +107,13 @@ class Router(object):
         return cls_name
 
     @property
+    def _destination_configs(self):
+        return [d.destination_config for d in self.destinations.values()]
+
+    @property
     def _worker_config(self):
-        config = self.router_config['config']
+        config = deepcopy(self.router_config['config'])
+        config['destinations'] = self._destination_configs
         config = convert_unicode(config)
         return config
 
