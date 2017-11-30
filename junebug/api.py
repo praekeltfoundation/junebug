@@ -427,6 +427,40 @@ class JunebugApi(object):
         yield router.delete()
         returnValue(response(request, 'router deleted', {}))
 
+    @app.route('/routers/<string:router_id>/destinations/', methods=['POST'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+                'mo_url': {'type': 'string'},
+                'mo_url_token': {'type': 'string'},
+                'amqp_queue': {'type': 'string'},
+                'character_limit': {'type': 'int'},
+            },
+            'additionalProperties': False,
+            'required': ['config'],
+        }))
+    @inlineCallbacks
+    def create_router_destination(self, request, body, router_id):
+        """Create a new destination for the router"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        yield router.validate_destination_config(body['config'])
+
+        destination = router.add_destination(body)
+        yield router.stop()
+        router.start(self.service)
+        yield destination.save()
+
+        returnValue(response(
+            request, 'destination created', (yield destination.status()),
+            code=http.CREATED
+        ))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:

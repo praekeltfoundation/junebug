@@ -1,6 +1,8 @@
 from twisted.internet.defer import inlineCallbacks
 
-from junebug.router import Router, InvalidRouterConfig, RouterNotFound
+from junebug.router import (
+    Router, InvalidRouterConfig, InvalidRouterDestinationConfig, RouterNotFound
+)
 from junebug.router.base import InvalidRouterType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -39,15 +41,23 @@ class TestRouter(JunebugTestBase):
 
     @inlineCallbacks
     def test_save(self):
-        """save should save the configuration into the router store"""
+        """save should save the configuration of the router and all the
+        destinations into the router store"""
         config = self.create_router_config()
         router = Router(self.api.router_store, self.api.config, config)
+        dest_config = self.create_destination_config()
+        destination = router.add_destination(dest_config)
 
         self.assertEqual((yield self.api.router_store.get_router_list()), [])
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router.id)), [])
         yield router.save()
         self.assertEqual(
-            (yield self.api.router_store.get_router_list()),
-            [router.router_config['id']])
+            (yield self.api.router_store.get_router_list()), [router.id])
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router.id)), [destination.id])
 
     @inlineCallbacks
     def test_validate_config(self):
@@ -72,6 +82,20 @@ class TestRouter(JunebugTestBase):
         with self.assertRaises(InvalidRouterType):
             yield router.validate_config()
 
+    @inlineCallbacks
+    def test_validate_destination_config(self):
+        """validate_destination_config should run the validate destination
+        config on the router worker class"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+
+        destination_config = {'target': 'valid'}
+        yield router.validate_destination_config(destination_config)
+
+        with self.assertRaises(InvalidRouterDestinationConfig):
+            destination_config = {'target': 'invalid'}
+            yield router.validate_destination_config(destination_config)
+
     def test_start(self):
         """start should start the router worker with the correct config"""
         config = self.create_router_config()
@@ -80,6 +104,8 @@ class TestRouter(JunebugTestBase):
 
         router_worker = self.service.namedServices[router.id]
         self.assertEqual(router_worker.parent, self.service)
+        router_worker_config = config['config']
+        router_worker_config['destinations'] = []
         self.assertEqual(router_worker.config, config['config'])
 
     @inlineCallbacks
@@ -166,3 +192,56 @@ class TestRouter(JunebugTestBase):
 
         yield router.delete()
         self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+    def test_add_destination(self):
+        """add_destination should create and add the destination"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+
+        self.assertEqual(router.destinations, {})
+
+        destination = router.add_destination(self.create_destination_config())
+
+        self.assertEqual(router.destinations, {destination.id: destination})
+
+    def test_destinations_are_passed_to_router_worker(self):
+        """The destination configs should be passed to the router worker when
+        the router is started."""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        router.start(self.service)
+        router_worker = self.service.namedServices[router.id]
+        self.assertEqual(
+            router_worker.config['destinations'],
+            [destination.destination_config])
+
+    @inlineCallbacks
+    def test_destination_save(self):
+        """Saving a destination should save the destination's configuration to
+        the router store"""
+        router_store = self.api.router_store
+        router_config = self.create_router_config()
+        router = Router(router_store, self.api.config, router_config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(
+            (yield router_store.get_router_destination_list(router.id)), [])
+        yield destination.save()
+        self.assertEqual(
+            (yield router_store.get_router_destination_list(router.id)),
+            [destination.id])
+
+    @inlineCallbacks
+    def test_destination_status(self):
+        """Getting the destination status should return the configuration of
+        the destination"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(destination_config, (yield destination.status()))

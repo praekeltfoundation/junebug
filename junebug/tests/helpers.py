@@ -27,7 +27,7 @@ from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
-from junebug.router import InvalidRouterConfig
+from junebug.router import InvalidRouterConfig, InvalidRouterDestinationConfig
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -151,6 +151,13 @@ class TestRouter(BaseWorker):
         if config.get('test') != 'pass':
             raise InvalidRouterConfig('test must be pass')
 
+    @classmethod
+    def validate_destination_config(cls, config):
+        """Testing destination config requires the ``target`` parameter to be
+        ``valid``"""
+        if config.get('target') != 'valid':
+            raise InvalidRouterDestinationConfig('target must be valid')
+
 
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
@@ -168,6 +175,12 @@ class JunebugTestBase(TestCase):
         'type': 'testing',
         'config': {
             'test': 'pass',
+        },
+    }
+
+    default_destination_properties = {
+        'config': {
+            'target': 'valid',
         },
     }
 
@@ -218,6 +231,11 @@ class JunebugTestBase(TestCase):
         properties = deepcopy(self.default_router_properties)
         config = kw.pop('config', {})
         properties['config'].update(config)
+        properties.update(kw)
+        return properties
+
+    def create_destination_config(self, **kw):
+        properties = deepcopy(self.default_destination_properties)
         properties.update(kw)
         return properties
 

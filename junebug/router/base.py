@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from junebug.error import JunebugError
 from junebug.utils import convert_unicode
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import DeferredList, succeed, maybeDeferred
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
@@ -24,6 +24,14 @@ class InvalidRouterConfig(JunebugError):
     """Raised when an invalid config is passed to a router worker"""
     name = "InvalidRouterConfig"
     description = "invalid router config"
+    code = http.BAD_REQUEST
+
+
+class InvalidRouterDestinationConfig(JunebugError):
+    """Raised when an invalid destination config is passed to a router worker
+    """
+    name = "InvalidRouterDestinationConfig"
+    description = "invalid router destination config"
     code = http.BAD_REQUEST
 
 
@@ -50,6 +58,8 @@ class Router(object):
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
         self.vumi_options.update(self.junebug_config.amqp)
 
+        self.destinations = {}
+
     @property
     def id(self):
         return self.router_config['id']
@@ -65,7 +75,10 @@ class Router(object):
         """
         Saves the router data into the router store.
         """
-        return self.router_store.save_router(self.router_config)
+        router_save = self.router_store.save_router(self.router_config)
+        dest_save = DeferredList(
+            [d.save() for d in self.destinations.values()])
+        return DeferredList([router_save, dest_save])
 
     def delete(self):
         """
@@ -97,8 +110,13 @@ class Router(object):
         return cls_name
 
     @property
+    def _destination_configs(self):
+        return [d.destination_config for d in self.destinations.values()]
+
+    @property
     def _worker_config(self):
-        config = self.router_config['config']
+        config = deepcopy(self.router_config['config'])
+        config['destinations'] = self._destination_configs
         config = convert_unicode(config)
         return config
 
@@ -109,6 +127,14 @@ class Router(object):
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
             worker_class.validate_config, self._worker_config)
+
+    def validate_destination_config(self, config):
+        """
+        Passes the config to the specified worker class for validation
+        """
+        worker_class = load_class_by_string(self._worker_class_name)
+        return maybeDeferred(
+            worker_class.validate_destination_config, config)
 
     def start(self, service):
         """
@@ -160,3 +186,40 @@ class Router(object):
         d.addCallback(partial(cls, router_store, junebug_config))
         d.addCallback(lambda router: router._restore(parent_service))
         return d
+
+    def add_destination(self, destination_config):
+        """
+        Create a destination with the specified config
+        """
+        destination = Destination(self, destination_config)
+        self.destinations[destination.id] = destination
+        return destination
+
+
+class Destination(object):
+    """
+    Represents a Junebug Router Destination.
+    """
+    def __init__(self, router, destination_config):
+        self.router = router
+        self.destination_config = destination_config
+
+        if self.destination_config.get('id', None) is None:
+            self.destination_config['id'] = str(uuid4())
+
+    @property
+    def id(self):
+        return self.destination_config['id']
+
+    def save(self):
+        """
+        Saves this destination to the router store
+        """
+        return self.router.router_store.save_router_destination(
+            self.router.id, self.destination_config)
+
+    def status(self):
+        """
+        Returns the config and status of this destination
+        """
+        return succeed(self.destination_config)
