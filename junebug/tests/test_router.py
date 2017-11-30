@@ -266,3 +266,14 @@ class TestRouter(JunebugTestBase):
         self.assertEqual(
             router.destinations[destination.id].destination_config,
             restored_router.destinations[destination.id].destination_config)
+
+    def test_get_destination_list(self):
+        """Getting the destination list of a router should return a list of
+        destination ids for that router"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+        router.start(self.api.service)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(router.get_destination_list(), [destination.id])

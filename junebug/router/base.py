@@ -208,6 +208,12 @@ class Router(object):
         self.destinations[destination.id] = destination
         return destination
 
+    def get_destination_list(self):
+        """
+        Returns a list of all the destinations for this router
+        """
+        return sorted(self.destinations.keys())
+
 
 class Destination(object):
     """
