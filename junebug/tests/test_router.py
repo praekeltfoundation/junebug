@@ -260,7 +260,6 @@ class TestRouter(JunebugTestBase):
         restored_router = yield Router.from_id(
             self.api.router_store, self.api.config, self.api.service,
             router.id)
-        print router.destinations, restored_router.destinations
         self.assertEqual(
             router.destinations.keys(), restored_router.destinations.keys())
         self.assertEqual(

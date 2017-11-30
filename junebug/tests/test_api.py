@@ -1485,3 +1485,33 @@ class TestJunebugApi(JunebugTestBase):
         dest_config['id'] = dest_id
         router_worker = self.api.service.namedServices[router_id]
         self.assertEqual(router_worker.config['destinations'], [dest_config])
+
+    @inlineCallbacks
+    def test_get_destination_list_non_existing_router(self):
+        """If we try to get a destination list for a router that doesn't
+        exist, we should get a not found error returned"""
+        resp = yield self.get('/routers/bad-router-id/destinations/')
+        self.assert_response(
+            resp, http.NOT_FOUND, 'router not found', {
+                'errors': [{
+                    'message': 'Router with ID bad-router-id cannot be found',
+                    'type': 'RouterNotFound',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_get_destination_list(self):
+        """A GET request on the destinations resource should return a list of
+        destinations for that router"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        dest_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get('/routers/{}/destinations/'.format(router_id))
+        self.assert_response(
+            resp, http.OK, 'destinations retrieved', [dest_id])
