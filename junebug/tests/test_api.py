@@ -1515,3 +1515,54 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/routers/{}/destinations/'.format(router_id))
         self.assert_response(
             resp, http.OK, 'destinations retrieved', [dest_id])
+
+    @inlineCallbacks
+    def test_get_destination_no_router(self):
+        """Trying to get a destination for a router that doesn't exist should
+        result in a not found error being returned"""
+        resp = yield self.get(
+            '/routers/bad-router-id/destinations/bad-destination-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_get_destination_no_destination(self):
+        """Trying to get a destination that doesn't exist should result in a
+        not found error being returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/bad-destination-id'.format(router_id))
+        self.assert_response(resp, http.NOT_FOUND, 'destination not found', {
+            'errors': [{
+                'message':
+                    'Cannot find destination with ID bad-destination-id for '
+                    'router {}'.format(router_id),
+                'type': 'DestinationNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_get_destination(self):
+        """A GET request on a destination should return the status and config
+        of that destination"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        destination_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), destination_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id))
+        self.assert_response(
+            resp, http.OK, 'destination found', destination_config,
+            ignore=['id'])

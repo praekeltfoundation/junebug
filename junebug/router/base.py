@@ -43,6 +43,13 @@ class RouterNotFound(JunebugError):
     code = http.NOT_FOUND
 
 
+class DestinationNotFound(JunebugError):
+    """Raised when we cannot find a destinatino for the given ID"""
+    name = "DestinationNotFound"
+    description = "destination not found"
+    code = http.NOT_FOUND
+
+
 class Router(object):
     """
     Represents a Junebug Router.
@@ -213,6 +220,14 @@ class Router(object):
         Returns a list of all the destinations for this router
         """
         return sorted(self.destinations.keys())
+
+    def get_destination(self, destination_id):
+        destination = self.destinations.get(destination_id)
+        if destination is None:
+            raise DestinationNotFound(
+                'Cannot find destination with ID {} for router {}'.format(
+                    destination_id, self.id))
+        return destination
 
 
 class Destination(object):
