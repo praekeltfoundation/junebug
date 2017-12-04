@@ -461,6 +461,28 @@ class JunebugApi(object):
             code=http.CREATED
         ))
 
+    @app.route('/routers/<string:router_id>/destinations/', methods=['GET'])
+    def get_router_destination_list(self, request, router_id):
+        """Get the list of destinations for a router"""
+        d = Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        d.addCallback(lambda router: router.get_destination_list())
+        d.addCallback(partial(response, request, 'destinations retrieved'))
+        return d
+
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>',
+        methods=['GET'])
+    @inlineCallbacks
+    def get_destination(self, request, router_id, destination_id):
+        """Get the config and status of a destination"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        destination = router.get_destination(destination_id)
+        returnValue(response(
+            request, 'destination found', (yield destination.status())
+        ))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:

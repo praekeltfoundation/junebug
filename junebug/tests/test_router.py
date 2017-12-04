@@ -245,3 +245,34 @@ class TestRouter(JunebugTestBase):
         destination = router.add_destination(destination_config)
 
         self.assertEqual(destination_config, (yield destination.status()))
+
+    @inlineCallbacks
+    def test_destinations_restored_on_router_from_id(self):
+        """Creating a router object from id should also restore the
+        destinations for that router"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+        router.start(self.api.service)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+        yield router.save()
+
+        restored_router = yield Router.from_id(
+            self.api.router_store, self.api.config, self.api.service,
+            router.id)
+        self.assertEqual(
+            router.destinations.keys(), restored_router.destinations.keys())
+        self.assertEqual(
+            router.destinations[destination.id].destination_config,
+            restored_router.destinations[destination.id].destination_config)
+
+    def test_get_destination_list(self):
+        """Getting the destination list of a router should return a list of
+        destination ids for that router"""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+        router.start(self.api.service)
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        self.assertEqual(router.get_destination_list(), [destination.id])

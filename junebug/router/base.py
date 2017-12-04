@@ -4,7 +4,8 @@ from uuid import uuid4
 
 from junebug.error import JunebugError
 from junebug.utils import convert_unicode
-from twisted.internet.defer import DeferredList, succeed, maybeDeferred
+from twisted.internet.defer import (
+    DeferredList, gatherResults, succeed, maybeDeferred)
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
@@ -42,11 +43,20 @@ class RouterNotFound(JunebugError):
     code = http.NOT_FOUND
 
 
+class DestinationNotFound(JunebugError):
+    """Raised when we cannot find a destinatino for the given ID"""
+    name = "DestinationNotFound"
+    description = "destination not found"
+    code = http.NOT_FOUND
+
+
 class Router(object):
     """
     Represents a Junebug Router.
     """
-    def __init__(self, router_store, junebug_config, router_config):
+    def __init__(
+            self, router_store, junebug_config, router_config,
+            destinations=[]):
         self.router_store = router_store
         self.junebug_config = junebug_config
         self.router_config = router_config
@@ -58,7 +68,8 @@ class Router(object):
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
         self.vumi_options.update(self.junebug_config.amqp)
 
-        self.destinations = {}
+        self.destinations = {
+            d['id']: Destination(self, d) for d in destinations}
 
     @property
     def id(self):
@@ -174,16 +185,25 @@ class Router(object):
         Restores an existing router, given the router's ID
         """
 
-        def assert_router_exists(router):
-            if router is None:
+        def create_router(store_result):
+            [router_config, destination_configs] = store_result
+            if router_config is None:
                 raise RouterNotFound(
                     "Router with ID {} cannot be found".format(router_id))
-            else:
-                return router
+            return cls(
+                router_store, junebug_config, router_config,
+                destination_configs)
 
-        d = router_store.get_router_config(router_id)
-        d.addCallback(assert_router_exists)
-        d.addCallback(partial(cls, router_store, junebug_config))
+        d_router = router_store.get_router_config(router_id)
+
+        d_dests = router_store.get_router_destination_list(router_id)
+        d_dests.addCallback(partial(
+            map, partial(
+                router_store.get_router_destination_config, router_id)))
+        d_dests.addCallback(gatherResults)
+
+        d = gatherResults([d_router, d_dests])
+        d.addCallback(create_router)
         d.addCallback(lambda router: router._restore(parent_service))
         return d
 
@@ -193,6 +213,20 @@ class Router(object):
         """
         destination = Destination(self, destination_config)
         self.destinations[destination.id] = destination
+        return destination
+
+    def get_destination_list(self):
+        """
+        Returns a list of all the destinations for this router
+        """
+        return sorted(self.destinations.keys())
+
+    def get_destination(self, destination_id):
+        destination = self.destinations.get(destination_id)
+        if destination is None:
+            raise DestinationNotFound(
+                'Cannot find destination with ID {} for router {}'.format(
+                    destination_id, self.id))
         return destination
 
 
