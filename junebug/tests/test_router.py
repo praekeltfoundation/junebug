@@ -276,3 +276,31 @@ class TestRouter(JunebugTestBase):
         destination = router.add_destination(destination_config)
 
         self.assertEqual(router.get_destination_list(), [destination.id])
+
+    @inlineCallbacks
+    def test_remove_destination(self):
+        """Removing a destination should remove it from the router store and
+        the list of destinations on the router."""
+        router_config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, router_config)
+
+        destination_config = self.create_destination_config()
+        destination = router.add_destination(destination_config)
+
+        yield router.save()
+
+        self.assertIn(destination.id, router.destinations)
+        self.assertIn(
+            destination.id,
+            (yield self.api.router_store.get_router_destination_list(
+                router.id))
+        )
+
+        yield destination.delete()
+
+        self.assertNotIn(destination.id, router.destinations)
+        self.assertNotIn(
+            destination.id,
+            (yield self.api.router_store.get_router_destination_list(
+                router.id))
+        )

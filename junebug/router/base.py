@@ -257,3 +257,11 @@ class Destination(object):
         Returns the config and status of this destination
         """
         return succeed(self.destination_config)
+
+    def delete(self):
+        """
+        Removes this destination from the store and from the router.
+        """
+        self.router.destinations.pop(self.id)
+        return self.router.router_store.delete_router_destination(
+            self.router.id, self.id)
