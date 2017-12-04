@@ -546,7 +546,8 @@ class JunebugApi(object):
         """Update the config of a router destination"""
         router = yield Router.from_id(
             self.router_store, self.config, self.service, router_id)
-        yield router.validate_destination_config(body['config'])
+        if 'config' in body:
+            yield router.validate_destination_config(body['config'])
 
         destination = router.get_destination(destination_id)
         destination.destination_config.update(body)
