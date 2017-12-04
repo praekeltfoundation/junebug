@@ -726,3 +726,24 @@ class TestRouterStore(JunebugTestBase):
         self.assertEqual(
             (yield store.get_router_destination_config(
                 'router-id', 'destination-id')), None)
+
+    @inlineCallbacks
+    def test_remove_router_destination(self):
+        """Removing a router destination should remove the destination config
+        and remove it from the destination list of the router"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id', json.dumps({
+                'test': 'config'}))
+        yield self.redis.sadd(
+            'routers:router-id:destinations', 'destination-id')
+
+        yield store.delete_router_destination('router-id', 'destination-id')
+
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())

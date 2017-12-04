@@ -324,3 +324,10 @@ class RouterStore(BaseStore):
         d.addCallback(json.loads)
         d.addErrback(self._handle_read_router_destination_error)
         return d
+
+    def delete_router_destination(self, router_id, destination_id):
+        d1 = self.remove_value(
+            self.get_router_destination_key(router_id, destination_id))
+        d2 = self.remove_set_item(
+            self.get_router_destination_set_key(router_id), destination_id)
+        return gatherResults([d1, d2])
