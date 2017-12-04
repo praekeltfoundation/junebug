@@ -483,6 +483,82 @@ class JunebugApi(object):
             request, 'destination found', (yield destination.status())
         ))
 
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>',
+        methods=['PUT'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+                'mo_url': {'type': 'string'},
+                'mo_url_token': {'type': 'string'},
+                'amqp_queue': {'type': 'string'},
+                'character_limit': {'type': 'int'},
+            },
+            'additionalProperties': False,
+            'required': ['config'],
+        }))
+    @inlineCallbacks
+    def replace_router_destination(
+            self, request, body, router_id, destination_id):
+        """Replace the config of a router destination"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        yield router.validate_destination_config(body['config'])
+
+        destination = router.get_destination(destination_id)
+        destination.destination_config = body
+        destination.destination_config['id'] = destination_id
+
+        # Stop and start the router for the worker to get the new config
+        yield router.stop()
+        router.start(self.service)
+        yield destination.save()
+        returnValue(response(
+            request, 'destination updated', (yield destination.status())))
+
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>',
+        methods=['PATCH'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+                'mo_url': {'type': 'string'},
+                'mo_url_token': {'type': 'string'},
+                'amqp_queue': {'type': 'string'},
+                'character_limit': {'type': 'int'},
+            },
+            'additionalProperties': False,
+            'required': [],
+        }))
+    @inlineCallbacks
+    def update_router_destination(
+            self, request, body, router_id, destination_id):
+        """Update the config of a router destination"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        if 'config' in body:
+            yield router.validate_destination_config(body['config'])
+
+        destination = router.get_destination(destination_id)
+        destination.destination_config.update(body)
+
+        # Stop and start the router for the worker to get the new config
+        yield router.stop()
+        router.start(self.service)
+        yield destination.save()
+        returnValue(response(
+            request, 'destination updated', (yield destination.status())))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
