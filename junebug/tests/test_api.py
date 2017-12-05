@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 import json
 import mock
@@ -35,6 +36,20 @@ class TestJunebugApi(JunebugTestBase):
 
     def post(self, url, data, headers=None):
         return treq.post(
+            "%s%s" % (self.url, url),
+            json.dumps(data),
+            persistent=False,
+            headers=headers)
+
+    def put(self, url, data, headers=None):
+        return treq.put(
+            "%s%s" % (self.url, url),
+            json.dumps(data),
+            persistent=False,
+            headers=headers)
+
+    def patch_request(self, url, data, headers=None):
+        return treq.patch(
             "%s%s" % (self.url, url),
             json.dumps(data),
             persistent=False,
@@ -1234,3 +1249,168 @@ class TestJunebugApi(JunebugTestBase):
 
         routers = yield self.api.router_store.get_router_list()
         self.assertEqual(routers, [(yield resp.json())['result']['id']])
+
+    @inlineCallbacks
+    def test_get_router(self):
+        """The get router endpoint should return the config and status of the
+        specified router"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+
+        router_id = (yield resp.json())['result']['id']
+        resp = yield self.get('/routers/{}'.format(router_id))
+        self.assert_response(
+            resp, http.OK, 'router found', config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_get_non_existing_router(self):
+        """If a router for the given ID does not exist, then a not found error
+        should be returned"""
+        resp = yield self.get('/routers/bad-router-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_replace_router_config(self):
+        """When creating a PUT request, the router configuration should be
+        replaced"""
+        old_config = self.create_router_config(label='test', config={
+            'test': 'pass', 'foo': 'bar'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        old_config['id'] = router_id
+        self.assertEqual(router_config, old_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, old_config['config'])
+
+        new_config = self.create_router_config(config={'test': 'pass'})
+        new_config.pop('label', None)
+        resp = yield self.put('/routers/{}'.format(router_id), new_config)
+        new_config['id'] = router_id
+
+        yield self.assert_response(
+            resp, http.OK, 'router updated', new_config)
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        self.assertEqual(router_config, new_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, new_config['config'])
+
+        router_worker = self.api.service.namedServices[router_id]
+
+    @inlineCallbacks
+    def test_replace_router_config_invalid_worker_config(self):
+        """Before replacing the worker config, the new config should be
+        validated."""
+        old_config = self.create_router_config(config={'test': 'pass'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        new_config = self.create_router_config(config={'test': 'fail'})
+        resp = yield self.put('/routers/{}'.format(router_id), new_config)
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router config', {
+                'errors': [{
+                    'message': 'test must be pass',
+                    'type': 'InvalidRouterConfig',
+                }]
+            })
+
+        resp = yield self.get('/routers/{}'.format(router_id))
+        yield self.assert_response(
+            resp, http.OK, 'router found', old_config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_update_router_config(self):
+        """When creating a PATCH request, the router configuration should be
+        updated"""
+        old_config = self.create_router_config(
+            label='old', config={'test': 'pass'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        old_config['id'] = router_id
+        self.assertEqual(router_config, old_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, old_config['config'])
+
+        update = {'config': {'test': 'pass', 'new': 'new'}}
+        new_config = deepcopy(old_config)
+        new_config.update(update)
+        self.assertEqual(new_config['label'], 'old')
+        resp = yield self.patch_request(
+            '/routers/{}'.format(router_id), update)
+
+        yield self.assert_response(
+            resp, http.OK, 'router updated', new_config)
+
+        router_config = yield self.api.router_store.get_router_config(
+            router_id)
+        self.assertEqual(router_config, new_config)
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config, new_config['config'])
+
+        router_worker = self.api.service.namedServices[router_id]
+
+    @inlineCallbacks
+    def test_update_router_config_invalid_worker_config(self):
+        """Before updating the worker config, the new config should be
+        validated."""
+        old_config = self.create_router_config(config={'test': 'pass'})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        update = {'config': {'test': 'fail'}}
+        resp = yield self.patch_request(
+            '/routers/{}'.format(router_id), update)
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router config', {
+                'errors': [{
+                    'message': 'test must be pass',
+                    'type': 'InvalidRouterConfig',
+                }]
+            })
+
+        resp = yield self.get('/routers/{}'.format(router_id))
+        yield self.assert_response(
+            resp, http.OK, 'router found', old_config, ignore=['id'])
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Should stop the router from running, and delete its config"""
+        config = self.create_router_config()
+        resp = yield self.post('/routers/', config)
+        router_id = (yield resp.json())['result']['id']
+
+        self.assertTrue(router_id in self.service.namedServices)
+        routers = yield self.api.router_store.get_router_list()
+        self.assertEqual(routers, [router_id])
+
+        resp = yield self.delete('/routers/{}'.format(router_id))
+        self.assert_response(resp, http.OK, 'router deleted', {})
+        self.assertFalse(router_id in self.service.namedServices)
+        routers = yield self.api.router_store.get_router_list()
+        self.assertEqual(routers, [])
+
+    @inlineCallbacks
+    def test_delete_non_existing_router(self):
+        """Should return a router not found"""
+        resp = yield self.delete('/routers/bad-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })

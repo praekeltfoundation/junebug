@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import partial
 from uuid import uuid4
 
 from junebug.error import JunebugError
@@ -26,6 +27,13 @@ class InvalidRouterConfig(JunebugError):
     code = http.BAD_REQUEST
 
 
+class RouterNotFound(JunebugError):
+    """Raised when we cannot find a router for the given ID"""
+    name = "RouterNotFound"
+    description = "router not found"
+    code = http.NOT_FOUND
+
+
 class Router(object):
     """
     Represents a Junebug Router.
@@ -34,12 +42,17 @@ class Router(object):
         self.router_store = router_store
         self.junebug_config = junebug_config
         self.router_config = router_config
+        self.router_worker = None
 
         if self.router_config.get('id', None) is None:
             self.router_config['id'] = str(uuid4())
 
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
         self.vumi_options.update(self.junebug_config.amqp)
+
+    @property
+    def id(self):
+        return self.router_config['id']
 
     @staticmethod
     def get_all(router_store):
@@ -53,6 +66,12 @@ class Router(object):
         Saves the router data into the router store.
         """
         return self.router_store.save_router(self.router_config)
+
+    def delete(self):
+        """
+        Removes the router data from the router store
+        """
+        return self.router_store.delete_router(self.id)
 
     @property
     def _available_router_types(self):
@@ -102,8 +121,42 @@ class Router(object):
         worker.setServiceParent(service)
         self.router_worker = worker
 
+    def stop(self):
+        """
+        Stops the router from running
+        """
+        if self.router_worker:
+            worker = self.router_worker
+            self.router_worker = None
+            return worker.disownServiceParent()
+        return succeed(None)
+
     def status(self):
         """
         Returns the config and status of this router
         """
         return succeed(self.router_config)
+
+    def _restore(self, service):
+        self.router_worker = service.namedServices.get(
+            self.router_config['id'])
+        return self
+
+    @classmethod
+    def from_id(cls, router_store, junebug_config, parent_service, router_id):
+        """
+        Restores an existing router, given the router's ID
+        """
+
+        def assert_router_exists(router):
+            if router is None:
+                raise RouterNotFound(
+                    "Router with ID {} cannot be found".format(router_id))
+            else:
+                return router
+
+        d = router_store.get_router_config(router_id)
+        d.addCallback(assert_router_exists)
+        d.addCallback(partial(cls, router_store, junebug_config))
+        d.addCallback(lambda router: router._restore(parent_service))
+        return d

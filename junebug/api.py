@@ -347,6 +347,86 @@ class JunebugApi(object):
             code=http.CREATED
         ))
 
+    @app.route('/routers/<string:router_id>', methods=['GET'])
+    def get_router(self, request, router_id):
+        """Get the configuration details and status of a specific router"""
+        d = Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        d.addCallback(lambda router: router.status())
+        d.addCallback(partial(response, request, 'router found'))
+        return d
+
+    @app.route('/routers/<string:router_id>', methods=['PUT'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+            },
+            'additionalProperties': False,
+            'required': ['type', 'config'],
+        }))
+    @inlineCallbacks
+    def replace_router_config(self, request, body, router_id):
+        """Replace the router config with the one specified"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+
+        for field in ['type', 'label', 'config', 'metadata']:
+            router.router_config.pop(field, None)
+        router.router_config.update(body)
+        yield router.validate_config()
+
+        # Stop and start the router for the worker to get the new config
+        yield router.stop()
+        router.start(self.service)
+        yield router.save()
+        returnValue(response(
+            request, 'router updated', (yield router.status())))
+
+    @app.route('/routers/<string:router_id>', methods=['PATCH'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'type': {'type': 'string'},
+                'label': {'type': 'string'},
+                'config': {'type': 'object'},
+                'metadata': {'type': 'object'},
+            },
+            'additionalProperties': False,
+            'required': [],
+        }))
+    @inlineCallbacks
+    def update_router_config(self, request, body, router_id):
+        """Update the router config with the one specified"""
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+
+        router.router_config.update(body)
+        yield router.validate_config()
+
+        # Stop and start the router for the worker to get the new config
+        yield router.stop()
+        router.start(self.service)
+        yield router.save()
+        returnValue(response(
+            request, 'router updated', (yield router.status())))
+
+    @app.route('/routers/<string:router_id>', methods=['DELETE'])
+    @inlineCallbacks
+    def delete_router(self, request, router_id):
+        router = yield Router.from_id(
+            self.router_store, self.config, self.service, router_id)
+        yield router.stop()
+        yield router.delete()
+        returnValue(response(request, 'router deleted', {}))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:

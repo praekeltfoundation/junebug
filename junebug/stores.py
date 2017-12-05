@@ -45,6 +45,10 @@ class BaseStore(object):
         '''Stores a single key with a value as a hash at the key `id`'''
         return self._redis_op(self.redis.hset, id, key, value, ttl=ttl)
 
+    def remove_property(self, id, key, ttl=USE_DEFAULT_TTL):
+        '''Removes the property specified key from `id`'''
+        return self._redis_op(self.redis.hdel, id, key, ttl=ttl)
+
     @inlineCallbacks
     def load_all(self, id, ttl=USE_DEFAULT_TTL):
         '''Retrieves all the keys and values stored as a hash at the key
@@ -70,6 +74,22 @@ class BaseStore(object):
     def add_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
         '''Adds an item to a set'''
         return self._redis_op(self.redis.sadd, id, value, ttl=ttl)
+
+    def remove_set_item(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Removes the item `value` from the set at `id`'''
+        return self._redis_op(self.redis.srem, id, value, ttl=ttl)
+
+    def store_value(self, id, value, ttl=USE_DEFAULT_TTL):
+        '''Stores `value` at `id`'''
+        return self._redis_op(self.redis.set, id, value, ttl=ttl)
+
+    def load_value(self, id, ttl=USE_DEFAULT_TTL):
+        '''Gets the value stored at `id`'''
+        return self._redis_op(self.redis.get, id, ttl=ttl)
+
+    def remove_value(self, id, ttl=USE_DEFAULT_TTL):
+        '''Deletes the value stored at `id`'''
+        return self._redis_op(self.redis.delete, id, ttl=ttl)
 
 
 class InboundMessageStore(BaseStore):
@@ -224,6 +244,10 @@ class MessageRateStore(BaseStore):
 class RouterStore(BaseStore):
     '''Stores all configuration for routers'''
 
+    def get_router_key(self, router_id):
+        """Gets the key for a router with id ``router_id``"""
+        return self.get_key('routers', router_id)
+
     def get_router_list(self):
         '''Returns a list of UUIDs for all the current router configurations'''
         d = self.get_set('routers')
@@ -232,6 +256,25 @@ class RouterStore(BaseStore):
 
     def save_router(self, config):
         '''Saves the configuration of a router'''
-        d1 = self.store_property(config['id'], 'config', json.dumps(config))
+        d1 = self.store_value(
+            self.get_router_key(config['id']), json.dumps(config))
         d2 = self.add_set_item('routers', config['id'])
+        return gatherResults([d1, d2])
+
+    def _handle_read_router_error(self, err):
+        if isinstance(err, TypeError):
+            # Trying to decode ``None`` means missing router. Return None
+            return None
+
+    def get_router_config(self, router_id):
+        """Gets the configuration of a router with the id ``router_id``"""
+        d = self.load_value(self.get_router_key(router_id))
+        d.addCallback(json.loads)
+        d.addErrback(self._handle_read_router_error)
+        return d
+
+    def delete_router(self, router_id):
+        """Removes the configuration of the router with id ``router_id``"""
+        d1 = self.remove_value(self.get_router_key(router_id))
+        d2 = self.remove_set_item('routers', router_id)
         return gatherResults([d1, d2])
