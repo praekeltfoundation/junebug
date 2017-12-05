@@ -344,9 +344,6 @@ Channel Messages
 
 Routers
 ^^^^^^^
-.. note::
-
-   Not yet implemented
 
 .. http:get:: /routers/
 
