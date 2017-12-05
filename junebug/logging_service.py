@@ -166,9 +166,9 @@ def reverse_read(filename, buf):
             # incomplete, so store it for the next iteration.
             if lines:
                 incomplete_line = lines.pop(0)
-            for l in lines[::-1]:
-                if l != '':
-                    yield l
+            for line in lines[::-1]:
+                if line != '':
+                    yield line
         if incomplete_line:
             yield incomplete_line
 
