@@ -1750,3 +1750,23 @@ class TestJunebugApi(JunebugTestBase):
 
         router_worker = self.api.service.namedServices[router_id]
         self.assertEqual(len(router_worker.config['destinations']), 0)
+
+    @inlineCallbacks
+    def test_delete_non_existing_destination(self):
+        """If the destination doesn't exist, then a not found error should be
+        returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.delete(
+            '/routers/{}/destinations/bad-destination'.format(router_id))
+        self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        "Cannot find destination with ID bad-destination for "
+                        "router {}".format(router_id),
+                    'type': "DestinationNotFound",
+                }]
+            })
