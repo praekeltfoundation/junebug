@@ -1730,8 +1730,8 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_delete_destination(self):
-        """If the destination doesn't exist, then a not found error should be
-        returned"""
+        """A DELETE request on a destination should remove that destination
+        from the import router config"""
         router_config = self.create_router_config()
         resp = yield self.post('/routers/', router_config)
         router_id = (yield resp.json())['result']['id']
