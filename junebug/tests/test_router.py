@@ -1,6 +1,6 @@
 from twisted.internet.defer import inlineCallbacks
 
-from junebug.router import Router, InvalidRouterConfig
+from junebug.router import Router, InvalidRouterConfig, RouterNotFound
 from junebug.router.base import InvalidRouterType
 from junebug.tests.helpers import JunebugTestBase
 
@@ -78,10 +78,39 @@ class TestRouter(JunebugTestBase):
         router = Router(self.api.router_store, self.api.config, config)
         router.start(self.service)
 
-        id = router.router_config['id']
-        transport = self.service.namedServices[id]
-        self.assertEqual(transport.parent, self.service)
-        self.assertEqual(transport.config, config['config'])
+        router_worker = self.service.namedServices[router.id]
+        self.assertEqual(router_worker.parent, self.service)
+        self.assertEqual(router_worker.config, config['config'])
+
+    @inlineCallbacks
+    def test_stop(self):
+        """stop should stop the router worker if it is running"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        router.start(self.service)
+
+        self.assertIn(router.id, self.service.namedServices)
+
+        yield router.stop()
+
+        self.assertNotIn(router.id, self.service.namedServices)
+
+    @inlineCallbacks
+    def test_stop_already_stopped(self):
+        """Calling stop on a non-running router should not raise any
+        exceptions"""
+
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        router.start(self.service)
+
+        self.assertIn(router.id, self.service.namedServices)
+
+        yield router.stop()
+
+        self.assertNotIn(router.id, self.service.namedServices)
+
+        yield router.stop()
 
     @inlineCallbacks
     def test_status(self):
@@ -90,3 +119,50 @@ class TestRouter(JunebugTestBase):
         router = Router(self.api.router_store, self.api.config, config)
         status = yield router.status()
         self.assertEqual(status, router.router_config)
+
+    @inlineCallbacks
+    def test_from_id(self):
+        """from_id should be able to restore a router, given just the id"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        yield router.save()
+        router.start(self.api.service)
+
+        restored_router = yield Router.from_id(
+            self.api.router_store, self.api.config, self.api.service,
+            router.router_config['id'])
+
+        self.assertEqual(router.router_config, restored_router.router_config)
+        self.assertEqual(router.router_worker, restored_router.router_worker)
+
+    @inlineCallbacks
+    def test_from_id_doesnt_exist(self):
+        """If we don't have a router for the specified ID, then we should raise
+        the appropriate error"""
+        with self.assertRaises(RouterNotFound):
+            yield Router.from_id(
+                self.api.router_store, self.api.config, self.api.service,
+                'bad-router-id')
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Removes the router config from the store"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        yield router.save()
+        self.assertEqual(
+            (yield self.api.router_store.get_router_list()),
+            [router.router_config['id']])
+
+        yield router.delete()
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+    @inlineCallbacks
+    def test_delete_router_not_in_store(self):
+        """Removing a non-existing router should not result in an error"""
+        config = self.create_router_config()
+        router = Router(self.api.router_store, self.api.config, config)
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])
+
+        yield router.delete()
+        self.assertEqual((yield self.api.router_store.get_router_list()), [])

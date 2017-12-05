@@ -3,6 +3,19 @@
 Release Notes
 =============
 
+v0.1.28
+-------
+
+.. Pull requests 142, 143, 144, 145, 146, 151
+
+*5 December 2017*
+
+- Features
+    - Added the endpoints for creating, modifying, and deleting routers.
+
+- Documentation
+    - Removed not yet implemented from Router endpoints.
+
 v0.1.27
 -------
 

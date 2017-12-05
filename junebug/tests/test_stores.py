@@ -88,6 +88,26 @@ class TestBaseStore(JunebugTestBase):
         self.assertEqual(val, None)
 
     @inlineCallbacks
+    def test_remove_property(self):
+        '''remove_property should remove the specified property from the
+        specified id'''
+        store = yield self.create_store()
+
+        yield self.redis.hmset('testid', {
+            'prop1': 'foo',
+            'prop2': 'bar',
+        })
+        self.assertEqual((yield self.redis.hgetall('testid')), {
+            'prop1': 'foo',
+            'prop2': 'bar',
+        })
+
+        yield store.remove_property('testid', 'prop1')
+        self.assertEqual((yield self.redis.hgetall('testid')), {
+            'prop2': 'bar',
+        })
+
+    @inlineCallbacks
     def test_override_ttl(self):
         '''If a ttl for an action is specified, it should override the default
         ttl'''
@@ -150,6 +170,57 @@ class TestBaseStore(JunebugTestBase):
             (yield store.get_set('testid')),
             set(('item1', 'item2'))
         )
+
+    @inlineCallbacks
+    def test_remove_set_item(self):
+        '''remove_set_item removes a specific item from the set stored at the
+        specified id'''
+        store = yield self.create_store()
+
+        yield self.redis.sadd('testid', 'item1')
+        yield self.redis.sadd('testid', 'item2')
+        self.assertEqual(
+            (yield self.redis.smembers('testid')), set(('item1', 'item2')))
+
+        yield store.remove_set_item('testid', 'item1')
+        self.assertEqual(
+            (yield self.redis.smembers('testid')), set(('item2',)))
+
+    @inlineCallbacks
+    def test_store_value(self):
+        '''stores the given value at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield store.store_value('testid', 'testvalue')
+
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_load_value(self):
+        '''loads the value stored at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.load_value('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+
+        self.assertEqual((yield store.load_value('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_remove_value(self):
+        '''removes the value stored at the given key'''
+        store = yield self.create_store()
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
 
 
 class TestInboundMessageStore(JunebugTestBase):
@@ -550,4 +621,44 @@ class TestRouterStore(JunebugTestBase):
         self.assertEqual(
             (yield self.redis.smembers('routers')), set(['test-uuid']))
         self.assertEqual(
-            (yield self.redis.hget('test-uuid', 'config')), json.dumps(config))
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
+
+    @inlineCallbacks
+    def test_get_router_config(self):
+        """get_router_config should return the router config for the uuid
+        specified"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
+
+        value = yield store.get_router_config('test-uuid')
+        self.assertEqual(value, config)
+
+    @inlineCallbacks
+    def test_get_router_config_doesnt_exist(self):
+        """If we don't have a config stored for the specified router ID, then
+        we should return None"""
+        store = yield self.create_store()
+        value = yield store.get_router_config('bad-uuid')
+        self.assertEqual(value, None)
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Removes router's config and removes ID from router list"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield self.redis.sadd('routers', 'test-uuid')
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set(['test-uuid']))
+        self.assertEqual(
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
+
+        yield store.delete_router('test-uuid')
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set())
+        self.assertEqual(
+            (yield self.redis.get('routers:test-uuid')), None)
