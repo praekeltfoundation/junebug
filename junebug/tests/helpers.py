@@ -151,6 +151,15 @@ class TestRouter(BaseWorker):
         if config.get('test') != 'pass':
             raise InvalidRouterConfig('test must be pass')
 
+    def setup_connectors(self):
+        pass
+
+    def setup_worker(self):
+        pass
+
+    def teardown_worker(self):
+        pass
+
 
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
