@@ -3,6 +3,16 @@
 Release Notes
 =============
 
+v0.1.29
+
+.. Pull request 152
+
+*6 December 2017*
+
+- Fixes
+    - Fix the name clash of validate_config for creating routers
+    - Fix the TestRouter so that it can be used as an actual router for testing
+
 v0.1.28
 -------
 

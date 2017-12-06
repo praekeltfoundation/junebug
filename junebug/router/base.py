@@ -108,7 +108,7 @@ class Router(object):
         """
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
-            worker_class.validate_config, self._worker_config)
+            worker_class.validate_router_config, self._worker_config)
 
     def start(self, service):
         """
