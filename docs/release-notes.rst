@@ -3,7 +3,14 @@
 Release Notes
 =============
 
+v0.1.30
+-------
+
+- Documentation
+    - Add format for inbound messages send from Junebug.
+
 v0.1.29
+-------
 
 .. Pull request 152
 
