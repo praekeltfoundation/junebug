@@ -119,10 +119,16 @@ class TestJunebugApi(JunebugTestBase):
         Invalid JSON in the body should result in a bad request error
         """
         resp = yield self.raw_post('/channels/', '{')
+
+        try:
+            json.loads('{')
+        except ValueError as e:
+            msg = e.message
+
         self.assert_response(
             resp, http.BAD_REQUEST, 'json decode error', {
                 'errors': [{
-                    'message': 'Expecting object: line 1 column 1 (char 0)',
+                    'message': msg,
                     'type': 'JsonDecodeError',
                 }]
             })
