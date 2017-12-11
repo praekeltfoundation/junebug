@@ -41,6 +41,11 @@ class TestJunebugApi(JunebugTestBase):
             persistent=False,
             headers=headers)
 
+    def raw_post(self, url, body, headers=None):
+        return treq.post(
+            "{}{}".format(self.url, url), body, persistent=False,
+            headers=headers)
+
     def put(self, url, data, headers=None):
         return treq.put(
             "%s%s" % (self.url, url),
@@ -107,6 +112,20 @@ class TestJunebugApi(JunebugTestBase):
         yield self.assert_response(
             resp, http.OK,
             'channels listed', [])
+
+    @inlineCallbacks
+    def test_invalid_json_handling(self):
+        """
+        Invalid JSON in the body should result in a bad request error
+        """
+        resp = yield self.raw_post('/channels/', '{')
+        self.assert_response(
+            resp, http.BAD_REQUEST, 'json decode error', {
+                'errors': [{
+                    'message': 'Expecting object: line 1 column 1 (char 0)',
+                    'type': 'JsonDecodeError',
+                }]
+            })
 
     @inlineCallbacks
     def test_startup_plugins_started(self):
