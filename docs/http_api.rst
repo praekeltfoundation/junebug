@@ -461,11 +461,8 @@ Routers
 
 Router Destinations
 ^^^^^^^^^^^^^^^^^^^
-.. note::
 
-   Not yet implemented
-
-.. http:get:: /routers/(router_id:str)/destinations
+.. http:get:: /routers/(router_id:str)/destinations/
 
    Get a list of destinations for the specified router
 
@@ -484,7 +481,7 @@ Router Destinations
     }
 
 .. _`creating a destination`:
-.. http:post:: /routers/(router_id:str)/destinations
+.. http:post:: /routers/(router_id:str)/destinations/
 
    Create a new destination for a router.
 

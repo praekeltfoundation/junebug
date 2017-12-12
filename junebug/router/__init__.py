@@ -1,5 +1,8 @@
-from .base import Router, InvalidRouterConfig, RouterNotFound
+from .base import (
+    Router, InvalidRouterConfig, InvalidRouterDestinationConfig, RouterNotFound
+)
 
 Router
 InvalidRouterConfig
+InvalidRouterDestinationConfig
 RouterNotFound
