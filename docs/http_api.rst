@@ -684,6 +684,56 @@ Sent later when (or if) delivery reports are received:
 * ``delivery_pending``: provider is still attempting to deliver the message.
 
 
+Inbound (Mobile Originated) Messages
+------------------------------------
+
+Inbound messages that are ``POST``\ed to the ``mo_url`` specified in
+:http:post:`/channels/` have the following format:
+
+.. http:post:: /mobile_originated/url
+
+    :param str to:
+        The address that the message was sent to.
+    :param str from:
+        The address that the message was sent from.
+    :param str group:
+        If the transport supports groups, the group that the message was sent
+        in.
+    :param str message_id:
+        The string representation of the UUID of the message.
+    :param str channel_id:
+        The string representation of the UUID of the channel that the message
+        came in on.
+    :param str timestamp:
+        The timestamp of when the message arrived at the channel, in the
+        format ``"%Y-%m-%d %H:%M:%S.%f``.
+    :param str reply_to:
+        If this message is a reply of an outbound message, the string
+        representation of the UUID of the outbound message.
+    :param str content:
+        The text content of the message.
+    :param dict channel_data:
+        Any channel implementation specific data. The contents of this
+        differs between channel implementations.
+
+**Request example**:
+
+.. sourcecode:: json
+
+    {
+        "to": "+27821234567",
+        "from": "12345",
+        "group": null,
+        "message_id": "35f3336d4a1a46c7b40cd172a41c510d"
+        "channel_id": "bc5f2e63-7f53-4996-816d-4f89f45a5842",
+        "timestamp": "2015-10-06 14:16:34.578820",
+        "reply_to": null,
+        "content": "Test message",
+        "channel_data": {
+            "session_event": "new"
+        },
+    }
+
 .. _status-events:
 
 Status events
