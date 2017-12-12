@@ -5,6 +5,8 @@ from twisted.web import http
 from functools import wraps
 from vumi.message import JSONMessageEncoder
 
+from junebug.error import JunebugError
+
 
 def response(req, description, data, code=http.OK):
     req.setHeader('Content-Type', 'application/json')
@@ -18,10 +20,22 @@ def response(req, description, data, code=http.OK):
     }, cls=JSONMessageEncoder)
 
 
+class JsonDecodeError(JunebugError):
+    """
+    Invalid JSON was given to us by the user
+    """
+    name = 'JsonDecodeError'
+    description = 'json decode error'
+    code = http.BAD_REQUEST
+
+
 def json_body(fn):
     @wraps(fn)
     def wrapper(api, req, *a, **kw):
-        body = json.loads(req.content.read())
+        try:
+            body = json.loads(req.content.read())
+        except ValueError as e:
+            raise JsonDecodeError(e.message)
         return fn(api, req, body, *a, **kw)
 
     return wrapper
