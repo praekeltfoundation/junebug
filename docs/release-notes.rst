@@ -3,9 +3,20 @@
 Release Notes
 =============
 
+v0.1.31
+-------
+.. Pull requests 147, 148, 149, 150
+
+- Features
+    - Added endpoints for creating, modifying, deleting and listing router
+      destinations.
+
+- Documentation
+    - Remove not yet implemented note for router destinations.
+
 v0.1.30
 -------
-.. Pull request 153, 154
+.. Pull requests 153, 154
 
 *12 December 2017*
 

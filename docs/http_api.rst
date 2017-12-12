@@ -461,9 +461,6 @@ Routers
 
 Router Destinations
 ^^^^^^^^^^^^^^^^^^^
-.. note::
-
-   Not yet implemented
 
 .. http:get:: /routers/(router_id:str)/destinations/
 
