@@ -5,9 +5,15 @@ Release Notes
 
 v0.1.30
 -------
+.. Pull request 153, 154
+
+*12 December 2017*
 
 - Documentation
     - Add format for inbound messages send from Junebug.
+
+- Fixes
+    - Add handling for invalid JSON in the request body
 
 v0.1.29
 -------
