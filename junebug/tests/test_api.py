@@ -1263,7 +1263,9 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(transport.parent, self.service)
 
-        self.assertEqual(transport.config, config['config'])
+        worker_config = config['config']
+        worker_config['destinations'] = []
+        self.assertEqual(transport.config, worker_config)
 
     @inlineCallbacks
     def test_create_router_saves_config(self):
@@ -1313,7 +1315,9 @@ class TestJunebugApi(JunebugTestBase):
         old_config['id'] = router_id
         self.assertEqual(router_config, old_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, old_config['config'])
+        router_worker_config = old_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         new_config = self.create_router_config(config={'test': 'pass'})
         new_config.pop('label', None)
@@ -1327,7 +1331,9 @@ class TestJunebugApi(JunebugTestBase):
             router_id)
         self.assertEqual(router_config, new_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, new_config['config'])
+        router_worker_config = new_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         router_worker = self.api.service.namedServices[router_id]
 
@@ -1368,7 +1374,9 @@ class TestJunebugApi(JunebugTestBase):
         old_config['id'] = router_id
         self.assertEqual(router_config, old_config)
         router_worker = self.api.service.namedServices[router_id]
-        self.assertEqual(router_worker.config, old_config['config'])
+        router_worker_config = old_config['config']
+        router_worker_config['destinations'] = []
+        self.assertEqual(router_worker.config, router_worker_config)
 
         update = {'config': {'test': 'pass', 'new': 'new'}}
         new_config = deepcopy(old_config)
@@ -1384,6 +1392,8 @@ class TestJunebugApi(JunebugTestBase):
             router_id)
         self.assertEqual(router_config, new_config)
         router_worker = self.api.service.namedServices[router_id]
+        router_worker_config = new_config['config']
+        router_worker_config['destinations'] = []
         self.assertEqual(router_worker.config, new_config['config'])
 
         router_worker = self.api.service.namedServices[router_id]
@@ -1439,3 +1449,349 @@ class TestJunebugApi(JunebugTestBase):
                 'type': 'RouterNotFound',
             }]
         })
+
+    @inlineCallbacks
+    def test_create_destination_invalid_router_id(self):
+        """If the router specified by the router ID doesn't exist, a not found
+        error should be returned"""
+        resp = yield self.post('/routers/bad-router-id/destinations/', {
+            'config': {}
+        })
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_create_destination_invalid_config(self):
+        """The destination config should be sent to the router worker to
+        validate before the destination is created"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(config={
+            'target': 'invalid',
+        })
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router destination config', {
+                'errors': [{
+                    'message': 'target must be valid',
+                    'type': 'InvalidRouterDestinationConfig',
+                }]
+            }
+        )
+
+    @inlineCallbacks
+    def test_create_destination(self):
+        """A created destination should be saved in the router store, and be
+        passed to the router worker config"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.CREATED, 'destination created', dest_config,
+            ignore=['id'])
+        dest_id = (yield resp.json())['result']['id']
+
+        self.assertEqual(
+            (yield self.api.router_store.get_router_destination_list(
+                router_id)),
+            [dest_id])
+
+        dest_config['id'] = dest_id
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(router_worker.config['destinations'], [dest_config])
+
+    @inlineCallbacks
+    def test_get_destination_list_non_existing_router(self):
+        """If we try to get a destination list for a router that doesn't
+        exist, we should get a not found error returned"""
+        resp = yield self.get('/routers/bad-router-id/destinations/')
+        self.assert_response(
+            resp, http.NOT_FOUND, 'router not found', {
+                'errors': [{
+                    'message': 'Router with ID bad-router-id cannot be found',
+                    'type': 'RouterNotFound',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_get_destination_list(self):
+        """A GET request on the destinations resource should return a list of
+        destinations for that router"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        dest_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get('/routers/{}/destinations/'.format(router_id))
+        self.assert_response(
+            resp, http.OK, 'destinations retrieved', [dest_id])
+
+    @inlineCallbacks
+    def test_get_destination_no_router(self):
+        """Trying to get a destination for a router that doesn't exist should
+        result in a not found error being returned"""
+        resp = yield self.get(
+            '/routers/bad-router-id/destinations/bad-destination-id')
+        self.assert_response(resp, http.NOT_FOUND, 'router not found', {
+            'errors': [{
+                'message': 'Router with ID bad-router-id cannot be found',
+                'type': 'RouterNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_get_destination_no_destination(self):
+        """Trying to get a destination that doesn't exist should result in a
+        not found error being returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/bad-destination-id'.format(router_id))
+        self.assert_response(resp, http.NOT_FOUND, 'destination not found', {
+            'errors': [{
+                'message':
+                    'Cannot find destination with ID bad-destination-id for '
+                    'router {}'.format(router_id),
+                'type': 'DestinationNotFound',
+            }]
+        })
+
+    @inlineCallbacks
+    def test_get_destination(self):
+        """A GET request on a destination should return the status and config
+        of that destination"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        destination_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), destination_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id))
+        self.assert_response(
+            resp, http.OK, 'destination found', destination_config,
+            ignore=['id'])
+
+    @inlineCallbacks
+    def test_replace_destination_config(self):
+        """A put request should replace the config of the destination, and save
+        that change."""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(label='testlabel')
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.CREATED, 'destination created', dest_config,
+            ignore=['id'])
+        destination_id = (yield resp.json())['result']['id']
+        router_worker = self.api.service.namedServices[router_id]
+        destination = router_worker.config['destinations'][0]
+        self.assertIn('label', destination)
+
+        new_config = self.create_destination_config()
+        resp = yield self.put(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id),
+            new_config)
+        self.assert_response(
+            resp, http.OK, 'destination updated', new_config,
+            ignore=['id'])
+
+        router_worker = self.api.service.namedServices[router_id]
+        destination = router_worker.config['destinations'][0]
+        self.assertNotIn('label', destination)
+
+    @inlineCallbacks
+    def test_replace_destination_config_invalid_config(self):
+        """If there's an error in the provided config, an error should be
+        returned and the config should not be updated"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        new_config = self.create_destination_config(
+            config={'target': 'invalid'})
+        resp = yield self.put(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id),
+            new_config)
+        self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router destination config', {
+                'errors': [{
+                    'message': 'target must be valid',
+                    'type': 'InvalidRouterDestinationConfig',
+                }],
+            })
+
+        router_worker = self.api.service.namedServices[router_id]
+        destination = router_worker.config['destinations'][0]
+        self.assertEqual(destination['config'], dest_config['config'])
+
+    @inlineCallbacks
+    def test_replace_destination_config_non_existing_destination(self):
+        """If the destination doesn't exist, then a not found error should be
+        returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.put(
+            '/routers/{}/destinations/bad-id'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        'Cannot find destination with ID bad-id for router '
+                        '{}'.format(router_id),
+                    'type': 'DestinationNotFound',
+                }],
+            })
+
+    @inlineCallbacks
+    def test_update_destination_config(self):
+        """A patch request should replace the config of the destination, and
+        save that change."""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(label='testlabel')
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.CREATED, 'destination created', dest_config,
+            ignore=['id'])
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.patch_request(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id),
+            {'metadata': {'foo': 'bar'}})
+        self.assert_response(
+            resp, http.OK, 'destination updated', dest_config,
+            ignore=['id', 'metadata'])
+
+        router_worker = self.api.service.namedServices[router_id]
+        destination = router_worker.config['destinations'][0]
+        self.assertEqual(destination['label'], 'testlabel')
+        self.assertEqual(destination['metadata'], {'foo': 'bar'})
+
+    @inlineCallbacks
+    def test_update_destination_config_invalid_config(self):
+        """If there's an error in the provided config, an error should be
+        returned and the config should not be updated"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        new_config = self.create_destination_config(
+            config={'target': 'invalid'})
+        resp = yield self.patch_request(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id),
+            new_config)
+        self.assert_response(
+            resp, http.BAD_REQUEST, 'invalid router destination config', {
+                'errors': [{
+                    'message': 'target must be valid',
+                    'type': 'InvalidRouterDestinationConfig',
+                }],
+            })
+
+        router_worker = self.api.service.namedServices[router_id]
+        destination = router_worker.config['destinations'][0]
+        self.assertEqual(destination['config'], dest_config['config'])
+
+    @inlineCallbacks
+    def test_update_destination_config_non_existing_destination(self):
+        """If the destination doesn't exist, then a not found error should be
+        returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.patch_request(
+            '/routers/{}/destinations/bad-id'.format(router_id), dest_config)
+        self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        'Cannot find destination with ID bad-id for router '
+                        '{}'.format(router_id),
+                    'type': 'DestinationNotFound',
+                }],
+            })
+
+    @inlineCallbacks
+    def test_delete_destination(self):
+        """A DELETE request on a destination should remove that destination
+        from the import router config"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config()
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(len(router_worker.config['destinations']), 1)
+
+        resp = yield self.delete(
+            '/routers/{}/destinations/{}'.format(router_id, destination_id))
+        self.assert_response(resp, http.OK, 'destination deleted', {})
+
+        router_worker = self.api.service.namedServices[router_id]
+        self.assertEqual(len(router_worker.config['destinations']), 0)
+
+    @inlineCallbacks
+    def test_delete_non_existing_destination(self):
+        """If the destination doesn't exist, then a not found error should be
+        returned"""
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.delete(
+            '/routers/{}/destinations/bad-destination'.format(router_id))
+        self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        "Cannot find destination with ID bad-destination for "
+                        "router {}".format(router_id),
+                    'type': "DestinationNotFound",
+                }]
+            })

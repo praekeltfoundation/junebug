@@ -662,3 +662,88 @@ class TestRouterStore(JunebugTestBase):
             (yield self.redis.smembers('routers')), set())
         self.assertEqual(
             (yield self.redis.get('routers:test-uuid')), None)
+
+    @inlineCallbacks
+    def test_save_router_destination(self):
+        """Saves the destination for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+
+        destination_config = self.create_destination_config(
+            id='destination-id')
+        yield store.save_router_destination('router-id', destination_config)
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set(['destination-id']))
+        self.assertEqual(
+            json.loads((yield self.redis.get(
+                'routers:router-id:destinations:destination-id'))),
+            destination_config)
+
+    @inlineCallbacks
+    def test_get_router_destination_list(self):
+        """Gets the list of available router destinations for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), [])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest1')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), ['dest1'])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest2')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')),
+            ['dest1', 'dest2'])
+
+    @inlineCallbacks
+    def test_get_router_destination_config(self):
+        """Should return the router destination config, or None if no config is
+        stored"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id',
+            json.dumps({'test': 'config'}))
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), {'test': 'config'})
+
+    @inlineCallbacks
+    def test_get_router_destination_config_non_existing(self):
+        """If we don't have a config saved for the specified router destination
+        return None"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), None)
+
+    @inlineCallbacks
+    def test_remove_router_destination(self):
+        """Removing a router destination should remove the destination config
+        and remove it from the destination list of the router"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id', json.dumps({
+                'test': 'config'}))
+        yield self.redis.sadd(
+            'routers:router-id:destinations', 'destination-id')
+
+        yield store.delete_router_destination('router-id', 'destination-id')
+
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())
