@@ -1618,7 +1618,7 @@ class TestJunebugApi(JunebugTestBase):
         destination = router_worker.config['destinations'][0]
         self.assertIn('label', destination)
 
-        new_config = self.create_destination_config()
+        new_config = self.create_destination_config(character_limit=7)
         resp = yield self.put(
             '/routers/{}/destinations/{}'.format(router_id, destination_id),
             new_config)

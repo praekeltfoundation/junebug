@@ -500,7 +500,10 @@ class JunebugApi(object):
                 'mo_url': {'type': 'string'},
                 'mo_url_token': {'type': 'string'},
                 'amqp_queue': {'type': 'string'},
-                'character_limit': {'type': 'int'},
+                'character_limit': {
+                    'type': 'integer',
+                    'minimum': 0,
+                },
             },
             'additionalProperties': False,
             'required': ['config'],
