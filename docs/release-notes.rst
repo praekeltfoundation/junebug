@@ -3,9 +3,23 @@
 Release Notes
 =============
 
+v0.1.32
+-------
+.. Pull requests 156, 157
+
+*13 December 2017*
+
+- Documentation
+    - Fixed the mo_url_auth_token field description for channels
+
+- Fixes
+    - Fixed character limit validation for router destinations
+
 v0.1.31
 -------
 .. Pull requests 147, 148, 149, 150
+
+*12 December 2017*
 
 - Features
     - Added endpoints for creating, modifying, deleting and listing router
