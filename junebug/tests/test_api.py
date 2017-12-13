@@ -1494,7 +1494,14 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.post('/routers/', router_config)
         router_id = (yield resp.json())['result']['id']
 
-        dest_config = self.create_destination_config()
+        dest_config = self.create_destination_config(
+            label='testlabel',
+            metadata={'test': 'metadata'},
+            mo_url='http//example.org',
+            mo_url_token='12345',
+            amqp_queue='testqueue',
+            character_limit=7,
+        )
         resp = yield self.post(
             '/routers/{}/destinations/'.format(router_id), dest_config)
         self.assert_response(
@@ -1611,7 +1618,7 @@ class TestJunebugApi(JunebugTestBase):
         destination = router_worker.config['destinations'][0]
         self.assertIn('label', destination)
 
-        new_config = self.create_destination_config()
+        new_config = self.create_destination_config(character_limit=7)
         resp = yield self.put(
             '/routers/{}/destinations/{}'.format(router_id, destination_id),
             new_config)
@@ -1692,10 +1699,10 @@ class TestJunebugApi(JunebugTestBase):
 
         resp = yield self.patch_request(
             '/routers/{}/destinations/{}'.format(router_id, destination_id),
-            {'metadata': {'foo': 'bar'}})
+            {'metadata': {'foo': 'bar'}, 'character_limit': 7})
         self.assert_response(
             resp, http.OK, 'destination updated', dest_config,
-            ignore=['id', 'metadata'])
+            ignore=['id', 'metadata', 'character_limit'])
 
         router_worker = self.api.service.namedServices[router_id]
         destination = router_worker.config['destinations'][0]
