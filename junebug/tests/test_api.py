@@ -1699,10 +1699,10 @@ class TestJunebugApi(JunebugTestBase):
 
         resp = yield self.patch_request(
             '/routers/{}/destinations/{}'.format(router_id, destination_id),
-            {'metadata': {'foo': 'bar'}})
+            {'metadata': {'foo': 'bar'}, 'character_limit': 7})
         self.assert_response(
             resp, http.OK, 'destination updated', dest_config,
-            ignore=['id', 'metadata'])
+            ignore=['id', 'metadata', 'character_limit'])
 
         router_worker = self.api.service.namedServices[router_id]
         destination = router_worker.config['destinations'][0]
