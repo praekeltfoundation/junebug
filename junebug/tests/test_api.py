@@ -1494,7 +1494,14 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.post('/routers/', router_config)
         router_id = (yield resp.json())['result']['id']
 
-        dest_config = self.create_destination_config()
+        dest_config = self.create_destination_config(
+            label='testlabel',
+            metadata={'test': 'metadata'},
+            mo_url='http//example.org',
+            mo_url_token='12345',
+            amqp_queue='testqueue',
+            character_limit=7,
+        )
         resp = yield self.post(
             '/routers/{}/destinations/'.format(router_id), dest_config)
         self.assert_response(
