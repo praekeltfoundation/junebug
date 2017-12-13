@@ -39,7 +39,7 @@ Channels
        URL to call on incoming messages (mobile originated) from this channel.
        One or both of mo_url or amqp_queue must be specified. If both are
        specified, messages will be sent to both.
-   :param str mo_url_token:
+   :param str mo_url_auth_token:
        The token to use for authentication if the mo_url requires token auth.
    :param str amqp_queue:
        AMQP queue to repost messages onto for mobile originated messages. One
