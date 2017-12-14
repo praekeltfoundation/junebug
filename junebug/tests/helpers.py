@@ -146,13 +146,13 @@ class TestRouter(BaseWorker):
     """Router used for testing the API."""
     # TODO: Create a proper base class for Junebug routers
     @classmethod
-    def validate_router_config(cls, config):
+    def validate_router_config(cls, api, config):
         """Testing config requires the ``test`` parameter to be ``pass``"""
         if config.get('test') != 'pass':
             raise InvalidRouterConfig('test must be pass')
 
     @classmethod
-    def validate_destination_config(cls, config):
+    def validate_destination_config(cls, api, config):
         """Testing destination config requires the ``target`` parameter to be
         ``valid``"""
         if config.get('target') != 'valid':

@@ -336,7 +336,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_router(self, request, body):
         """Create a new router"""
-        router = Router(self.router_store, self.config, body)
+        router = Router(self, body)
         yield router.validate_config()
         router.start(self.service)
         yield router.save()
@@ -350,8 +350,7 @@ class JunebugApi(object):
     @app.route('/routers/<string:router_id>', methods=['GET'])
     def get_router(self, request, router_id):
         """Get the configuration details and status of a specific router"""
-        d = Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        d = Router.from_id(self, router_id)
         d.addCallback(lambda router: router.status())
         d.addCallback(partial(response, request, 'router found'))
         return d
@@ -373,8 +372,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def replace_router_config(self, request, body, router_id):
         """Replace the router config with the one specified"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
 
         for field in ['type', 'label', 'config', 'metadata']:
             router.router_config.pop(field, None)
@@ -405,8 +403,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def update_router_config(self, request, body, router_id):
         """Update the router config with the one specified"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
 
         router.router_config.update(body)
         yield router.validate_config()
@@ -421,8 +418,7 @@ class JunebugApi(object):
     @app.route('/routers/<string:router_id>', methods=['DELETE'])
     @inlineCallbacks
     def delete_router(self, request, router_id):
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         yield router.stop()
         yield router.delete()
         returnValue(response(request, 'router deleted', {}))
@@ -450,8 +446,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_router_destination(self, request, body, router_id):
         """Create a new destination for the router"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         yield router.validate_destination_config(body['config'])
 
         destination = router.add_destination(body)
@@ -467,8 +462,7 @@ class JunebugApi(object):
     @app.route('/routers/<string:router_id>/destinations/', methods=['GET'])
     def get_router_destination_list(self, request, router_id):
         """Get the list of destinations for a router"""
-        d = Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        d = Router.from_id(self, router_id)
         d.addCallback(lambda router: router.get_destination_list())
         d.addCallback(partial(response, request, 'destinations retrieved'))
         return d
@@ -479,8 +473,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_destination(self, request, router_id, destination_id):
         """Get the config and status of a destination"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         destination = router.get_destination(destination_id)
         returnValue(response(
             request, 'destination found', (yield destination.status())
@@ -512,8 +505,7 @@ class JunebugApi(object):
     def replace_router_destination(
             self, request, body, router_id, destination_id):
         """Replace the config of a router destination"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         yield router.validate_destination_config(body['config'])
 
         destination = router.get_destination(destination_id)
@@ -553,8 +545,7 @@ class JunebugApi(object):
     def update_router_destination(
             self, request, body, router_id, destination_id):
         """Update the config of a router destination"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         if 'config' in body:
             yield router.validate_destination_config(body['config'])
 
@@ -574,8 +565,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def delete_router_destination(self, request, router_id, destination_id):
         """Delete and stop the router destination"""
-        router = yield Router.from_id(
-            self.router_store, self.config, self.service, router_id)
+        router = yield Router.from_id(self, router_id)
         destination = router.get_destination(destination_id)
 
         yield router.stop()

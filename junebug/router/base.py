@@ -54,11 +54,8 @@ class Router(object):
     """
     Represents a Junebug Router.
     """
-    def __init__(
-            self, router_store, junebug_config, router_config,
-            destinations=[]):
-        self.router_store = router_store
-        self.junebug_config = junebug_config
+    def __init__(self, api, router_config, destinations=[]):
+        self.api = api
         self.router_config = router_config
         self.router_worker = None
 
@@ -66,7 +63,7 @@ class Router(object):
             self.router_config['id'] = str(uuid4())
 
         self.vumi_options = deepcopy(VumiOptions.default_vumi_options)
-        self.vumi_options.update(self.junebug_config.amqp)
+        self.vumi_options.update(self.api.config.amqp)
 
         self.destinations = {
             d['id']: Destination(self, d) for d in destinations}
@@ -86,7 +83,7 @@ class Router(object):
         """
         Saves the router data into the router store.
         """
-        router_save = self.router_store.save_router(self.router_config)
+        router_save = self.api.router_store.save_router(self.router_config)
         dest_save = DeferredList(
             [d.save() for d in self.destinations.values()])
         return DeferredList([router_save, dest_save])
@@ -95,16 +92,16 @@ class Router(object):
         """
         Removes the router data from the router store
         """
-        return self.router_store.delete_router(self.id)
+        return self.api.router_store.delete_router(self.id)
 
     @property
     def _available_router_types(self):
-        if self.junebug_config.replace_routers:
-            return self.junebug_config.routers
+        if self.api.config.replace_routers:
+            return self.api.config.routers
         else:
             routers = {}
             routers.update(default_router_types)
-            routers.update(self.junebug_config.routers)
+            routers.update(self.api.config.routers)
             return routers
 
     @property
@@ -137,7 +134,7 @@ class Router(object):
         """
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
-            worker_class.validate_router_config, self._worker_config)
+            worker_class.validate_router_config, self.api, self._worker_config)
 
     def validate_destination_config(self, config):
         """
@@ -145,7 +142,7 @@ class Router(object):
         """
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
-            worker_class.validate_destination_config, config)
+            worker_class.validate_destination_config, self.api, config)
 
     def start(self, service):
         """
@@ -180,7 +177,7 @@ class Router(object):
         return self
 
     @classmethod
-    def from_id(cls, router_store, junebug_config, parent_service, router_id):
+    def from_id(cls, api, router_id):
         """
         Restores an existing router, given the router's ID
         """
@@ -190,21 +187,19 @@ class Router(object):
             if router_config is None:
                 raise RouterNotFound(
                     "Router with ID {} cannot be found".format(router_id))
-            return cls(
-                router_store, junebug_config, router_config,
-                destination_configs)
+            return cls(api, router_config, destination_configs)
 
-        d_router = router_store.get_router_config(router_id)
+        d_router = api.router_store.get_router_config(router_id)
 
-        d_dests = router_store.get_router_destination_list(router_id)
+        d_dests = api.router_store.get_router_destination_list(router_id)
         d_dests.addCallback(partial(
             map, partial(
-                router_store.get_router_destination_config, router_id)))
+                api.router_store.get_router_destination_config, router_id)))
         d_dests.addCallback(gatherResults)
 
         d = gatherResults([d_router, d_dests])
         d.addCallback(create_router)
-        d.addCallback(lambda router: router._restore(parent_service))
+        d.addCallback(lambda router: router._restore(api.service))
         return d
 
     def add_destination(self, destination_config):
@@ -249,7 +244,7 @@ class Destination(object):
         """
         Saves this destination to the router store
         """
-        return self.router.router_store.save_router_destination(
+        return self.router.api.router_store.save_router_destination(
             self.router.id, self.destination_config)
 
     def status(self):
@@ -263,5 +258,5 @@ class Destination(object):
         Removes this destination from the store and from the router.
         """
         self.router.destinations.pop(self.id)
-        return self.router.router_store.delete_router_destination(
+        return self.router.api.router_store.delete_router_destination(
             self.router.id, self.id)
