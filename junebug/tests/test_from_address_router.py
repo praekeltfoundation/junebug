@@ -1,7 +1,8 @@
 from twisted.internet.defer import inlineCallbacks
 import uuid
 
-from junebug.router import InvalidRouterConfig, InvalidRouterDestinationConfig
+from junebug.router import (
+    Router, InvalidRouterConfig, InvalidRouterDestinationConfig)
 from junebug.router.from_address import FromAddressRouter
 from junebug.tests.helpers import JunebugTestBase
 
@@ -56,6 +57,35 @@ class TestRouter(JunebugTestBase):
             e.exception.message,
             "Channel {} already has a destination specified".format(
                 channel.id))
+
+    @inlineCallbacks
+    def test_validate_router_config_existing_router(self):
+        """
+        If an existing router is already listening to the specified channel,
+        then a config error should be raised
+        """
+        channel = yield self.create_channel(
+            self.api.service, self.redis, properties={
+                'type': 'telnet',
+                'config': {
+                    'twisted_endpoint': 'tcp:0',
+                },
+            })
+
+        config = self.create_router_config(
+            config={'test': 'pass', 'channel': channel.id})
+        router = Router(self.api, config)
+        yield router.save()
+        router.start(self.api.service)
+
+        with self.assertRaises(InvalidRouterConfig) as e:
+            yield FromAddressRouter.validate_router_config(
+                self.api, {'channel': channel.id})
+
+        self.assertEqual(
+            e.exception.message,
+            "Router {} is already routing channel {}".format(
+                router.id, channel.id))
 
     @inlineCallbacks
     def test_validate_router_destination_config_invalid_regex(self):

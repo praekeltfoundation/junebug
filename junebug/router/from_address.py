@@ -3,9 +3,10 @@ from confmodel.config import ConfigField
 from confmodel.errors import ConfigError
 from confmodel.fields import ConfigBool
 import re
+from twisted.internet.defer import gatherResults, inlineCallbacks
 from uuid import UUID
 
-from junebug.channel import Channel
+from junebug.channel import Channel, ChannelNotFound
 from junebug.router import (
     BaseRouterWorker, InvalidRouterConfig, InvalidRouterDestinationConfig)
 
@@ -72,6 +73,7 @@ class FromAddressRouter(BaseRouterWorker):
     DESTINATION_CONFIG_CLASS = FromAddressRouterDestinationConfig
 
     @classmethod
+    @inlineCallbacks
     def validate_router_config(cls, api, config):
         try:
             config = cls.CONFIG_CLASS(config)
@@ -79,21 +81,30 @@ class FromAddressRouter(BaseRouterWorker):
             raise InvalidRouterConfig(e.message)
 
         channel_id = str(config.channel)
-        d = Channel.from_id(
-            api.redis, api.config, channel_id, api.service, api.plugins)
-
-        def handle_missing_channel(err):
+        try:
+            channel = yield Channel.from_id(
+                api.redis, api.config, channel_id, api.service, api.plugins)
+        except ChannelNotFound:
             raise InvalidRouterConfig(
                 "Channel {} does not exist".format(channel_id))
+        if channel.has_destination:
+            raise InvalidRouterConfig(
+                "Channel {} already has a destination specified".format(
+                    channel_id))
 
-        def ensure_valid_channel(channel):
-            if channel.has_destination:
+        # Check that no other routers are listening to this channel
+        def check_router_channel(router):
+            channel = router.get('config', {}).get('channel', None)
+            if channel == channel_id:
                 raise InvalidRouterConfig(
-                    "Channel {} already has a destination specified".format(
-                        channel_id))
+                    "Router {} is already routing channel {}".format(
+                        router['id'], channel_id))
 
-        d.addErrback(handle_missing_channel)
-        return d.addCallback(ensure_valid_channel)
+        routers = yield api.router_store.get_router_list()
+        routers = yield gatherResults([
+            api.router_store.get_router_config(r) for r in routers])
+        for router in routers:
+            check_router_channel(router)
 
     @classmethod
     def validate_router_destination_config(cls, api, config):

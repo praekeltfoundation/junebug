@@ -422,7 +422,12 @@ class Channel(object):
 
     def _restore(self, service):
         self.transport_worker = service.getServiceNamed(self.id)
-        self.application_worker = service.getServiceNamed(self.application_id)
+        try:
+            self.application_worker = service.getServiceNamed(
+                self.application_id)
+        except KeyError:
+            # Doesn't have an application worker if no destination specified
+            pass
         self.status_application_worker = service.getServiceNamed(
             self.status_application_id)
 
