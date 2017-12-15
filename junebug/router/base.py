@@ -9,6 +9,7 @@ from twisted.internet.defer import (
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
+from vumi.worker import BaseWorker
 
 default_router_types = {
 }
@@ -260,3 +261,67 @@ class Destination(object):
         self.router.destinations.pop(self.id)
         return self.router.api.router_store.delete_router_destination(
             self.router.id, self.id)
+
+
+class BaseRouterWorker(BaseWorker):
+    """
+    The base class that all Junebug routers should inherit from.
+    """
+    UNPAUSE_CONNECTORS = True
+
+    @classmethod
+    def validate_router_config(cls, api, config):
+        """
+        Should raise an InvalidRouterConfig if the supplied router config is
+        not valid. Should be implemented by router implementation.
+        """
+
+    @classmethod
+    def validate_destination_config(cls, api, config):
+        """
+        Should raise an InvalidRouterDestinationConfig if the supplied
+        destination config is invalid. Should be implemented by router
+        implementation.
+        """
+
+    def setup_router(self):
+        """
+        Any startup that the router implementation needs to perform should be
+        done here. May return a deferred.
+        """
+
+    def teardown_router(self):
+        """
+        Any teardown that the router implementation needs to perform should be
+        done here. May return a deferred.
+        """
+
+    def setup_connectors(self):
+        # Connector setup is performed by the class implementation in
+        # setup_router
+        pass
+
+    def setup_worker(self):
+        """
+        Logic to start the router. Should not be overridden by router
+        implementation. Router setup should rather be performed in
+        ``setup_router``.
+        """
+        self.log.msg('Starting a {} router with config: {}'.format(
+            self.__class__.__name__, self.config))
+
+        d = maybeDeferred(self.setup_router)
+
+        if self.UNPAUSE_CONNECTORS:
+            d.addCallback(lambda r: self.unpause_connectors())
+
+        return d
+
+    def teardown_worker(self):
+        """
+        Logic to stop the router. Should not be overridden by router
+        implementation. Router shutdown should rather be implemented in
+        ``teardown_router``.
+        """
+        d = self.pause_connectors()
+        return d.addCallback(lambda r: self.teardown_router())

@@ -20,14 +20,14 @@ from vumi.service import get_spec
 from vumi.tests.fake_amqp import FakeAMQPBroker, FakeAMQPChannel
 from vumi.tests.helpers import PersistenceHelper
 from vumi.transports import Transport
-from vumi.worker import BaseWorker
 
 import junebug
 from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
-from junebug.router import InvalidRouterConfig, InvalidRouterDestinationConfig
+from junebug.router import (
+    InvalidRouterConfig, InvalidRouterDestinationConfig, BaseRouterWorker)
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -142,9 +142,8 @@ class LoggingTestTransport(Transport):
         self.log.msg(message, source=self)
 
 
-class TestRouter(BaseWorker):
+class TestRouter(BaseRouterWorker):
     """Router used for testing the API."""
-    # TODO: Create a proper base class for Junebug routers
     @classmethod
     def validate_router_config(cls, api, config):
         """Testing config requires the ``test`` parameter to be ``pass``"""
@@ -157,15 +156,6 @@ class TestRouter(BaseWorker):
         ``valid``"""
         if config.get('target') != 'valid':
             raise InvalidRouterDestinationConfig('target must be valid')
-
-    def setup_connectors(self):
-        pass
-
-    def setup_worker(self):
-        pass
-
-    def teardown_worker(self):
-        pass
 
 
 class JunebugTestBase(TestCase):
