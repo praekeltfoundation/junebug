@@ -101,12 +101,22 @@ class Channel(object):
     def character_limit(self):
         return self._properties.get('character_limit')
 
+    @property
+    def has_destination(self):
+        """
+        Whether or not this channel has a message destination defined
+        """
+        return 'mo_url' in self._properties or 'amqp_queue' in self._properties
+
     @inlineCallbacks
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
         self._start_transport(service, transport_worker)
-        self._start_application(service)
+        # Only start the application worker if we have somewhere to send the
+        # messages.
+        if self.has_destination:
+            self._start_application(service)
         self._start_status_application(service)
         for plugin in self.plugins:
             yield plugin.channel_started(self)
