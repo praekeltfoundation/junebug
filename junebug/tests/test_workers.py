@@ -219,8 +219,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             sent_message_id='msg-21',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
         [req] = self.logging_api.requests
@@ -240,11 +243,12 @@ class TestMessageForwardingWorker(JunebugTestBase):
             sent_message_id='msg-21',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url + '/auth/')
-        yield self.worker.outbounds.store_event_auth_token(
-            self.worker.channel_id, 'msg-21', "the-auth-token"
-        )
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/auth/'.format(self.url),
+                'event_auth_token': 'the-auth-token',
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
         [req] = self.logging_api.requests
@@ -264,8 +268,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         # Inject the auth parameters
         url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
         [req] = self.logging_api.requests
@@ -305,8 +312,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             sent_message_id='msg-21',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': "{}/bad/".format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
 
@@ -338,8 +348,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             nack_reason='too many foos',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_nack(event)
         [req] = self.logging_api.requests
@@ -381,8 +394,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             nack_reason='too many foos',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % (self.url,))
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/bad/'.format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_nack(event)
 
@@ -414,8 +430,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             delivery_status='pending',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_delivery_report(event)
         [req] = self.logging_api.requests
@@ -457,8 +476,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             delivery_status='pending',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/bad/'.format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_delivery_report(event)
 
@@ -494,8 +516,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         event['event_type'] = 'bad'
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker._forward_event(event)
 

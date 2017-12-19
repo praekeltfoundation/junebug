@@ -254,13 +254,10 @@ class Channel(object):
     @inlineCallbacks
     def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''
-        event_url = msg.get('event_url')
-        event_auth_token = msg.get('event_auth_token', None)
-        msg = message_from_api(self.id, msg)
-        msg = TransportUserMessage.send(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg,
-                                       event_auth_token)
-        returnValue(api_from_message(msg))
+        vumi_msg = message_from_api(self.id, msg)
+        vumi_msg = TransportUserMessage.send(**vumi_msg)
+        vumi_msg = yield self._send_message(sender, outbounds, vumi_msg, msg)
+        returnValue(api_from_message(vumi_msg))
 
     @inlineCallbacks
     def send_reply_message(self, sender, outbounds, inbounds, msg,
@@ -278,13 +275,10 @@ class Channel(object):
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
-        event_url = msg.get('event_url')
-        event_auth_token = msg.get('event_auth_token', None)
-        msg = message_from_api(self.id, msg)
-        msg = in_msg.reply(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg,
-                                       event_auth_token)
-        returnValue(api_from_message(msg))
+        vumi_msg = message_from_api(self.id, msg)
+        vumi_msg = in_msg.reply(**vumi_msg)
+        vumi_msg = yield self._send_message(sender, outbounds, vumi_msg, msg)
+        returnValue(api_from_message(vumi_msg))
 
     def get_logs(self, n):
         '''Returns the last `n` logs. If `n` is greater than the configured
@@ -441,17 +435,11 @@ class Channel(object):
                 )
 
     @inlineCallbacks
-    def _send_message(self, sender, outbounds, event_url, msg,
-                      event_auth_token=None):
+    def _send_message(self, sender, outbounds, msg, msg_api):
         self._check_character_limit(msg['content'])
 
-        if event_url is not None:
-            yield outbounds.store_event_url(
-                self.id, msg['message_id'], event_url)
-            if event_auth_token is not None:
-                yield outbounds.store_event_auth_token(
-                    self.id, msg['message_id'], event_auth_token
-                )
+        msg_api.update(api_from_message(msg))
+        yield outbounds.store_message(self.id, msg_api)
 
         queue = self.OUTBOUND_QUEUE % (self.id,)
         msg = yield sender.send_message(msg, routing_key=queue)
