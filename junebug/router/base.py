@@ -1,3 +1,5 @@
+from confmodel import Config
+from confmodel.fields import ConfigList
 from copy import deepcopy
 from functools import partial
 from uuid import uuid4
@@ -263,11 +265,23 @@ class Destination(object):
             self.router.id, self.id)
 
 
+class BaseRouterConfig(BaseWorker.CONFIG_CLASS):
+    destinations = ConfigList(
+        "The list of configs for the configured destinations of this router",
+        required=True, static=True)
+
+
+class BaseDestinationConfig(Config):
+    pass
+
+
 class BaseRouterWorker(BaseWorker):
     """
     The base class that all Junebug routers should inherit from.
     """
     UNPAUSE_CONNECTORS = True
+    CONFIG_CLASS = BaseRouterConfig
+    DESTINATION_CONFIG_CLASS = BaseDestinationConfig
 
     @classmethod
     def validate_router_config(cls, api, config):
@@ -309,6 +323,10 @@ class BaseRouterWorker(BaseWorker):
         """
         self.log.msg('Starting a {} router with config: {}'.format(
             self.__class__.__name__, self.config))
+
+        config = self.get_static_config()
+        self.destinations = [
+            self.DESTINATION_CONFIG_CLASS(d) for d in config.destinations]
 
         d = maybeDeferred(self.setup_router)
 
