@@ -1,13 +1,16 @@
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
+from vumi.tests.helpers import (
+    MessageHelper, PersistenceHelper, WorkerHelper, VumiTestCase)
 
+from junebug.utils import conjoin
 from junebug.router import (
     Router, InvalidRouterConfig, InvalidRouterDestinationConfig, RouterNotFound
 )
 from junebug.router.base import InvalidRouterType
-from junebug.tests.helpers import JunebugTestBase
+from junebug.tests.helpers import JunebugTestBase, TestRouter
 
 
-class TestRouter(JunebugTestBase):
+class RouterTests(JunebugTestBase):
     @inlineCallbacks
     def setUp(self):
         yield self.start_server()
@@ -105,8 +108,8 @@ class TestRouter(JunebugTestBase):
         router_worker = self.service.namedServices[router.id]
         self.assertEqual(router_worker.parent, self.service)
         router_worker_config = config['config']
-        router_worker_config['destinations'] = []
-        self.assertEqual(router_worker.config, config['config'])
+        for k, v in router_worker_config.items():
+            self.assertEqual(router_worker.config[k], v)
 
     @inlineCallbacks
     def test_stop(self):
@@ -299,3 +302,184 @@ class TestRouter(JunebugTestBase):
             (yield self.api.router_store.get_router_destination_list(
                 router.id))
         )
+
+
+class TestBaseRouterWorker(VumiTestCase, JunebugTestBase):
+    DEFAULT_ROUTER_WORKER_CONFIG = {
+        'inbound_ttl': 60,
+        'outbound_ttl': 60 * 60 * 24 * 2,
+        'metric_window': 1.0,
+        'destinations': [],
+    }
+
+    @inlineCallbacks
+    def setUp(self):
+        self.workerhelper = WorkerHelper()
+        self.addCleanup(self.workerhelper.cleanup)
+
+        self.persistencehelper = PersistenceHelper()
+        yield self.persistencehelper.setup()
+        self.addCleanup(self.persistencehelper.cleanup)
+
+        self.messagehelper = MessageHelper()
+        self.addCleanup(self.messagehelper.cleanup)
+
+    @inlineCallbacks
+    def get_router_worker(self, config=None):
+        if config is None:
+            config = {}
+
+        config = conjoin(
+            self.persistencehelper.mk_config(
+                self.DEFAULT_ROUTER_WORKER_CONFIG),
+            config)
+
+        TestRouter._create_worker = self.workerhelper.get_worker
+        worker = yield self.workerhelper.get_worker(TestRouter, config)
+        returnValue(worker)
+
+    @inlineCallbacks
+    def test_start_router_worker_no_destinations(self):
+        """
+        If there are no destinations specified, no workers should be started.
+        The setup_router function should be called on the implementation.
+        """
+        worker = yield self.get_router_worker()
+        self.assertEqual(len(worker.namedServices), 0)
+        self.assertTrue(worker.setup_called)
+
+    @inlineCallbacks
+    def test_start_router_with_destinations(self):
+        """
+        If there are destinations specified, then a worker should be started
+        for every destination.
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [
+                {
+                    'id': 'test-destination1',
+                },
+                {
+                    'id': 'test-destination2',
+                },
+            ],
+        })
+        self.assertTrue(worker.setup_called)
+        self.assertEqual(sorted(worker.namedServices.keys()), [
+            'test-destination1', 'test-destination2'])
+
+        for connector in worker.connectors.values():
+            self.assertFalse(connector.paused)
+
+    @inlineCallbacks
+    def test_teardown_router(self):
+        """
+        Tearing down a router should pause all connectors, and call the
+        teardown method of the router implementation
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{'id': 'test-destination1'}],
+        })
+
+        self.assertFalse(worker.teardown_called)
+        for connector in worker.connectors.values():
+            self.assertFalse(connector.paused)
+
+        yield worker.teardown_worker()
+
+        self.assertTrue(worker.teardown_called)
+        for connector in worker.connectors.values():
+            self.assertTrue(connector.paused)
+
+    @inlineCallbacks
+    def test_consume_channel(self):
+        """
+        consume_channel should set up the appropriate connector, as well as
+        attach the specified callbacks for messages and events.
+        """
+        worker = yield self.get_router_worker({})
+
+        messages = []
+        events = []
+
+        def message_callback(channelid, message):
+            assert channelid == 'testchannel'
+            messages.append(message)
+
+        def event_callback(channelid, event):
+            assert channelid == 'testchannel'
+            events.append(event)
+
+        yield worker.consume_channel(
+            'testchannel', message_callback, event_callback)
+
+        # Because this is only called in setup, and we're creating connectors
+        # after setup, we need to unpause them
+        worker.unpause_connectors()
+
+        self.assertEqual(messages, [])
+        inbound = self.messagehelper.make_inbound('test message')
+        yield self.workerhelper.dispatch_inbound(inbound, 'testchannel')
+        self.assertEqual(messages, [inbound])
+
+        self.assertEqual(events, [])
+        event = self.messagehelper.make_ack()
+        yield self.workerhelper.dispatch_event(event, 'testchannel')
+        self.assertEqual(events, [event])
+
+    @inlineCallbacks
+    def test_send_inbound_to_destination(self):
+        """
+        send_inbound_to_destination should send the provided inbound message
+        to the specified destination worker
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{
+                'id': 'test-destination',
+                'amqp_queue': 'testqueue',
+            }],
+        })
+
+        inbound = self.messagehelper.make_inbound('test_message')
+        yield worker.send_inbound_to_destination('test-destination', inbound)
+
+        [message] = yield self.workerhelper.wait_for_dispatched_inbound(
+            connector_name='testqueue')
+        self.assertEqual(message, inbound)
+
+    @inlineCallbacks
+    def test_send_event_to_destination(self):
+        """
+        send_event_to_destination should send the provided event message
+        to the specified destination worker
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{
+                'id': 'test-destination',
+                'amqp_queue': 'testqueue',
+            }],
+        })
+
+        ack = self.messagehelper.make_ack()
+        yield worker.send_event_to_destination('test-destination', ack)
+
+        [event] = yield self.workerhelper.wait_for_dispatched_events(
+            connector_name='testqueue')
+        self.assertEqual(event, ack)
+
+    @inlineCallbacks
+    def test_send_outbound_to_channel(self):
+        """
+        send_outbound_to_channel should send the provided outbound message to
+        the specified channel
+        """
+        worker = yield self.get_router_worker({})
+
+        yield worker.consume_channel('testchannel', lambda m: m, lambda e: e)
+
+        outbound = self.messagehelper.make_outbound('test message')
+        yield worker.send_outbound_to_channel('testchannel', outbound)
+
+        [message] = yield self.workerhelper.wait_for_dispatched_outbound(
+            connector_name='testchannel')
+        self.assertEqual(message, outbound)

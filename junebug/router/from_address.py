@@ -3,12 +3,14 @@ from confmodel.config import ConfigField
 from confmodel.errors import ConfigError
 from confmodel.fields import ConfigBool
 import re
-from twisted.internet.defer import gatherResults, inlineCallbacks
+from twisted.internet.defer import gatherResults, inlineCallbacks, returnValue
 from uuid import UUID
+from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel, ChannelNotFound
 from junebug.router import (
     BaseRouterWorker, InvalidRouterConfig, InvalidRouterDestinationConfig)
+from junebug.stores import OutboundMessageStore
 
 
 class ConfigUUID(ConfigField):
@@ -38,7 +40,7 @@ class ConfigRegularExpression(ConfigField):
                 'is not a valid regular expression: {}'.format(e.message))
 
 
-class FromAddressRouterConfig(BaseRouterWorker.CONFIG_CLASS):
+class FromAddressRouterConfig(Config):
     """
     Config for the FromAddressRouter.
     """
@@ -64,19 +66,23 @@ class FromAddressRouterDestinationConfig(Config):
         required=False, default=False, static=True)
 
 
+class FromAddressRouterWorkerConfig(
+        FromAddressRouterConfig, BaseRouterWorker.CONFIG_CLASS):
+    pass
+
+
 class FromAddressRouter(BaseRouterWorker):
     """
     A router that routes inbound messages based on the from address of the
     message
     """
-    CONFIG_CLASS = FromAddressRouterConfig
-    DESTINATION_CONFIG_CLASS = FromAddressRouterDestinationConfig
+    CONFIG_CLASS = FromAddressRouterWorkerConfig
 
     @classmethod
     @inlineCallbacks
     def validate_router_config(cls, api, config):
         try:
-            config = cls.CONFIG_CLASS(config)
+            config = FromAddressRouterConfig(config)
         except ConfigError as e:
             raise InvalidRouterConfig(e.message)
 
@@ -109,7 +115,7 @@ class FromAddressRouter(BaseRouterWorker):
     @classmethod
     def validate_router_destination_config(cls, api, config):
         try:
-            cls.DESTINATION_CONFIG_CLASS(config)
+            FromAddressRouterDestinationConfig(config)
         except ConfigError as e:
             raise InvalidRouterDestinationConfig(e.message)
 

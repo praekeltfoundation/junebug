@@ -144,6 +144,9 @@ class LoggingTestTransport(Transport):
 
 class TestRouter(BaseRouterWorker):
     """Router used for testing the API."""
+    setup_called = False
+    teardown_called = False
+
     @classmethod
     def validate_router_config(cls, api, config):
         """Testing config requires the ``test`` parameter to be ``pass``"""
@@ -156,6 +159,12 @@ class TestRouter(BaseRouterWorker):
         ``valid``"""
         if config.get('target') != 'valid':
             raise InvalidRouterDestinationConfig('target must be valid')
+
+    def setup_router(self):
+        self.setup_called = True
+
+    def teardown_router(self):
+        self.teardown_called = True
 
 
 class JunebugTestBase(TestCase):

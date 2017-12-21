@@ -1,11 +1,11 @@
-from confmodel import Config
-from confmodel.fields import ConfigList
+from confmodel.fields import ConfigDict, ConfigFloat, ConfigInt, ConfigList
 from copy import deepcopy
 from functools import partial
 from uuid import uuid4
 
 from junebug.error import JunebugError
 from junebug.utils import convert_unicode
+from junebug.workers import MessageForwardingWorker
 from twisted.internet.defer import (
     DeferredList, gatherResults, succeed, maybeDeferred)
 from twisted.web import http
@@ -128,6 +128,10 @@ class Router(object):
     def _worker_config(self):
         config = deepcopy(self.router_config['config'])
         config['destinations'] = self._destination_configs
+        config['redis_manager'] = self.api.redis_config
+        config['inbound_ttl'] = self.api.config.inbound_message_ttl
+        config['outbound_ttl'] = self.api.config.outbound_message_ttl
+        config['metric_window'] = self.api.config.metric_window
         config = convert_unicode(config)
         return config
 
@@ -265,23 +269,30 @@ class Destination(object):
             self.router.id, self.id)
 
 
-class BaseRouterConfig(BaseWorker.CONFIG_CLASS):
+class BaseRouterWorkerConfig(BaseWorker.CONFIG_CLASS):
     destinations = ConfigList(
         "The list of configs for the configured destinations of this router",
         required=True, static=True)
-
-
-class BaseDestinationConfig(Config):
-    pass
+    redis_manager = ConfigDict(
+        "Redis config.",
+        required=True, static=True)
+    inbound_ttl = ConfigInt(
+        "Maximum time (in seconds) allowed to reply to messages",
+        required=True, static=True)
+    outbound_ttl = ConfigInt(
+        "Maximum time (in seconds) allowed for events to arrive for messages",
+        required=True, static=True)
+    metric_window = ConfigFloat(
+        "Size of the buckets to use (in seconds) for metrics",
+        required=True, static=True)
 
 
 class BaseRouterWorker(BaseWorker):
     """
     The base class that all Junebug routers should inherit from.
     """
-    UNPAUSE_CONNECTORS = True
-    CONFIG_CLASS = BaseRouterConfig
-    DESTINATION_CONFIG_CLASS = BaseDestinationConfig
+    CONFIG_CLASS = BaseRouterWorkerConfig
+    DESTINATION_WORKER_CLASS = MessageForwardingWorker
 
     @classmethod
     def validate_router_config(cls, api, config):
@@ -315,6 +326,40 @@ class BaseRouterWorker(BaseWorker):
         # setup_router
         pass
 
+    def _create_worker(self, worker_class, config):
+        return WorkerCreator(self.options).create_worker(worker_class, config)
+
+    def _destination_worker_config(self, config):
+        router_config = self.get_static_config()
+        return {
+            'transport_name': config['id'],
+            'mo_message_url': config.get('mo_url'),
+            'mo_message_auth_token': config.get('mo_url_auth_token'),
+            'message_queue': config.get('amqp_queue'),
+            'redis_manager': router_config.redis_manager,
+            'inbound_ttl': router_config.inbound_ttl,
+            'outbound_ttl': router_config.outbound_ttl,
+            'metric_window': router_config.metric_window,
+        }
+
+    def _start_destinations(self, destinations):
+        destination_connectors = []
+        destination_workers = []
+
+        for d in destinations:
+            worker = self._create_worker(
+                    self.DESTINATION_WORKER_CLASS,
+                    self._destination_worker_config(d)
+                )
+            worker.addCallback(lambda w: w.setName(d['id']) or w)
+            worker.addCallback(lambda w: w.setServiceParent(self))
+            destination_workers.append(worker)
+
+            connector = self.setup_ro_connector(d['id'])
+            destination_connectors.append(connector)
+
+        return gatherResults(destination_workers + destination_connectors)
+
     def setup_worker(self):
         """
         Logic to start the router. Should not be overridden by router
@@ -325,14 +370,12 @@ class BaseRouterWorker(BaseWorker):
             self.__class__.__name__, self.config))
 
         config = self.get_static_config()
-        self.destinations = [
-            self.DESTINATION_CONFIG_CLASS(d) for d in config.destinations]
+        d1 = self._start_destinations(config.destinations)
 
-        d = maybeDeferred(self.setup_router)
+        d2 = maybeDeferred(self.setup_router)
 
-        if self.UNPAUSE_CONNECTORS:
-            d.addCallback(lambda r: self.unpause_connectors())
-
+        d = gatherResults([d1, d2])
+        d.addCallback(lambda _: self.unpause_connectors())
         return d
 
     def teardown_worker(self):
@@ -343,3 +386,41 @@ class BaseRouterWorker(BaseWorker):
         """
         d = self.pause_connectors()
         return d.addCallback(lambda r: self.teardown_router())
+
+    def consume_channel(self, channel_id, message_callback, event_callback):
+        """
+        Attaches callback functions for inbound messages and events for the
+        specified channel ID. Callback functions take 2 args, the channel id
+        and the message or event. Will only work for channels that do not have
+        an amqp_queue or mo_url defined.
+        """
+        d = self.setup_ri_connector(channel_id)
+
+        inbound_handler = partial(message_callback, channel_id)
+        event_handler = partial(event_callback, channel_id)
+
+        def attach_callbacks(connector):
+            connector.set_inbound_handler(inbound_handler)
+            connector.set_event_handler(event_handler)
+            return connector
+
+        return d.addCallback(attach_callbacks)
+
+    def send_inbound_to_destination(self, destination_id, message):
+        """
+        Publishes a message to the specified message forwarding worker.
+        """
+        return self.connectors[destination_id].publish_inbound(message)
+
+    def send_event_to_destination(self, destination_id, event):
+        """
+        Publishes an event to the specified message forwarding worker.
+        """
+        return self.connectors[destination_id].publish_event(event)
+
+    def send_outbound_to_channel(self, channel_id, message):
+        """
+        Publishes a message to the provided channel. Channel needs to first be
+        set up using ``consume_channel`` before you can publish to it.
+        """
+        return self.connectors[channel_id].publish_outbound(message)
