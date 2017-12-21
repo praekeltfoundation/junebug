@@ -3,14 +3,12 @@ from confmodel.config import ConfigField
 from confmodel.errors import ConfigError
 from confmodel.fields import ConfigBool
 import re
-from twisted.internet.defer import gatherResults, inlineCallbacks, returnValue
+from twisted.internet.defer import gatherResults, inlineCallbacks
 from uuid import UUID
-from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel, ChannelNotFound
 from junebug.router import (
     BaseRouterWorker, InvalidRouterConfig, InvalidRouterDestinationConfig)
-from junebug.stores import OutboundMessageStore
 
 
 class ConfigUUID(ConfigField):
