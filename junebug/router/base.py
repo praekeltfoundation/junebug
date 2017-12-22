@@ -327,7 +327,8 @@ class BaseRouterWorker(BaseWorker):
         pass
 
     def _create_worker(self, worker_class, config):
-        return WorkerCreator(self.options).create_worker(worker_class, config)
+        return WorkerCreator(self.options).create_worker_by_class(
+            worker_class, config)
 
     def _destination_worker_config(self, config):
         router_config = self.get_static_config()
@@ -347,10 +348,11 @@ class BaseRouterWorker(BaseWorker):
         destination_workers = []
 
         for d in destinations:
-            worker = self._create_worker(
-                    self.DESTINATION_WORKER_CLASS,
-                    self._destination_worker_config(d)
-                )
+            worker = maybeDeferred(
+                self._create_worker,
+                self.DESTINATION_WORKER_CLASS,
+                self._destination_worker_config(d)
+            )
             worker.addCallback(lambda w: w.setName(d['id']) or w)
             worker.addCallback(lambda w: w.setServiceParent(self))
             destination_workers.append(worker)
