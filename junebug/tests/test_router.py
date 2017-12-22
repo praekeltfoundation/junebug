@@ -112,6 +112,21 @@ class RouterTests(JunebugTestBase):
             self.assertEqual(router_worker.config[k], v)
 
     @inlineCallbacks
+    def test_start_all(self):
+        """start_all should start all of the stored routers"""
+        config = self.create_router_config()
+        router = Router(self.api, config)
+        yield router.save()
+
+        yield Router.start_all_routers(self.api)
+
+        router_worker = self.service.namedServices[router.id]
+        self.assertEqual(router_worker.parent, self.service)
+        router_worker_config = config['config']
+        for k, v in router_worker_config.items():
+            self.assertEqual(router_worker.config[k], v)
+
+    @inlineCallbacks
     def test_stop(self):
         """stop should stop the router worker if it is running"""
         config = self.create_router_config()

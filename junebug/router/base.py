@@ -184,6 +184,14 @@ class Router(object):
         return self
 
     @classmethod
+    @inlineCallbacks
+    def start_all_routers(cls, api):
+        for r_id in (yield api.router_store.get_router_list()):
+            if r_id not in api.service.namedServices:
+                router = yield cls.from_id(api, r_id)
+                yield router.start(api.service)
+
+    @classmethod
     def from_id(cls, api, router_id):
         """
         Restores an existing router, given the router's ID
