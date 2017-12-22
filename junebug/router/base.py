@@ -7,13 +7,14 @@ from junebug.error import JunebugError
 from junebug.utils import convert_unicode
 from junebug.workers import MessageForwardingWorker
 from twisted.internet.defer import (
-    DeferredList, gatherResults, succeed, maybeDeferred)
+    DeferredList, gatherResults, succeed, maybeDeferred, inlineCallbacks)
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
 from vumi.worker import BaseWorker
 
 default_router_types = {
+    'from_address': "junebug.router.FromAddressRouter",
 }
 
 
