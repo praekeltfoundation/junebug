@@ -3,12 +3,14 @@ from confmodel.config import ConfigField
 from confmodel.errors import ConfigError
 from confmodel.fields import ConfigBool
 import re
-from twisted.internet.defer import gatherResults, inlineCallbacks
+from twisted.internet.defer import gatherResults, inlineCallbacks, returnValue
 from uuid import UUID
+from vumi.persist.txredis_manager import TxRedisManager
 
 from junebug.channel import Channel, ChannelNotFound
 from junebug.router import (
     BaseRouterWorker, InvalidRouterConfig, InvalidRouterDestinationConfig)
+from junebug.stores import OutboundMessageStore
 
 
 class ConfigUUID(ConfigField):
@@ -111,14 +113,67 @@ class FromAddressRouter(BaseRouterWorker):
             check_router_channel(router)
 
     @classmethod
-    def validate_router_destination_config(cls, api, config):
+    def validate_destination_config(cls, api, config):
         try:
             FromAddressRouterDestinationConfig(config)
         except ConfigError as e:
             raise InvalidRouterDestinationConfig(e.message)
 
+    @inlineCallbacks
     def setup_router(self):
-        pass
+        config = self.get_static_config()
+        self.redis = yield TxRedisManager.from_config(
+            self.config['redis_manager'])
+        self.outbounds = OutboundMessageStore(
+            self.redis, self.config['outbound_ttl'])
+        yield self.consume_channel(
+            str(config.channel),
+            self.handle_inbound_message,
+            self.handle_inbound_event)
+        self.destinations = [d['config'] for d in config.destinations]
+
+    def handle_inbound_message(self, channelid, message):
+        to_addr = message['to_addr']
+        if to_addr is None:
+            self.log.error(
+                'Message has no to address, cannot route message: {}'.format(
+                    message.to_json()))
+            return
+
+        d = []
+        for destination in self.get_static_config().destinations:
+            result = re.search(
+                destination['config']['regular_expression'], to_addr)
+            if result is not None:
+                d.append(self.send_inbound_to_destination(
+                    destination['id'], message))
+        return gatherResults(d)
+
+    @inlineCallbacks
+    def handle_inbound_event(self, channelid, event):
+        message = yield self.outbounds.load_message(
+            channelid, event['user_message_id'])
+        if message is None:
+            self.log.error(
+                'Cannot find message {} for event, not routing event: {}'
+                .format(event['user_message_id'], event.to_json()))
+            returnValue(None)
+
+        from_addr = message.get('from', None)
+        if from_addr is None:
+            self.log.error(
+                'Message has no from address, cannot route event: {}'.format(
+                    event.to_json()))
+            returnValue(None)
+
+        d = []
+        for destination in self.get_static_config().destinations:
+            result = re.search(
+                destination['config']['regular_expression'], from_addr)
+            if result is not None:
+                d.append(self.send_event_to_destination(
+                    destination['id'], event))
+        yield gatherResults(d)
 
     def teardown_router(self):
-        pass
+        return self.redis.close_manager()
