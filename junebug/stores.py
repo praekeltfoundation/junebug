@@ -155,6 +155,13 @@ class OutboundMessageStore(BaseStore):
         event_id = event['event_id']
         return self.store_property(key, event_id, event.to_json())
 
+    def load_message(self, channel_id, message_id):
+        key = self.get_key(channel_id, message_id)
+        d = self.load_property(key, 'message')
+        d.addCallback(from_json)
+        d.addErrback(lambda _: None)
+        return d
+
     @inlineCallbacks
     def load_event(self, channel_id, message_id, event_id):
         '''Loads the event with id event_id'''
