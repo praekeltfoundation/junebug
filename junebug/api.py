@@ -156,10 +156,6 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
-        if not (body.get('mo_url') or body.get('amqp_queue')):
-            raise ApiUsageError(
-                'One or both of "mo_url" and "amqp_queue" must be specified')
-
         channel = Channel(
             self.redis, self.config, body, self.plugins)
         yield channel.start(self.service)

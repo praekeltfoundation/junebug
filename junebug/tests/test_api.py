@@ -290,24 +290,6 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
-    def test_create_channel_mo_destination(self):
-        '''When creating a channel, one of or both of mo_url and mo_queue
-        must be present.'''
-        resp = yield self.post('/channels/', {
-            'type': 'smpp',
-            'config': {}
-        })
-        self.maxDiff = None
-        yield self.assert_response(
-            resp, http.BAD_REQUEST, 'api usage error', {
-                'errors': [{
-                    'message': 'One or both of "mo_url" and "amqp_queue" must'
-                               ' be specified',
-                    'type': 'ApiUsageError',
-                }],
-            })
-
-    @inlineCallbacks
     def test_get_missing_channel(self):
         resp = yield self.get('/channels/foo-bar')
         yield self.assert_response(
