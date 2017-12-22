@@ -71,6 +71,8 @@ class JunebugApi(object):
         yield Channel.start_all_channels(
             self.redis, self.config, self.service, self.plugins)
 
+        yield Router.start_all_routers(self)
+
         if self.config.rabbitmq_management_interface:
             self.rabbitmq_management_client = RabbitmqManagementClient(
                 self.config.rabbitmq_management_interface,
