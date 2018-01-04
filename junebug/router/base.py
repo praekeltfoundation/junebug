@@ -7,13 +7,14 @@ from junebug.error import JunebugError
 from junebug.utils import convert_unicode
 from junebug.workers import MessageForwardingWorker
 from twisted.internet.defer import (
-    DeferredList, gatherResults, succeed, maybeDeferred)
+    DeferredList, gatherResults, succeed, maybeDeferred, inlineCallbacks)
 from twisted.web import http
 from vumi.servicemaker import VumiOptions, WorkerCreator
 from vumi.utils import load_class_by_string
 from vumi.worker import BaseWorker
 
 default_router_types = {
+    'from_address': "junebug.router.FromAddressRouter",
 }
 
 
@@ -184,6 +185,14 @@ class Router(object):
         return self
 
     @classmethod
+    @inlineCallbacks
+    def start_all_routers(cls, api):
+        for r_id in (yield api.router_store.get_router_list()):
+            if r_id not in api.service.namedServices:
+                router = yield cls.from_id(api, r_id)
+                yield router.start(api.service)
+
+    @classmethod
     def from_id(cls, api, router_id):
         """
         Restores an existing router, given the router's ID
@@ -327,7 +336,8 @@ class BaseRouterWorker(BaseWorker):
         pass
 
     def _create_worker(self, worker_class, config):
-        return WorkerCreator(self.options).create_worker(worker_class, config)
+        return WorkerCreator(self.options).create_worker_by_class(
+            worker_class, config)
 
     def _destination_worker_config(self, config):
         router_config = self.get_static_config()
@@ -347,10 +357,11 @@ class BaseRouterWorker(BaseWorker):
         destination_workers = []
 
         for d in destinations:
-            worker = self._create_worker(
-                    self.DESTINATION_WORKER_CLASS,
-                    self._destination_worker_config(d)
-                )
+            worker = maybeDeferred(
+                self._create_worker,
+                self.DESTINATION_WORKER_CLASS,
+                self._destination_worker_config(d)
+            )
             worker.addCallback(lambda w: w.setName(d['id']) or w)
             worker.addCallback(lambda w: w.setServiceParent(self))
             destination_workers.append(worker)

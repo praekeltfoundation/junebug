@@ -71,6 +71,8 @@ class JunebugApi(object):
         yield Channel.start_all_channels(
             self.redis, self.config, self.service, self.plugins)
 
+        yield Router.start_all_routers(self)
+
         if self.config.rabbitmq_management_interface:
             self.rabbitmq_management_client = RabbitmqManagementClient(
                 self.config.rabbitmq_management_interface,
@@ -156,10 +158,6 @@ class JunebugApi(object):
     @inlineCallbacks
     def create_channel(self, request, body):
         '''Create a channel'''
-        if not (body.get('mo_url') or body.get('amqp_queue')):
-            raise ApiUsageError(
-                'One or both of "mo_url" and "amqp_queue" must be specified')
-
         channel = Channel(
             self.redis, self.config, body, self.plugins)
         yield channel.start(self.service)

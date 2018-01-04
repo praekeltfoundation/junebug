@@ -324,6 +324,22 @@ class TestOutboundMessageStore(JunebugTestBase):
         self.assertEqual(msg_json, to_json(api_from_message(msg)))
 
     @inlineCallbacks
+    def test_load_message(self):
+        """Returned message is the same as stored message"""
+        message = {'message_id': 'testid'}
+        store = yield self.create_store()
+        yield store.store_message('channelid', message)
+        r_message = yield store.load_message('channelid', 'testid')
+        self.assertEqual(message, r_message)
+
+    @inlineCallbacks
+    def test_load_message_not_exists(self):
+        """Returns None if message doesn't exist"""
+        store = yield self.create_store()
+        message = yield store.load_message('channelid', 'messageid')
+        self.assertEqual(message, None)
+
+    @inlineCallbacks
     def test_store_event(self):
         '''Stores the event under the message ID'''
         store = yield self.create_store()
