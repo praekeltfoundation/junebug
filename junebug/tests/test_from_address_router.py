@@ -300,3 +300,36 @@ class TestRouter(JunebugTestBase):
         self.assertIn(
             "Message has no from address, cannot route event: ",
             error_log['log_text'])
+
+    @inlineCallbacks
+    def test_outbound_message_routing(self):
+        """
+        Outbound messages should be routed to the configured channel, no matter
+        which destination they came from.
+        """
+        yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }, {
+                'id': "test-destination2",
+                'amqp_queue': "testqueue2",
+                'config': {'regular_expression': '^2.*$'},
+            }],
+            'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
+        })
+
+        outbound = self.messagehelper.make_outbound('test message')
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue1')
+        [message] = yield self.workerhelper.wait_for_dispatched_outbound(
+            connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+        self.assertEqual(outbound, message)
+
+        yield self.workerhelper.clear_dispatched_outbound(
+            connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+        outbound = self.messagehelper.make_outbound('test message')
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue2')
+        [message] = yield self.workerhelper.wait_for_dispatched_outbound(
+            connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+        self.assertEqual(outbound, message)
