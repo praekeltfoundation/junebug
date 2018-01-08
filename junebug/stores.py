@@ -3,7 +3,8 @@ from math import ceil
 import time
 from twisted.internet.defer import inlineCallbacks, returnValue, gatherResults
 
-from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
+from vumi.message import (
+    TransportEvent, TransportUserMessage, TransportStatus, to_json, from_json)
 
 
 class BaseStore(object):
@@ -118,38 +119,48 @@ class InboundMessageStore(BaseStore):
 class OutboundMessageStore(BaseStore):
     '''Stores the event url, in order to look it up when deciding where events
     should go'''
-    PROPERTY_KEYS = ['event_url', 'event_url_auth_token']
+    PROPERTY_KEYS = ['message']
 
     def get_key(self, channel_id, message_id):
         return super(OutboundMessageStore, self).get_key(
             channel_id, 'outbound_messages', message_id)
 
-    def store_event_url(self, channel_id, message_id, event_url):
-        '''Stores the event_url'''
-        key = self.get_key(channel_id, message_id)
-        return self.store_property(key, 'event_url', event_url)
-
-    def store_event_auth_token(self, channel_id, message_id, auth_token):
-        '''Stores the event_auth_token'''
-        key = self.get_key(channel_id, message_id)
-        return self.store_property(key, 'event_url_auth_token', auth_token)
-
     def load_event_url(self, channel_id, message_id):
         '''Retrieves a stored event url, given the channel and message ids'''
         key = self.get_key(channel_id, message_id)
-        return self.load_property(key, 'event_url')
+        d = self.load_property(key, 'message')
+        d.addCallback(from_json)
+        d.addErrback(lambda _: {})
+        d.addCallback(lambda m: m.get('event_url', None))
+        return d
 
     def load_event_auth_token(self, channel_id, message_id):
         '''Retrieves a stored event auth token, given the channel and message
         ids'''
         key = self.get_key(channel_id, message_id)
-        return self.load_property(key, 'event_url_auth_token')
+        d = self.load_property(key, 'message')
+        d.addCallback(from_json)
+        d.addErrback(lambda _: {})
+        d.addCallback(lambda m: m.get('event_auth_token', None))
+        return d
+
+    def store_message(self, channel_id, message):
+        '''Stores an outbound message'''
+        key = self.get_key(channel_id, message['message_id'])
+        return self.store_property(key, 'message', to_json(message))
 
     def store_event(self, channel_id, message_id, event):
         '''Stores an event for a message'''
         key = self.get_key(channel_id, message_id)
         event_id = event['event_id']
         return self.store_property(key, event_id, event.to_json())
+
+    def load_message(self, channel_id, message_id):
+        key = self.get_key(channel_id, message_id)
+        d = self.load_property(key, 'message')
+        d.addCallback(from_json)
+        d.addErrback(lambda _: None)
+        return d
 
     @inlineCallbacks
     def load_event(self, channel_id, message_id, event_id):

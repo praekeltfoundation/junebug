@@ -3,6 +3,25 @@
 Release Notes
 =============
 
+v0.1.34
+-------
+.. Pull request 160
+
+*8 January 2018*
+
+- Fixes
+    - Add handling for outbound messages from destinations on the from address
+      router
+
+v0.1.33
+-------
+.. Pull requests 158, 159
+
+*4 January 2018*
+
+-- Features
+    - Added a base router class and a new from address router.
+
 v0.1.32
 -------
 .. Pull requests 156, 157
