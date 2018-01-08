@@ -417,6 +417,15 @@ class BaseRouterWorker(BaseWorker):
 
         return d.addCallback(attach_callbacks)
 
+    def consume_destination(self, destination_id, message_callback):
+        """
+        Attaches a callback function for outbound messages from the specified
+        destination ID. Callback functions will take 2 args, the destination id
+        and the message.
+        """
+        outbound_handler = partial(message_callback, destination_id)
+        self.connectors[destination_id].set_outbound_handler(outbound_handler)
+
     def send_inbound_to_destination(self, destination_id, message):
         """
         Publishes a message to the specified message forwarding worker.
