@@ -483,6 +483,35 @@ class TestBaseRouterWorker(VumiTestCase, JunebugTestBase):
         self.assertEqual(event, ack)
 
     @inlineCallbacks
+    def test_consume_destination(self):
+        """
+        If a callback is attached to a destination, then that callback should
+        be called when an outbound is sent from a destination
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{
+                'id': 'test-destination',
+                'amqp_queue': 'testqueue',
+            }],
+        })
+
+        messages = []
+
+        def message_callback(destinationid, message):
+            assert destinationid == 'test-destination'
+            messages.append(message)
+
+        yield worker.consume_destination('test-destination', message_callback)
+        # Because this is only called in setup, and we're creating connectors
+        # after setup, we need to unpause them
+        worker.unpause_connectors()
+
+        self.assertEqual(messages, [])
+        msg = self.messagehelper.make_outbound('testmessage')
+        yield self.workerhelper.dispatch_outbound(msg, 'test-destination')
+        self.assertEqual(messages, [msg])
+
+    @inlineCallbacks
     def test_send_outbound_to_channel(self):
         """
         send_outbound_to_channel should send the provided outbound message to

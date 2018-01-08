@@ -130,7 +130,13 @@ class FromAddressRouter(BaseRouterWorker):
             str(config.channel),
             self.handle_inbound_message,
             self.handle_inbound_event)
-        self.destinations = [d['config'] for d in config.destinations]
+        for destination in config.destinations:
+            self.consume_destination(
+                destination['id'], self.handle_outbound_message)
+
+    def handle_outbound_message(self, destinationid, message):
+        config = self.get_static_config()
+        return self.send_outbound_to_channel(str(config.channel), message)
 
     def handle_inbound_message(self, channelid, message):
         to_addr = message['to_addr']
