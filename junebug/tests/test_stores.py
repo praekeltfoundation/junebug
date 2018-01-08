@@ -1,11 +1,13 @@
 import json
 from twisted.internet.defer import inlineCallbacks, returnValue
-from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
+from vumi.message import (
+    TransportEvent, TransportUserMessage, TransportStatus, to_json)
 
 from junebug.stores import (
     BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore,
     MessageRateStore, RouterStore)
 from junebug.tests.helpers import JunebugTestBase
+from junebug.utils import api_from_message
 
 
 class TestBaseStore(JunebugTestBase):
@@ -270,33 +272,13 @@ class TestOutboundMessageStore(JunebugTestBase):
         returnValue(store)
 
     @inlineCallbacks
-    def test_store_event_url(self):
-        '''Stores the event URL under the message ID'''
-        store = yield self.create_store()
-        yield store.store_event_url(
-            'channel_id', 'messageid', 'http://test.org')
-        event_url = yield self.redis.hget(
-            'channel_id:outbound_messages:messageid', 'event_url')
-        self.assertEqual(event_url, 'http://test.org')
-
-    @inlineCallbacks
-    def test_store_event_auth_token(self):
-        '''Stores the event auth token under the message ID'''
-        store = yield self.create_store()
-        yield store.store_event_auth_token(
-            'channel_id', 'messageid', "the-auth-token")
-        event_auth_token = yield self.redis.hget(
-            'channel_id:outbound_messages:messageid', 'event_url_auth_token')
-        self.assertEqual(event_auth_token, "the-auth-token")
-
-    @inlineCallbacks
     def test_load_event_url(self):
         '''Returns a vumi message from the stored json'''
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
-        yield self.redis.hset(
-            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
-            'event_url', 'http://test.org')
+        msg = {'event_url': "http://test.org"}
+        msg.update(api_from_message(vumi_msg))
+        yield store.store_message('channel_id', msg)
 
         event_url = yield store.load_event_url(
             'channel_id', vumi_msg.get('message_id'))
@@ -307,9 +289,9 @@ class TestOutboundMessageStore(JunebugTestBase):
         '''Returns the event auth token under the message ID'''
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
-        yield self.redis.hset(
-            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
-            'event_url_auth_token', "the-auth-token")
+        msg = {'event_auth_token': 'the-auth-token'}
+        msg.update(api_from_message(vumi_msg))
+        yield store.store_message('channel_id', msg)
 
         event_auth_token = yield store.load_event_auth_token(
             'channel_id', vumi_msg.get('message_id'))
@@ -328,6 +310,34 @@ class TestOutboundMessageStore(JunebugTestBase):
         store = yield self.create_store()
         self.assertEqual((yield store.load_event_auth_token(
             'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_store_message(self):
+        '''Stores the message under the correct key'''
+        store = yield self.create_store()
+        msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        yield store.store_message('channel_id', api_from_message(msg))
+
+        msg_json = yield self.redis.hget(
+            'channel_id:outbound_messages:{}'.format(msg['message_id']),
+            'message')
+        self.assertEqual(msg_json, to_json(api_from_message(msg)))
+
+    @inlineCallbacks
+    def test_load_message(self):
+        """Returned message is the same as stored message"""
+        message = {'message_id': 'testid'}
+        store = yield self.create_store()
+        yield store.store_message('channelid', message)
+        r_message = yield store.load_message('channelid', 'testid')
+        self.assertEqual(message, r_message)
+
+    @inlineCallbacks
+    def test_load_message_not_exists(self):
+        """Returns None if message doesn't exist"""
+        store = yield self.create_store()
+        message = yield store.load_message('channelid', 'messageid')
+        self.assertEqual(message, None)
 
     @inlineCallbacks
     def test_store_event(self):
@@ -415,8 +425,8 @@ class TestOutboundMessageStore(JunebugTestBase):
             'channel_id:outbound_messages:message_id', event['event_id'],
             event.to_json())
         yield self.redis.hset(
-            'channel_id:outbound_messages:message_id', 'event_url',
-            'test_url')
+            'channel_id:outbound_messages:message_id', 'message',
+            'test_message')
 
         stored_events = yield store.load_all_events('channel_id', 'message_id')
         self.assertEqual(stored_events, [event])
