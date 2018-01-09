@@ -3,6 +3,14 @@
 Release Notes
 =============
 
+v0.1.35
+-------
+.. Pull request 161
+
+- Fixes
+    - Store outbound messages that the from address router is forwarding, so
+      that we can forward the events to the correct place.
+
 v0.1.34
 -------
 .. Pull request 160
