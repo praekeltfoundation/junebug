@@ -216,7 +216,7 @@ class TestRouter(JunebugTestBase):
         """
         Inbound events should be routed to the correct destination worker(s)
         """
-        worker = yield self.get_router_worker({
+        yield self.get_router_worker({
             'destinations': [{
                 'id': "test-destination1",
                 'amqp_queue': "testqueue1",
@@ -235,8 +235,7 @@ class TestRouter(JunebugTestBase):
 
         outbound = self.messagehelper.make_outbound(
             "test message", from_addr="1234")
-        yield worker.outbounds.store_message(
-            '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14', api_from_message(outbound))
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue1')
         ack = self.messagehelper.make_ack(outbound)
         yield self.workerhelper.dispatch_event(
             ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
@@ -246,8 +245,7 @@ class TestRouter(JunebugTestBase):
 
         outbound = self.messagehelper.make_outbound(
             "test message", from_addr="2234")
-        yield worker.outbounds.store_message(
-            '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14', api_from_message(outbound))
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue2')
         ack = self.messagehelper.make_ack(outbound)
         yield self.workerhelper.dispatch_event(
             ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
@@ -265,6 +263,11 @@ class TestRouter(JunebugTestBase):
         error message should be logged
         """
         yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }],
             'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
         })
         logs = []
@@ -283,7 +286,12 @@ class TestRouter(JunebugTestBase):
         If the message for an event doesn't have a from address, then an error
         message should be logged
         """
-        worker = yield self.get_router_worker({
+        yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }],
             'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
         })
         logs = []
@@ -291,8 +299,7 @@ class TestRouter(JunebugTestBase):
 
         outbound = self.messagehelper.make_outbound(
             "test message", from_addr=None)
-        yield worker.outbounds.store_message(
-            '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14', api_from_message(outbound))
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue1')
         ack = self.messagehelper.make_ack(outbound)
         yield self.workerhelper.dispatch_event(
             ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
@@ -305,9 +312,10 @@ class TestRouter(JunebugTestBase):
     def test_outbound_message_routing(self):
         """
         Outbound messages should be routed to the configured channel, no matter
-        which destination they came from.
+        which destination they came from. They should also be stored so that
+        events can be routed correctly.
         """
-        yield self.get_router_worker({
+        worker = yield self.get_router_worker({
             'destinations': [{
                 'id': "test-destination1",
                 'amqp_queue': "testqueue1",
@@ -325,6 +333,9 @@ class TestRouter(JunebugTestBase):
         [message] = yield self.workerhelper.wait_for_dispatched_outbound(
             connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
         self.assertEqual(outbound, message)
+        stored_message = yield worker.outbounds.load_message(
+            '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14', outbound['message_id'])
+        self.assertEqual(api_from_message(outbound), stored_message)
 
         yield self.workerhelper.clear_dispatched_outbound(
             connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
@@ -333,3 +344,6 @@ class TestRouter(JunebugTestBase):
         [message] = yield self.workerhelper.wait_for_dispatched_outbound(
             connector_name='41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
         self.assertEqual(outbound, message)
+        stored_message = yield worker.outbounds.load_message(
+            '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14', outbound['message_id'])
+        self.assertEqual(api_from_message(outbound), stored_message)
