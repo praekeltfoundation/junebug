@@ -1405,6 +1405,34 @@ class TestJunebugApi(JunebugTestBase):
             resp, http.OK, 'router found', old_config, ignore=['id'])
 
     @inlineCallbacks
+    def test_update_from_address_router_config(self):
+        """When creating a PATCH request, the from address router configuration
+        should be updated"""
+
+        resp = yield self.post('/channels/', {
+            'type': 'telnet',
+            'config': {
+                'twisted_endpoint': 'tcp:0',
+            }
+        })
+        channel_id = (yield resp.json())['result']['id']
+
+        old_config = self.create_router_config(
+            label='old', type='from_address',
+            config={'channel': channel_id})
+        resp = yield self.post('/routers/', old_config)
+        router_id = (yield resp.json())['result']['id']
+
+        update = {'config': {'channel': channel_id}}
+        new_config = deepcopy(old_config)
+        new_config.update(update)
+        resp = yield self.patch_request(
+            '/routers/{}'.format(router_id), new_config)
+
+        yield self.assert_response(
+            resp, http.OK, 'router updated', new_config, ignore=['id'])
+
+    @inlineCallbacks
     def test_delete_router(self):
         """Should stop the router from running, and delete its config"""
         config = self.create_router_config()

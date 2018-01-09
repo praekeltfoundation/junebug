@@ -142,7 +142,8 @@ class Router(object):
         """
         worker_class = load_class_by_string(self._worker_class_name)
         return maybeDeferred(
-            worker_class.validate_router_config, self.api, self._worker_config)
+            worker_class.validate_router_config, self.api, self._worker_config,
+            self.router_config.get('id'))
 
     def validate_destination_config(self, config):
         """
@@ -304,7 +305,7 @@ class BaseRouterWorker(BaseWorker):
     DESTINATION_WORKER_CLASS = MessageForwardingWorker
 
     @classmethod
-    def validate_router_config(cls, api, config):
+    def validate_router_config(cls, api, config, router_id=None):
         """
         Should raise an InvalidRouterConfig if the supplied router config is
         not valid. Should be implemented by router implementation.
