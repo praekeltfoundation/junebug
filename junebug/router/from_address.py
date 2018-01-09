@@ -11,6 +11,7 @@ from junebug.channel import Channel, ChannelNotFound
 from junebug.router import (
     BaseRouterWorker, InvalidRouterConfig, InvalidRouterDestinationConfig)
 from junebug.stores import OutboundMessageStore
+from junebug.utils import api_from_message
 
 
 class ConfigUUID(ConfigField):
@@ -136,7 +137,11 @@ class FromAddressRouter(BaseRouterWorker):
 
     def handle_outbound_message(self, destinationid, message):
         config = self.get_static_config()
-        return self.send_outbound_to_channel(str(config.channel), message)
+        channel_id = str(config.channel)
+        d1 = self.outbounds.store_message(
+            channel_id, api_from_message(message))
+        d2 = self.send_outbound_to_channel(channel_id, message)
+        return gatherResults([d1, d2])
 
     def handle_inbound_message(self, channelid, message):
         to_addr = message['to_addr']
