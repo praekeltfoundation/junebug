@@ -148,7 +148,7 @@ class TestRouter(BaseRouterWorker):
     teardown_called = False
 
     @classmethod
-    def validate_router_config(cls, api, config):
+    def validate_router_config(cls, api, config, router_id=None):
         """Testing config requires the ``test`` parameter to be ``pass``"""
         if config.get('test') != 'pass':
             raise InvalidRouterConfig('test must be pass')

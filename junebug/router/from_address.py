@@ -80,7 +80,7 @@ class FromAddressRouter(BaseRouterWorker):
 
     @classmethod
     @inlineCallbacks
-    def validate_router_config(cls, api, config):
+    def validate_router_config(cls, api, config, router_id=None):
         try:
             config = FromAddressRouterConfig(config)
         except ConfigError as e:
@@ -101,7 +101,7 @@ class FromAddressRouter(BaseRouterWorker):
         # Check that no other routers are listening to this channel
         def check_router_channel(router):
             channel = router.get('config', {}).get('channel', None)
-            if channel == channel_id:
+            if channel == channel_id and router_id != router['id']:
                 raise InvalidRouterConfig(
                     "Router {} is already routing channel {}".format(
                         router['id'], channel_id))
