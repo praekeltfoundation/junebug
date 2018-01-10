@@ -166,6 +166,9 @@ class TestRouter(BaseRouterWorker):
     def teardown_router(self):
         self.teardown_called = True
 
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
+
 
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful

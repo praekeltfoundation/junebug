@@ -6,6 +6,7 @@ from uuid import uuid4
 from junebug.error import JunebugError
 from junebug.utils import convert_unicode
 from junebug.workers import MessageForwardingWorker
+from junebug.logging_service import JunebugLoggerService, read_logs
 from twisted.internet.defer import (
     DeferredList, gatherResults, succeed, maybeDeferred, inlineCallbacks)
 from twisted.web import http
@@ -58,6 +59,8 @@ class Router(object):
     """
     Represents a Junebug Router.
     """
+    JUNEBUG_LOGGING_SERVICE_CLS = JunebugLoggerService
+
     def __init__(self, api, router_config, destinations=[]):
         self.api = api
         self.router_config = router_config
@@ -97,6 +100,12 @@ class Router(object):
         Removes the router data from the router store
         """
         return self.api.router_store.delete_router(self.id)
+
+    def _create_junebug_logger_service(self):
+        return self.JUNEBUG_LOGGING_SERVICE_CLS(
+            self.id, self.api.config.logging_path,
+            self.api.config.log_rotate_size,
+            self.api.config.max_log_files)
 
     @property
     def _available_router_types(self):
@@ -161,6 +170,10 @@ class Router(object):
         worker = creator.create_worker(
             self._worker_class_name, self._worker_config)
         worker.setName(self.router_config['id'])
+
+        logging_service = self._create_junebug_logger_service()
+        worker.addService(logging_service)
+
         worker.setServiceParent(service)
         self.router_worker = worker
 
@@ -240,6 +253,17 @@ class Router(object):
                 'Cannot find destination with ID {} for router {}'.format(
                     destination_id, self.id))
         return destination
+
+    def get_logs(self, n):
+        '''Returns the last `n` logs. If `n` is greater than the configured
+        limit, only returns the configured limit amount of logs. If `n` is
+        None, returns the configured limit amount of logs.'''
+        if n is None:
+            n = self.api.config.max_logs
+        n = min(n, self.api.config.max_logs)
+        logfile = self.router_worker.getServiceNamed(
+            'Junebug Worker Logger').logfile
+        return read_logs(logfile, n)
 
 
 class Destination(object):
