@@ -421,6 +421,18 @@ class JunebugApi(object):
         yield router.delete()
         returnValue(response(request, 'router deleted', {}))
 
+    @app.route('/routers/<string:router_id>/logs', methods=['GET'])
+    @inlineCallbacks
+    def get_router_logs(self, request, router_id):
+        '''Get the last N logs for a router, sorted reverse
+        chronologically.'''
+        n = request.args.get('n', None)
+        if n is not None:
+            n = int(n[0])
+        router = yield Router.from_id(self, router_id)
+        logs = yield router.get_logs(n)
+        returnValue(response(request, 'logs retrieved', logs))
+
     @app.route('/routers/<string:router_id>/destinations/', methods=['POST'])
     @json_body
     @validate(

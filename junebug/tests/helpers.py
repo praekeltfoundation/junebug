@@ -27,7 +27,8 @@ from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
 from junebug.router import (
-    InvalidRouterConfig, InvalidRouterDestinationConfig, BaseRouterWorker)
+    InvalidRouterConfig, InvalidRouterDestinationConfig, BaseRouterWorker,
+    Router)
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
@@ -286,6 +287,18 @@ class JunebugTestBase(TestCase):
         config = yield self.create_channel_config(**config)
         channel = yield Channel.from_id(redis, config, id, service)
         returnValue(channel)
+
+    @inlineCallbacks
+    def create_logging_router(self, service, config={}):
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+
+        config = self.create_router_config(config=config)
+        router = Router(self.api, config)
+
+        yield router.start(self.service)
+
+        yield router.save()
+        returnValue(router)
 
     @inlineCallbacks
     def get_redis(self):

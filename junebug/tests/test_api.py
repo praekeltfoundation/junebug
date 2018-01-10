@@ -1461,6 +1461,141 @@ class TestJunebugApi(JunebugTestBase):
         })
 
     @inlineCallbacks
+    def test_get_router_logs_no_logs(self):
+        '''If there are no logs, an empty list should be returned.'''
+        router = yield self.create_logging_router(self.service)
+        log_worker = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        yield log_worker.startService()
+        resp = yield self.get('/routers/%s/logs' % router.id, params={
+            'n': '3',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [])
+
+    @inlineCallbacks
+    def test_get_router_logs_less_than_limit(self):
+        '''If the amount of logs is less than the limit, all the logs should
+        be returned.'''
+        router = yield self.create_logging_router(self.service)
+        worker_logger = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        router.router_worker.test_log('Test')
+        resp = yield self.get('/routers/%s/logs' % router.id, params={
+            'n': '2',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[0])
+        [log] = (yield resp.json())['result']
+        self.assert_log(log, {
+            'logger': router.id,
+            'message': 'Test',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_router_logs_more_than_limit(self):
+        '''If the amount of logs is more than the limit, only the latest n
+        should be returned.'''
+        router = yield self.create_logging_router(self.service)
+        worker_logger = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        router.router_worker.test_log('Test1')
+        router.router_worker.test_log('Test2')
+        router.router_worker.test_log('Test3')
+        resp = yield self.get('/routers/%s/logs' % router.id, params={
+            'n': '2',
+        })
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': router.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': router.id,
+            'message': 'Test2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_router_logs_more_than_configured(self):
+        '''If the amount of requested logs is more than what is
+        configured, then only the configured amount of logs are returned.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
+        router = yield self.create_logging_router(self.service)
+        worker_logger = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        router.router_worker.test_log('Test1')
+        router.router_worker.test_log('Test2')
+        router.router_worker.test_log('Test3')
+        resp = yield self.get('/routers/%s/logs' % router.id, params={
+            'n': '3',
+        })
+
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': router.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': router.id,
+            'message': 'Test2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
+    def test_get_router_logs_no_n(self):
+        '''If the number of logs is not specified, then the API should return
+        the configured maximum number of logs.'''
+        logpath = self.mktemp()
+        config = yield self.create_channel_config(
+            max_logs=2,
+            channels={
+                'logging': 'junebug.tests.helpers.LoggingTestTransport',
+            },
+            logging_path=logpath
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
+        router = yield self.create_logging_router(self.service)
+        worker_logger = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+        worker_logger.startService()
+
+        router.router_worker.test_log('Test1')
+        router.router_worker.test_log('Test2')
+        router.router_worker.test_log('Test3')
+        resp = yield self.get('/routers/%s/logs' % router.id)
+
+        self.assert_response(
+            resp, http.OK, 'logs retrieved', [], ignore=[1, 0])
+        [log1, log2] = (yield resp.json())['result']
+        self.assert_log(log1, {
+            'logger': router.id,
+            'message': 'Test3',
+            'level': logging.INFO})
+        self.assert_log(log2, {
+            'logger': router.id,
+            'message': 'Test2',
+            'level': logging.INFO})
+
+    @inlineCallbacks
     def test_create_destination_invalid_router_id(self):
         """If the router specified by the router ID doesn't exist, a not found
         error should be returned"""
