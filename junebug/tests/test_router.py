@@ -184,18 +184,18 @@ class RouterTests(JunebugTestBase):
         '''All logs from the router should go to the logging worker.'''
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
 
-        logpath = self.mktemp()
-        config = self.create_router_config(config={'logging_path': logpath})
+        config = self.create_router_config()
 
         router = Router(self.api, config)
-        router.start(self.service)
+
+        yield router.start(self.service)
 
         router_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
 
         router_logger.startService()
-        router.router_worker.test_log('Test message1')
-        router.router_worker.test_log('Test message2')
+        router.router_worker.test_log('Test message1', router.id)
+        router.router_worker.test_log('Test message2', router.id)
 
         [log1, log2] = router_logger.logfile.logs
         self.assertEqual(json.loads(log1)['message'], 'Test message1')
