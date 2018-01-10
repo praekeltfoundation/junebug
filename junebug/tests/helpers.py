@@ -166,8 +166,8 @@ class TestRouter(BaseRouterWorker):
     def teardown_router(self):
         self.teardown_called = True
 
-    def test_log(self, message='Test log', worker_id=None):
-        self.log.msg(message, source=self, system=worker_id)
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
 
 
 class JunebugTestBase(TestCase):

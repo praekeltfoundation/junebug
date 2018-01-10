@@ -194,8 +194,8 @@ class RouterTests(JunebugTestBase):
             'Junebug Worker Logger')
 
         router_logger.startService()
-        router.router_worker.test_log('Test message1', router.id)
-        router.router_worker.test_log('Test message2', router.id)
+        router.router_worker.test_log('Test message1')
+        router.router_worker.test_log('Test message2')
 
         [log1, log2] = router_logger.logfile.logs
         self.assertEqual(json.loads(log1)['message'], 'Test message1')

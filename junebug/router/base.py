@@ -142,6 +142,7 @@ class Router(object):
         config['inbound_ttl'] = self.api.config.inbound_message_ttl
         config['outbound_ttl'] = self.api.config.outbound_message_ttl
         config['metric_window'] = self.api.config.metric_window
+        config['worker_name'] = self.id
         config = convert_unicode(config)
         return config
 
