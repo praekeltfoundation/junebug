@@ -289,7 +289,7 @@ class JunebugTestBase(TestCase):
         returnValue(channel)
 
     @inlineCallbacks
-    def create_logging_router(self, service, config={}):
+    def create_test_router(self, service, config={}):
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
 
         config = self.create_router_config(config=config)

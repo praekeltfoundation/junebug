@@ -1463,7 +1463,7 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_router_logs_no_logs(self):
         '''If there are no logs, an empty list should be returned.'''
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
         log_worker = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
         yield log_worker.startService()
@@ -1477,7 +1477,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_get_router_logs_less_than_limit(self):
         '''If the amount of logs is less than the limit, all the logs should
         be returned.'''
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
         worker_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
         worker_logger.startService()
@@ -1498,7 +1498,7 @@ class TestJunebugApi(JunebugTestBase):
     def test_get_router_logs_more_than_limit(self):
         '''If the amount of logs is more than the limit, only the latest n
         should be returned.'''
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
         worker_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
         worker_logger.startService()
@@ -1528,14 +1528,11 @@ class TestJunebugApi(JunebugTestBase):
         logpath = self.mktemp()
         config = yield self.create_channel_config(
             max_logs=2,
-            channels={
-                'logging': 'junebug.tests.helpers.LoggingTestTransport',
-            },
             logging_path=logpath
         )
         yield self.stop_server()
         yield self.start_server(config=config)
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
         worker_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
         worker_logger.startService()
@@ -1566,14 +1563,11 @@ class TestJunebugApi(JunebugTestBase):
         logpath = self.mktemp()
         config = yield self.create_channel_config(
             max_logs=2,
-            channels={
-                'logging': 'junebug.tests.helpers.LoggingTestTransport',
-            },
             logging_path=logpath
         )
         yield self.stop_server()
         yield self.start_server(config=config)
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
         worker_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
         worker_logger.startService()

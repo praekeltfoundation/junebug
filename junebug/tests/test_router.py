@@ -182,7 +182,7 @@ class RouterTests(JunebugTestBase):
     @inlineCallbacks
     def test_router_logging(self):
         '''All logs from the router should go to the logging worker.'''
-        router = yield self.create_logging_router(self.service)
+        router = yield self.create_test_router(self.service)
 
         router_logger = router.router_worker.getServiceNamed(
             'Junebug Worker Logger')
@@ -200,8 +200,8 @@ class RouterTests(JunebugTestBase):
         '''All logs from the router should go to the logging worker.'''
         self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
 
-        router1 = yield self.create_logging_router(self.service)
-        router2 = yield self.create_logging_router(self.service)
+        router1 = yield self.create_test_router(self.service)
+        router2 = yield self.create_test_router(self.service)
 
         router_logger1 = router1.router_worker.getServiceNamed(
             'Junebug Worker Logger')
