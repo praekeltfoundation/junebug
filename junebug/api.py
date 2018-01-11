@@ -294,21 +294,9 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
-        events = yield self.outbounds.load_all_events(channel_id, message_id)
-        events = sorted(
-            (api_from_event(channel_id, e) for e in events),
-            key=lambda e: e['timestamp'])
-
-        last_event = events[-1] if events else None
-        last_event_type = last_event['event_type'] if last_event else None
-        last_event_timestamp = last_event['timestamp'] if last_event else None
-
-        returnValue(response(request, 'message status', {
-            'id': message_id,
-            'last_event_type': last_event_type,
-            'last_event_timestamp': last_event_timestamp,
-            'events': events,
-        }))
+        data = yield self.get_channel_message_events(
+            request, channel_id, message_id)
+        returnValue(response(request, 'message status', data))
 
     @app.route('/routers/', methods=['GET'])
     def get_router_list(self, request):
@@ -595,6 +583,13 @@ class JunebugApi(object):
         channel_id = router.router_worker.get_destination_channel(
             destination_id)
 
+        data = yield self.get_channel_message_events(
+            request, channel_id, message_id)
+
+        returnValue(response(request, 'message status', data))
+
+    @inlineCallbacks
+    def get_channel_message_events(self, request, channel_id, message_id):
         events = yield self.outbounds.load_all_events(channel_id, message_id)
         events = sorted(
             (api_from_event(channel_id, e) for e in events),
@@ -604,12 +599,12 @@ class JunebugApi(object):
         last_event_type = last_event['event_type'] if last_event else None
         last_event_timestamp = last_event['timestamp'] if last_event else None
 
-        returnValue(response(request, 'message status', {
+        returnValue({
             'id': message_id,
             'last_event_type': last_event_type,
             'last_event_timestamp': last_event_timestamp,
             'events': events,
-        }))
+        })
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):

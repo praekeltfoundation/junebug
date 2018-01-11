@@ -179,6 +179,7 @@ class TestRouter(BaseRouterWorker):
 
         return None
 
+
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
     helper functions'''
