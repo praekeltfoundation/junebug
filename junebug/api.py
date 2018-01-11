@@ -572,6 +572,33 @@ class JunebugApi(object):
 
         returnValue(response(request, 'destination deleted', {}))
 
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>/messages/<string:message_id>',  # noqa
+        methods=['GET'])
+    @inlineCallbacks
+    def get_destination_message_status(
+            self, request, router_id, destination_id, message_id):
+
+        router = yield Router.from_id(self, router_id)
+        channel_id = router.router_worker.get_destination_channel(
+            destination_id)
+
+        events = yield self.outbounds.load_all_events(channel_id, message_id)
+        events = sorted(
+            (api_from_event(channel_id, e) for e in events),
+            key=lambda e: e['timestamp'])
+
+        last_event = events[-1] if events else None
+        last_event_type = last_event['event_type'] if last_event else None
+        last_event_timestamp = last_event['timestamp'] if last_event else None
+
+        returnValue(response(request, 'message status', {
+            'id': message_id,
+            'last_event_type': last_event_type,
+            'last_event_timestamp': last_event_timestamp,
+            'events': events,
+        }))
+
     @app.route('/health', methods=['GET'])
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:

@@ -10,6 +10,7 @@ from treq.testing import StubTreq
 from treq.testing import RequestSequence, StringStubbingResource
 
 from vumi.message import TransportEvent, TransportUserMessage
+from vumi.tests.helpers import MessageHelper
 
 from junebug.channel import Channel
 from junebug.utils import api_from_message
@@ -25,6 +26,9 @@ class TestJunebugApi(JunebugTestBase):
     def setUp(self):
         self.patch_logger()
         yield self.start_server()
+
+        self.messagehelper = MessageHelper()
+        self.addCleanup(self.messagehelper.cleanup)
 
     def get(self, url, params={}):
         return treq.get(
@@ -1811,4 +1815,119 @@ class TestJunebugApi(JunebugTestBase):
                         "router {}".format(router_id),
                     'type': "DestinationNotFound",
                 }]
+            })
+
+    @inlineCallbacks
+    def test_get_destination_message_status_no_events(self):
+        '''Returns `None` for last event fields, and empty list for events'''
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(config={'channel': '123'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/{}/messages/message-id'.format(
+                router_id, destination_id))
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': None,
+                'last_event_timestamp': None,
+                'events': [],
+            })
+
+    @inlineCallbacks
+    def test_get_destination_message_status_with_events(self):
+        '''Returns `None` for last event fields, and empty list for events'''
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(
+            config={'channel': 'channel-id'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/{}/messages/message-id'.format(
+                router_id, destination_id))
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': None,
+                'last_event_timestamp': None,
+                'events': [],
+            })
+
+    @inlineCallbacks
+    def test_get_destination_message_status_one_event(self):
+        '''Returns the event details for last event fields, and list with
+        single event for `events`'''
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(
+            config={'channel': 'channel-id'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        event = TransportEvent(
+            user_message_id='message-id', sent_message_id='message-id',
+            event_type='nack', nack_reason='error error')
+        yield self.outbounds.store_event('channel-id', 'message-id', event)
+        resp = yield self.get(
+            '/routers/{}/destinations/{}/messages/message-id'.format(
+                router_id, destination_id))
+        event_dict = api_from_event('channel-id', event)
+        event_dict['timestamp'] = str(event_dict['timestamp'])
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': 'rejected',
+                'last_event_timestamp': str(event['timestamp']),
+                'events': [event_dict],
+            })
+
+    @inlineCallbacks
+    def test_get_destination_message_status_multiple_events(self):
+        '''Returns the last event details for last event fields, and list with
+        all events for `events`'''
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(
+            config={'channel': 'channel-id'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        events = []
+        event_dicts = []
+        for i in range(5):
+            event = TransportEvent(
+                user_message_id='message-id', sent_message_id='message-id',
+                event_type='nack', nack_reason='error error')
+            yield self.outbounds.store_event('channel-id', 'message-id', event)
+            events.append(event)
+            event_dict = api_from_event('channel-id', event)
+            event_dict['timestamp'] = str(event_dict['timestamp'])
+            event_dicts.append(event_dict)
+
+        resp = yield self.get(
+            '/routers/{}/destinations/{}/messages/message-id'.format(
+                router_id, destination_id))
+        yield self.assert_response(
+            resp, http.OK, 'message status', {
+                'id': 'message-id',
+                'last_event_type': 'rejected',
+                'last_event_timestamp': event_dicts[-1]['timestamp'],
+                'events': event_dicts,
             })
