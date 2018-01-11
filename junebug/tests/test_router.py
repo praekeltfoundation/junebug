@@ -1,13 +1,16 @@
+import json
 from twisted.internet.defer import inlineCallbacks, returnValue
 from vumi.tests.helpers import (
     MessageHelper, PersistenceHelper, WorkerHelper, VumiTestCase)
 
+import junebug
 from junebug.utils import conjoin
+from junebug.logging_service import JunebugLoggerService
 from junebug.router import (
     Router, InvalidRouterConfig, InvalidRouterDestinationConfig, RouterNotFound
 )
 from junebug.router.base import InvalidRouterType
-from junebug.tests.helpers import JunebugTestBase, TestRouter
+from junebug.tests.helpers import JunebugTestBase, TestRouter, DummyLogFile
 
 
 class RouterTests(JunebugTestBase):
@@ -163,6 +166,62 @@ class RouterTests(JunebugTestBase):
         router = Router(self.api, config)
         status = yield router.status()
         self.assertEqual(status, router.router_config)
+
+    @inlineCallbacks
+    def test_start_router_logging(self):
+        '''When the router is started, the logging worker should be started
+        along with it.'''
+        config = self.create_router_config()
+        router = Router(self.api, config)
+        router.start(self.service)
+        router_logger = yield router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        self.assertTrue(isinstance(router_logger, JunebugLoggerService))
+
+    @inlineCallbacks
+    def test_router_logging(self):
+        '''All logs from the router should go to the logging worker.'''
+        router = yield self.create_test_router(self.service)
+
+        router_logger = router.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        router_logger.startService()
+        router.router_worker.test_log('Test message1')
+        router.router_worker.test_log('Test message2')
+
+        [log1, log2] = router_logger.logfile.logs
+        self.assertEqual(json.loads(log1)['message'], 'Test message1')
+        self.assertEqual(json.loads(log2)['message'], 'Test message2')
+
+    @inlineCallbacks
+    def test_multiple_router_logging(self):
+        '''All logs from the router should go to the logging worker.'''
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+
+        router1 = yield self.create_test_router(self.service)
+        router2 = yield self.create_test_router(self.service)
+
+        router_logger1 = router1.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        router_logger2 = router2.router_worker.getServiceNamed(
+            'Junebug Worker Logger')
+
+        router_logger1.startService()
+        router_logger2.startService()
+        router1.router_worker.test_log('Test message1')
+        router1.router_worker.test_log('Test message2')
+
+        [log1, log2] = router_logger1.logfile.logs
+        self.assertEqual(json.loads(log1)['message'], 'Test message1')
+        self.assertEqual(json.loads(log2)['message'], 'Test message2')
+
+        router2.router_worker.test_log('Test message3')
+
+        [log3] = router_logger2.logfile.logs
+        self.assertEqual(json.loads(log3)['message'], 'Test message3')
 
     @inlineCallbacks
     def test_from_id(self):
