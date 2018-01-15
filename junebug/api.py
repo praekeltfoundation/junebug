@@ -599,6 +599,7 @@ class JunebugApi(object):
             self, request, router_id, destination_id, message_id):
 
         router = yield Router.from_id(self, router_id)
+        router.get_destination(destination_id)
         channel_id = yield router.router_worker.get_destination_channel(
             destination_id)
 

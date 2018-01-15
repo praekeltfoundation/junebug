@@ -2024,6 +2024,37 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, None)
 
     @inlineCallbacks
+    def test_get_destination_message_invalid_router(self):
+        resp = yield self.get(
+            '/routers/foo-bar/destinations/test-destination/messages/message-id')  # noqa
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'router not found', {
+                'errors': [{
+                    'message': 'Router with ID foo-bar cannot be found',
+                    'type': 'RouterNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_get_destination_message_invalid_destination(self):
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.get(
+            '/routers/{}/destinations/test-destination/messages/message-id'.format(  # noqa
+                router_id))
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        'Cannot find destination with ID test-destination for '
+                        'router {}'.format(router_id),
+                    'type': 'DestinationNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
     def test_get_destination_message_status_no_events(self):
         '''Returns `None` for last event fields, and empty list for events'''
         router_config = self.create_router_config()
