@@ -1947,6 +1947,83 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_send_destination_message_invalid_router(self):
+        resp = yield self.post(
+            '/routers/foo-bar/destinations/test-destination/messages/',
+            {'to': '+1234', 'from': '', 'content': None})
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'router not found', {
+                'errors': [{
+                    'message': 'Router with ID foo-bar cannot be found',
+                    'type': 'RouterNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_send_destination_message_invalid_destination(self):
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        resp = yield self.post(
+            '/routers/{}/destinations/test-destination/messages/'.format(
+                router_id),
+            {'to': '+1234', 'from': '', 'content': None})
+        yield self.assert_response(
+            resp, http.NOT_FOUND, 'destination not found', {
+                'errors': [{
+                    'message':
+                        'Cannot find destination with ID test-destination for '
+                        'router {}'.format(router_id),
+                    'type': 'DestinationNotFound',
+                    }]
+                })
+
+    @inlineCallbacks
+    def test_send_destination_message(self):
+        '''Sending a message should place the message on the queue for the
+        channel'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(
+            config={'channel': 'test-channel'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        resp = yield self.post(
+            '/routers/{}/destinations/{}/messages/'.format(
+                router_id, destination_id),
+            {'to': '+1234', 'content': 'foo', 'from': None})
+        yield self.assert_response(
+            resp, http.CREATED, 'message submitted', {
+                'to': '+1234',
+                'channel_id': 'test-channel',
+                'from': None,
+                'group': None,
+                'reply_to': None,
+                'channel_data': {},
+                'content': 'foo',
+            }, ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
     def test_get_destination_message_status_no_events(self):
         '''Returns `None` for last event fields, and empty list for events'''
         router_config = self.create_router_config()
