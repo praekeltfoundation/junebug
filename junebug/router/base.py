@@ -356,7 +356,8 @@ class BaseRouterWorker(BaseWorker):
         done here. May return a deferred.
         """
 
-    def get_destination_channel(self, destination_id):
+    def get_destination_channel(
+            self, destination_id, message_body=None, message_id=None):
         """
         Gets the channel associated with the specified destination.
         """
