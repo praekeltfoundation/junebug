@@ -583,7 +583,7 @@ class JunebugApi(object):
         '''Send an outbound (mobile terminated) message'''
         router = yield Router.from_id(self, router_id)
         router.get_destination(destination_id)
-        channel_id = router.router_worker.get_destination_channel(
+        channel_id = yield router.router_worker.get_destination_channel(
             destination_id)
 
         msg = yield self.send_messsage_on_channel(channel_id, body)
@@ -599,7 +599,7 @@ class JunebugApi(object):
             self, request, router_id, destination_id, message_id):
 
         router = yield Router.from_id(self, router_id)
-        channel_id = router.router_worker.get_destination_channel(
+        channel_id = yield router.router_worker.get_destination_channel(
             destination_id)
 
         data = yield self.get_channel_message_events(
