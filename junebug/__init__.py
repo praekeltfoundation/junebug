@@ -26,7 +26,7 @@ else:
 if r is not None:
     r.install()
 
-from junebug.api import JunebugApi
+from junebug.api import JunebugApi  # noqa
 
 __all__ = ['JunebugApi']
-__version__ = '0.1.5'
+__version__ = '0.1.37'

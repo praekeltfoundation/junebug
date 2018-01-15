@@ -1,11 +1,17 @@
 import json
 import logging
 import os.path
+import sys
 from twisted.internet.defer import inlineCallbacks
+from twisted.python import log
+from mock import patch
+from raven import Client
+
 
 import junebug
 from junebug import JunebugApi
-from junebug.command_line import parse_arguments, logging_setup, start_server
+from junebug.command_line import (
+    parse_arguments, logging_setup, start_server, sentry_setup)
 from junebug.tests.helpers import JunebugTestBase
 from junebug.config import JunebugConfig
 
@@ -214,23 +220,18 @@ class TestCommandLine(JunebugTestBase):
         config = parse_arguments(['-ottl', '90'])
         self.assertEqual(config.outbound_message_ttl, 90)
 
-    def test_parse_arguments_channels(self):
-        '''Each channel mapping be specified by "--channels" or "-ch"'''
+    def test_parse_arguments_allow_expired_replies(self):
+        '''The allow expired replies line argument can be specified by
+        "--allow-expired-replies" or "-aer" and has a default value of
+        False'''
         config = parse_arguments([])
-        self.assertEqual(config.channels, {})
+        self.assertEqual(config.allow_expired_replies, False)
 
-        config = parse_arguments(['--channels', 'foo:bar'])
-        self.assertEqual(config.channels, {'foo': 'bar'})
+        config = parse_arguments(['--allow-expired-replies'])
+        self.assertEqual(config.allow_expired_replies, True)
 
-        config = parse_arguments([
-            '--channels', 'foo:bar', '--channels', 'bar:foo'])
-        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
-
-        config = parse_arguments(['-ch', 'foo:bar'])
-        self.assertEqual(config.channels, {'foo': 'bar'})
-
-        config = parse_arguments(['-ch', 'foo:bar', '-ch', 'bar:foo'])
-        self.assertEqual(config.channels, {'foo': 'bar', 'bar': 'foo'})
+        config = parse_arguments(['-aer'])
+        self.assertEqual(config.allow_expired_replies, True)
 
     def test_parse_arguments_replace_channels(self):
         '''The replace channels command line argument can be specified by
@@ -244,6 +245,32 @@ class TestCommandLine(JunebugTestBase):
 
         config = parse_arguments(['-rch', 'true'])
         self.assertEqual(config.replace_channels, True)
+
+    def test_parse_arguments_routers(self):
+        """The routers command line argument can be specified by "--routers"
+        and should parse the given properties into a dictionary"""
+        config = parse_arguments([])
+        self.assertEqual(config.routers, {})
+
+        config = parse_arguments(['--routers', 'router:router.class'])
+        self.assertEqual(config.routers, {'router': 'router.class'})
+
+        config = parse_arguments([
+            '--routers', 'router1:router.class.1',
+            '--routers', 'router2:router.class.2'])
+        self.assertEqual(config.routers, {
+            'router1': 'router.class.1',
+            'router2': 'router.class.2'})
+
+    def test_parse_arguments_replace_routers(self):
+        '''The replace routers command line argument can be specified by
+        "--replace-routers" and has a default value of False
+        '''
+        config = parse_arguments([])
+        self.assertEqual(config.replace_routers, False)
+
+        config = parse_arguments(['--replace-routers', 'true'])
+        self.assertEqual(config.replace_routers, True)
 
     def test_parse_arguments_plugins(self):
         '''Each plugin config is specified by "--plugin" or "-pl"'''
@@ -289,6 +316,17 @@ class TestCommandLine(JunebugTestBase):
 
         config = parse_arguments(['-lp', 'other-logs/'])
         self.assertEqual(config.logging_path, 'other-logs/')
+
+    def testparse_arguments_sentry_dsn(self):
+        '''The sentry DSN can be specified by "--sentry-dsn" or "-sd"'''
+        config = parse_arguments([])
+        self.assertEqual(config.sentry_dsn, None)
+
+        config = parse_arguments(["--sentry-dsn", "http://sentry-dsn.com"])
+        self.assertEqual(config.sentry_dsn, "http://sentry-dsn.com")
+
+        config = parse_arguments(["-sd", "http://sentry-dsn.com"])
+        self.assertEqual(config.sentry_dsn, "http://sentry-dsn.com")
 
     def test_parse_arguments_log_rotate_size(self):
         '''The log rotate size can be specified by "--log-rotate-size" or
@@ -355,9 +393,11 @@ class TestCommandLine(JunebugTestBase):
                 'inbound_message_ttl': 80,
                 'outbound_message_ttl': 90,
                 'channels': {'foo': 'bar'},
+                'routers': {'router': 'router.class'},
                 'plugins': [{'type': 'foo.bar'}],
                 'metric_window': 2.0,
                 'logging_path': 'other-logs/',
+                'sentry_dsn': 'http://sentry-dsn.com',
                 'log_rotate_size': 2,
                 'max_log_files': 3,
                 'max_logs': 4,
@@ -380,9 +420,11 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.routers, {'router': 'router.class'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.sentry_dsn, 'http://sentry-dsn.com')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
         self.assertEqual(config.max_logs, 4)
@@ -403,9 +445,11 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(config.inbound_message_ttl, 80)
         self.assertEqual(config.outbound_message_ttl, 90)
         self.assertEqual(config.channels, {'foo': 'bar'})
+        self.assertEqual(config.routers, {'router': 'router.class'})
         self.assertEqual(config.plugins, [{'type': 'foo.bar'}])
         self.assertEqual(config.metric_window, 2.0)
         self.assertEqual(config.logging_path, 'other-logs/')
+        self.assertEqual(config.sentry_dsn, 'http://sentry-dsn.com')
         self.assertEqual(config.log_rotate_size, 2)
         self.assertEqual(config.max_log_files, 3)
         self.assertEqual(config.max_logs, 4)
@@ -487,13 +531,13 @@ class TestCommandLine(JunebugTestBase):
     def test_logging_setup(self):
         '''If filename is None, just a stdout logger is created, if filename
         is not None, both the stdout logger and a file logger is created'''
-        logging_setup(None)
+        logging_setup(None, None)
         [handler] = logging.getLogger().handlers
-        self.assertEqual(handler.stream.name, '<stdout>')
+        self.assertTrue(handler.stream.name in ['<stdout>', '<fdopen>'])
         logging.getLogger().removeHandler(handler)
 
         filename = self.mktemp()
-        logging_setup(filename)
+        logging_setup(filename, None)
         [handler1, handler2] = sorted(
             logging.getLogger().handlers,
             key=lambda h: hasattr(h, 'baseFilename'))
@@ -501,10 +545,37 @@ class TestCommandLine(JunebugTestBase):
         self.assertEqual(
             os.path.abspath(handler2.baseFilename),
             os.path.abspath(filename))
-        self.assertEqual(handler1.stream.name, '<stdout>')
+        self.assertTrue(handler.stream.name in ['<stdout>', '<fdopen>'])
 
         logging.getLogger().removeHandler(handler1)
         logging.getLogger().removeHandler(handler2)
+
+    def test_sentry_setup(self):
+        count = len(log.theLogPublisher._legacyObservers)
+
+        sentry_setup(None)
+        self.assertEqual(len(log.theLogPublisher._legacyObservers), count)
+
+        e = ValueError("Test Error")
+        with patch.object(Client, 'captureException') as mock_method:
+            log.err(e)
+            mock_method.assert_not_called()
+
+        sentry_setup("http://username:password@sentry.test.com/16")
+        function = log.theLogPublisher._legacyObservers[count].legacyObserver
+        self.assertEqual(len(log.theLogPublisher._legacyObservers), count+1)
+        self.assertEqual(function.func_name, "logToSentry")
+
+        with patch.object(Client, 'captureException') as mock_method:
+            try:
+                raise e
+            except Exception:
+                tb = sys.exc_info()
+                log.err()
+            mock_method.assert_called_once_with(tb)
+
+        errors = self.flushLoggedErrors(ValueError)
+        self.assertEqual(len(errors), 2)
 
     @inlineCallbacks
     def test_start_server(self):

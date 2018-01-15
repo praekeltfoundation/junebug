@@ -111,6 +111,8 @@ class JunebugLoggerService(Service):
         self.max_files = max_files
 
     def startService(self):
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, 0755)
         self.logfile = LogFile(
             self.worker_id, self.path, rotateLength=self.rotate,
             maxRotatedFiles=self.max_files)
@@ -164,9 +166,9 @@ def reverse_read(filename, buf):
             # incomplete, so store it for the next iteration.
             if lines:
                 incomplete_line = lines.pop(0)
-            for l in lines[::-1]:
-                if l != '':
-                    yield l
+            for line in lines[::-1]:
+                if line != '':
+                    yield line
         if incomplete_line:
             yield incomplete_line
 

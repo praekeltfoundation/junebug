@@ -20,9 +20,11 @@ Contents
    cli-reference
    config-reference
    design
+   internal-architecture
    http_api
    amqp-integration
    plugins-reference
+   routers
    release-notes
 
 

@@ -1,12 +1,18 @@
 import json
 import logging
+from urlparse import urlunparse, urlparse
 
 import treq
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, CancelledError
+from twisted.web.client import ResponseFailed, RequestTransmissionFailed
+from twisted.internet.error import (
+    ConnectingCancelledError, ConnectionDone, ConnectionRefusedError)
+from twisted.internet.task import TaskStopped
 
 from vumi.application.base import ApplicationConfig, ApplicationWorker
-from vumi.config import ConfigDict, ConfigInt, ConfigText, ConfigFloat
+from vumi.config import (
+    ConfigDict, ConfigInt, ConfigText, ConfigFloat, ConfigUrl)
 from vumi.message import JSONMessageEncoder
 from vumi.persist.txredis_manager import TxRedisManager
 from vumi.worker import BaseConfig, BaseWorker
@@ -19,9 +25,23 @@ from junebug.stores import (
 class MessageForwardingConfig(ApplicationConfig):
     '''Config for MessageForwardingWorker application worker'''
 
-    mo_message_url = ConfigText(
+    mo_message_url = ConfigUrl(
         "The URL to send HTTP POST requests to for MO messages",
         default=None, static=True)
+
+    mo_message_url_auth_token = ConfigText(
+        "Authorization Token to use for the mo_message_url",
+        default=None, static=True)
+
+    mo_message_url_timeout = ConfigInt(
+        "Maximum time (in seconds) a mo_message_url is allowed to take "
+        "to process a message",
+        default=10, static=True)
+
+    event_url_timeout = ConfigInt(
+        "Maximum time (in seconds) an event_url is allowed to take "
+        "to process an event",
+        default=10, static=True)
 
     message_queue = ConfigText(
         "The AMQP queue to forward messages on",
@@ -71,7 +91,8 @@ class MessageForwardingWorker(ApplicationWorker):
 
     @inlineCallbacks
     def teardown_application(self):
-        yield self.redis.close_manager()
+        if getattr(self, 'redis', None) is not None:
+            yield self.redis.close_manager()
 
     @property
     def channel_id(self):
@@ -85,8 +106,25 @@ class MessageForwardingWorker(ApplicationWorker):
         msg = api_from_message(message)
 
         if self.config.get('mo_message_url') is not None:
-            resp = yield post(self.config['mo_message_url'], msg)
-            if request_failed(resp):
+            config = self.get_static_config()
+
+            (url, auth) = self._split_url_and_credentials(
+                config.mo_message_url)
+
+            # Construct token auth headers if configured
+            auth_token = config.mo_message_url_auth_token
+            if auth_token:
+                headers = {
+                    'Authorization': [
+                        'Token %s' % (auth_token,)]
+                }
+            else:
+                headers = {}
+
+            resp = yield post(url, msg,
+                              timeout=config.mo_message_url_timeout,
+                              auth=auth, headers=headers)
+            if resp and request_failed(resp):
                 logging.exception(
                     'Error sending message, received HTTP code %r with body %r'
                     '. Message: %r' % (resp.code, (yield resp.content()), msg))
@@ -124,7 +162,12 @@ class MessageForwardingWorker(ApplicationWorker):
     def _store_event(self, event):
         '''Stores the event in the message store'''
         message_id = event['user_message_id']
-        return self.outbounds.store_event(self.channel_id, message_id, event)
+        if message_id is None:
+            logging.warning(
+                "Cannot store event, missing user_message_id: %r" % event)
+        else:
+            return self.outbounds.store_event(
+                self.channel_id, message_id, event)
 
     @inlineCallbacks
     def _forward_event(self, event):
@@ -140,15 +183,30 @@ class MessageForwardingWorker(ApplicationWorker):
         if url is None:
             return
 
+        (url, auth) = self._split_url_and_credentials(urlparse(url))
+
+        # Construct token auth headers if configured
+        auth_token = yield self._get_event_auth_token(event)
+
+        if auth_token:
+            headers = {
+                'Authorization': [
+                    'Token %s' % (auth_token,)]
+            }
+        else:
+            headers = {}
+
         msg = api_from_event(self.channel_id, event)
 
         if msg['event_type'] is None:
             logging.exception("Discarding unrecognised event %r" % (event,))
             return
 
-        resp = yield post(url, msg)
+        config = self.get_static_config()
+        resp = yield post(url, msg, timeout=config.event_url_timeout,
+                          auth=auth, headers=headers)
 
-        if request_failed(resp):
+        if resp and request_failed(resp):
             logging.exception(
                 'Error sending event, received HTTP code %r with body %r. '
                 'Event: %r' % (resp.code, (yield resp.content()), event))
@@ -167,9 +225,40 @@ class MessageForwardingWorker(ApplicationWorker):
     def consume_delivery_report(self, event):
         return self.store_and_forward_event(event)
 
+    def _split_url_and_credentials(self, url):
+        # Parse the basic auth username & password if available
+        username = url.username
+        password = url.password
+        if any([username, password]):
+            url = urlunparse((
+                url.scheme,
+                '%s%s' % (url.hostname, (':%s' % (url.port,)
+                                         if url.port is not None else '')),
+                url.path,
+                url.params,
+                url.query,
+                url.fragment,
+            ))
+            auth = (username, password)
+            return (url, auth)
+        return (url.geturl(), None)
+
     def _get_event_url(self, event):
         msg_id = event['user_message_id']
-        return self.outbounds.load_event_url(self.channel_id, msg_id)
+        if msg_id is not None:
+            return self.outbounds.load_event_url(self.channel_id, msg_id)
+        else:
+            logging.warning(
+                "Cannot find event URL, missing user_message_id: %r" % event)
+
+    def _get_event_auth_token(self, event):
+        msg_id = event['user_message_id']
+        if msg_id is not None:
+            return self.outbounds.load_event_auth_token(
+                self.channel_id, msg_id)
+        else:
+            logging.warning(
+                "Cannot find event auth, missing user_message_id: %r" % event)
 
 
 class ChannelStatusConfig(BaseConfig):
@@ -185,6 +274,11 @@ class ChannelStatusConfig(BaseConfig):
     status_url = ConfigText(
         "Optional url to POST status events to",
         default=None, static=True)
+
+    status_url_timeout = ConfigInt(
+        "Maximum time (in seconds) a status_url is allowed to take "
+        "to process a status update",
+        default=10, static=True)
 
 
 class ChannelStatusWorker(BaseWorker):
@@ -219,9 +313,11 @@ class ChannelStatusWorker(BaseWorker):
     @inlineCallbacks
     def send_status(self, status):
         data = api_from_status(self.config['channel_id'], status)
-        resp = yield post(self.config['status_url'], data)
+        config = self.get_static_config()
+        resp = yield post(config.status_url, data,
+                          timeout=config.status_url_timeout)
 
-        if request_failed(resp):
+        if resp and request_failed(resp):
             logging.exception(
                 'Error sending status event, received HTTP code %r with '
                 'body %r. Status event: %r'
@@ -232,8 +328,30 @@ def request_failed(resp):
     return resp.code < 200 or resp.code >= 300
 
 
-def post(url, data):
-    return treq.post(
+def post_eb(reason, url):
+    errors = (
+        ResponseFailed,
+        ConnectingCancelledError,
+        ConnectionDone,
+        ConnectionRefusedError,
+        TaskStopped,
+        # Raised when Deferred is cancelled because of timeouts
+        CancelledError,
+        RequestTransmissionFailed,
+    )
+
+    err_class = reason.trap(*errors)
+    logging.exception('Post to %s failed because of %s: %s' % (
+        url, err_class, reason.getErrorMessage()))
+
+
+def post(url, data, timeout, auth=None, headers={}):
+    request_headers = {'Content-Type': ['application/json']}
+    request_headers.update(headers)
+    d = treq.post(
         url.encode('utf-8'),
         data=json.dumps(data, cls=JSONMessageEncoder),
-        headers={'Content-Type': 'application/json'})
+        headers=request_headers,
+        timeout=timeout, auth=auth)
+    d.addErrback(post_eb, url)
+    return d

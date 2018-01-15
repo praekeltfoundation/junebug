@@ -1,4 +1,3 @@
-import collections
 from copy import deepcopy
 import json
 import uuid
@@ -10,7 +9,8 @@ from vumi.servicemaker import VumiOptions
 
 from junebug.logging_service import JunebugLoggerService, read_logs
 from junebug.stores import StatusStore, MessageRateStore
-from junebug.utils import api_from_message, message_from_api, api_from_status
+from junebug.utils import (
+    api_from_message, message_from_api, api_from_status, convert_unicode)
 from junebug.error import JunebugError
 
 
@@ -45,7 +45,7 @@ class MessageTooLong(JunebugError):
 transports = {
     'telnet': 'vumi.transports.telnet.TelnetServerTransport',
     'xmpp': 'vumi.transports.xmpp.XMPPTransport',
-    'smpp': 'vumi.transports.smpp.SmppTransport',
+    'smpp': 'vumi.transports.smpp.SmppTransceiverTransport',
     'dmark': 'vumi.transports.dmark.DmarkUssdTransport',
 }
 
@@ -101,12 +101,22 @@ class Channel(object):
     def character_limit(self):
         return self._properties.get('character_limit')
 
+    @property
+    def has_destination(self):
+        """
+        Whether or not this channel has a message destination defined
+        """
+        return 'mo_url' in self._properties or 'amqp_queue' in self._properties
+
     @inlineCallbacks
     def start(self, service, transport_worker=None):
         '''Starts the relevant workers for the channel. ``service`` is the
         parent of under which the workers should be started.'''
         self._start_transport(service, transport_worker)
-        self._start_application(service)
+        # Only start the application worker if we have somewhere to send the
+        # messages.
+        if self.has_destination:
+            self._start_application(service)
         self._start_status_application(service)
         for plugin in self.plugins:
             yield plugin.channel_started(self)
@@ -244,26 +254,31 @@ class Channel(object):
     @inlineCallbacks
     def send_message(self, sender, outbounds, msg):
         '''Sends a message.'''
-        event_url = msg.get('event_url')
-        msg = message_from_api(self.id, msg)
-        msg = TransportUserMessage.send(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
-        returnValue(api_from_message(msg))
+        vumi_msg = message_from_api(self.id, msg)
+        vumi_msg = TransportUserMessage.send(**vumi_msg)
+        vumi_msg = yield self._send_message(sender, outbounds, vumi_msg, msg)
+        returnValue(api_from_message(vumi_msg))
 
     @inlineCallbacks
-    def send_reply_message(self, sender, outbounds, inbounds, msg):
+    def send_reply_message(self, sender, outbounds, inbounds, msg,
+                           allow_expired_replies=False):
         '''Sends a reply message.'''
         in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
-
-        if in_msg is None:
+        # NOTE: If we have a `reply_to` that cannot be found but also are
+        #       given a `to` and the config says we can send expired
+        #       replies then pop the `reply_to` from the message
+        #       and handle it like a normal outbound message.
+        if in_msg is None and msg.get('to') and allow_expired_replies:
+            msg.pop('reply_to')
+            returnValue((yield self.send_message(sender, outbounds, msg)))
+        elif in_msg is None:
             raise MessageNotFound(
                 "Inbound message with id %s not found" % (msg['reply_to'],))
 
-        event_url = msg.get('event_url')
-        msg = message_from_api(self.id, msg)
-        msg = in_msg.reply(**msg)
-        msg = yield self._send_message(sender, outbounds, event_url, msg)
-        returnValue(api_from_message(msg))
+        vumi_msg = message_from_api(self.id, msg)
+        vumi_msg = in_msg.reply(**vumi_msg)
+        vumi_msg = yield self._send_message(sender, outbounds, vumi_msg, msg)
+        returnValue(api_from_message(vumi_msg))
 
     def get_logs(self, n):
         '''Returns the last `n` logs. If `n` is greater than the configured
@@ -279,7 +294,7 @@ class Channel(object):
     @property
     def _transport_config(self):
         config = self._properties['config']
-        config = self._convert_unicode(config)
+        config = convert_unicode(config)
         config['transport_name'] = self.id
         config['worker_name'] = self.id
         config['publish_status'] = True
@@ -290,6 +305,8 @@ class Channel(object):
         return {
             'transport_name': self.id,
             'mo_message_url': self._properties.get('mo_url'),
+            'mo_message_url_auth_token': self._properties.get(
+                'mo_url_auth_token'),
             'message_queue': self._properties.get('amqp_queue'),
             'redis_manager': self.config.redis,
             'inbound_ttl': self.config.inbound_message_ttl,
@@ -399,20 +416,14 @@ class Channel(object):
 
     def _restore(self, service):
         self.transport_worker = service.getServiceNamed(self.id)
-        self.application_worker = service.getServiceNamed(self.application_id)
+        try:
+            self.application_worker = service.getServiceNamed(
+                self.application_id)
+        except KeyError:
+            # Doesn't have an application worker if no destination specified
+            pass
         self.status_application_worker = service.getServiceNamed(
             self.status_application_id)
-
-    def _convert_unicode(self, data):
-        # Twisted doesn't like it when we give unicode in for config things
-        if isinstance(data, basestring):
-            return str(data)
-        elif isinstance(data, collections.Mapping):
-            return dict(map(self._convert_unicode, data.iteritems()))
-        elif isinstance(data, collections.Iterable):
-            return type(data)(map(self._convert_unicode, data))
-        else:
-            return data
 
     def _check_character_limit(self, content):
         count = len(content)
@@ -424,12 +435,11 @@ class Channel(object):
                 )
 
     @inlineCallbacks
-    def _send_message(self, sender, outbounds, event_url, msg):
+    def _send_message(self, sender, outbounds, msg, msg_api):
         self._check_character_limit(msg['content'])
 
-        if event_url is not None:
-            yield outbounds.store_event_url(
-                self.id, msg['message_id'], event_url)
+        msg_api.update(api_from_message(msg))
+        yield outbounds.store_message(self.id, msg_api)
 
         queue = self.OUTBOUND_QUEUE % (self.id,)
         msg = yield sender.send_message(msg, routing_key=queue)
