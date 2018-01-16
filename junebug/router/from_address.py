@@ -3,7 +3,8 @@ from confmodel.config import ConfigField
 from confmodel.errors import ConfigError
 from confmodel.fields import ConfigBool
 import re
-from twisted.internet.defer import gatherResults, inlineCallbacks, returnValue
+from twisted.internet.defer import (
+    gatherResults, inlineCallbacks, returnValue, succeed)
 from uuid import UUID
 from vumi.persist.txredis_manager import TxRedisManager
 
@@ -134,6 +135,11 @@ class FromAddressRouter(BaseRouterWorker):
         for destination in config.destinations:
             self.consume_destination(
                 destination['id'], self.handle_outbound_message)
+
+    def get_destination_channel(
+            self, destination_id, message_body=None, message_id=None):
+        config = self.get_static_config()
+        return succeed(str(config.channel))
 
     def handle_outbound_message(self, destinationid, message):
         config = self.get_static_config()

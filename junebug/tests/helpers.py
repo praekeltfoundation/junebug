@@ -170,6 +170,16 @@ class TestRouter(BaseRouterWorker):
     def test_log(self, message='Test log'):
         self.log.msg(message, source=self)
 
+    def get_destination_channel(
+            self, destination_id, message_body=None, message_id=None):
+        config = self.get_static_config()
+
+        for dest in config.destinations:
+            if dest['id'] == destination_id:
+                return dest['config']['channel']
+
+        return None
+
 
 class JunebugTestBase(TestCase):
     '''Base test case that all junebug tests inherit from. Contains useful
@@ -248,6 +258,8 @@ class JunebugTestBase(TestCase):
 
     def create_destination_config(self, **kw):
         properties = deepcopy(self.default_destination_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
         properties.update(kw)
         return properties
 
