@@ -67,6 +67,12 @@ class Junebug(Process):
                     'config': {
                         'web_path': 'api',
                         'web_port': 8001,
+                        "redis_manager": {
+                          "key_prefix": "my_ussd",
+                          "host": "redis",
+                          "db": 2,
+                          "port": 6379
+                        }
                     },
                     'mo_url': 'http://localhost:8002',
                 }),
@@ -81,6 +87,12 @@ class Junebug(Process):
                         "system_id": "smppclient1",
                         "password": "password",
                         "twisted_endpoint": "tcp:localhost:2775",
+                        "redis_manager": {
+                          "key_prefix": "my_smpp",
+                          "host": "redis",
+                          "db": 2,
+                          "port": 6379
+                        }
                     }
                 }),
                 {'Content-Type': 'application/json'})
@@ -88,14 +100,15 @@ class Junebug(Process):
             raise RuntimeError(
                 'Invalid channel type %r' % self.config.channel_type)
         r = self.conn.getresponse()
-        assert r.status == 200
+        assert r.status == 201
         channel = json.loads(r.read())['result']['id']
         self._wait_for_channel_start()
         return channel
 
     def _wait_for_channel_start(self):
         # This is horrible
-        time.sleep(1)
+        print 'Waiting for channel to start'
+        time.sleep(5)
 
     def delete_ussd_channel(self, channelid):
         self.conn.request(

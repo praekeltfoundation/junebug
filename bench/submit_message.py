@@ -34,6 +34,7 @@ def parse_arguments(args):
 
 def main():
     config = parse_arguments(sys.argv[1:])
+    print 'create_requests', config.port
     create_requests(config.port, config.start_id, config.end_id, config.concurrency,
                     config.save_file, config.warmup)
 
@@ -57,6 +58,8 @@ def sync_worker(port, item):
     return l
 
 def worker(port, in_q, out_q):
+    print 'worker', port
+
     while True:
         item = in_q.get()
         if item is None:
