@@ -359,7 +359,9 @@ class BaseRouterWorker(BaseWorker):
     def get_destination_channel(
             self, destination_id, message_body=None, message_id=None):
         """
-        Gets the channel associated with the specified destination.
+        Gets the channel associated with the specified destination. Either
+        message_body or message_id will be supplied. Should be implemented by
+        router implementation.
         """
 
     def setup_connectors(self):

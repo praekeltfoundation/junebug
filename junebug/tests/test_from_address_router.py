@@ -123,6 +123,31 @@ class TestRouter(JunebugTestBase):
                 router.id, channel.id))
 
     @inlineCallbacks
+    def test_get_destination_channel(self):
+        """
+        The get_destination_channel method should return the channel that was
+        configured on the router.
+        """
+        router = yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }, {
+                'id': "test-destination2",
+                'amqp_queue': "testqueue2",
+                'config': {'regular_expression': '^2.*$'},
+            }],
+            'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
+        })
+
+        channel_id = yield router.get_destination_channel("test-destination1")
+        self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+        channel_id = yield router.get_destination_channel("test-destination2")
+        self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+    @inlineCallbacks
     def test_validate_router_destination_config_invalid_regex(self):
         """
         If invalid regex is passed into the regex field, a config error should
