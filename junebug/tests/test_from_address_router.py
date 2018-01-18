@@ -141,10 +141,12 @@ class TestRouter(JunebugTestBase):
             'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
         })
 
-        channel_id = yield router.get_destination_channel("test-destination1")
+        channel_id = yield router.get_destination_channel(
+            "test-destination1", {})
         self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
 
-        channel_id = yield router.get_destination_channel("test-destination2")
+        channel_id = yield router.get_destination_channel(
+            "test-destination2", {})
         self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
 
     @inlineCallbacks
