@@ -704,12 +704,49 @@ class TestJunebugApi(JunebugTestBase):
 
     @inlineCallbacks
     def test_send_message_no_to_or_reply_to(self):
+        channel = Channel(
+            redis_manager=(yield self.get_redis()),
+            config=(yield self.create_channel_config()),
+            properties=self.create_channel_properties(),
+            id='test-channel')
+
+        yield channel.save()
+        yield channel.start(self.service)
+
         resp = yield self.post(
-            '/channels/foo-bar/messages/', {'from': None, 'content': None})
+            '/channels/{}/messages/'.format(channel.id),
+            {'from': None, 'content': None})
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
                     'message': 'Either "to" or "reply_to" must be specified',
+                    'type': 'ApiUsageError',
+                }]
+            })
+
+    @inlineCallbacks
+    def test_send_message_no_destination(self):
+        '''Sending a message on a channel endpoint without a destination should
+        raise a ApiUsageError
+        '''
+        properties = self.create_channel_properties()
+        del properties['mo_url']
+        channel = Channel(
+            redis_manager=(yield self.get_redis()),
+            config=(yield self.create_channel_config()),
+            properties=properties,
+            id='test-channel')
+
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.post(
+            '/channels/{}/messages/'.format(channel.id),
+            {'from': None, 'content': 'test message', 'to': '+1234'})
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': 'This channel has no "mo_url" or "amqp_queue"',
                     'type': 'ApiUsageError',
                 }]
             })
@@ -883,7 +920,16 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_get_message_status_no_events(self):
         '''Returns `None` for last event fields, and empty list for events'''
-        resp = yield self.get('/channels/foo-bar/messages/message-id')
+
+        properties = self.create_channel_properties(character_limit=10)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.get(
+            '/channels/{}/messages/message-id'.format(channel.id))
         yield self.assert_response(
             resp, http.OK, 'message status', {
                 'id': 'message-id',
@@ -893,15 +939,46 @@ class TestJunebugApi(JunebugTestBase):
             })
 
     @inlineCallbacks
+    def test_get_message_status_with_no_destination(self):
+        '''Returns error if the channel has no destination'''
+        properties = self.create_channel_properties(character_limit=10)
+        del properties['mo_url']
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        resp = yield self.get(
+            '/channels/{}/messages/message-id'.format(channel.id))
+
+        yield self.assert_response(
+            resp, http.BAD_REQUEST, 'api usage error', {
+                'errors': [{
+                    'message': 'This channel has no "mo_url" or "amqp_queue"',
+                    'type': 'ApiUsageError',
+                }]
+            })
+
+    @inlineCallbacks
     def test_get_message_status_one_event(self):
         '''Returns the event details for last event fields, and list with
         single event for `events`'''
+
+        properties = self.create_channel_properties(character_limit=10)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
         event = TransportEvent(
             user_message_id='message-id', sent_message_id='message-id',
             event_type='nack', nack_reason='error error')
-        yield self.outbounds.store_event('channel-id', 'message-id', event)
-        resp = yield self.get('/channels/channel-id/messages/message-id')
-        event_dict = api_from_event('channel-id', event)
+        yield self.outbounds.store_event(channel.id, 'message-id', event)
+        resp = yield self.get(
+            '/channels/{}/messages/message-id'.format(channel.id))
+        event_dict = api_from_event(channel.id, event)
         event_dict['timestamp'] = str(event_dict['timestamp'])
         yield self.assert_response(
             resp, http.OK, 'message status', {
@@ -915,19 +992,28 @@ class TestJunebugApi(JunebugTestBase):
     def test_get_message_status_multiple_events(self):
         '''Returns the last event details for last event fields, and list with
         all events for `events`'''
+
+        properties = self.create_channel_properties(character_limit=10)
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
         events = []
         event_dicts = []
         for i in range(5):
             event = TransportEvent(
                 user_message_id='message-id', sent_message_id='message-id',
                 event_type='nack', nack_reason='error error')
-            yield self.outbounds.store_event('channel-id', 'message-id', event)
+            yield self.outbounds.store_event(channel.id, 'message-id', event)
             events.append(event)
-            event_dict = api_from_event('channel-id', event)
+            event_dict = api_from_event(channel.id, event)
             event_dict['timestamp'] = str(event_dict['timestamp'])
             event_dicts.append(event_dict)
 
-        resp = yield self.get('/channels/channel-id/messages/message-id')
+        resp = yield self.get(
+            '/channels/{}/messages/message-id'.format(channel.id))
         yield self.assert_response(
             resp, http.OK, 'message status', {
                 'id': 'message-id',

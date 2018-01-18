@@ -267,10 +267,17 @@ class JunebugApi(object):
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        msg = yield self.send_messsage_on_channel(channel_id, body)
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
 
-        returnValue(response(
-            request, 'message submitted', msg, code=http.CREATED))
+        if (channel.has_destination):
+            msg = yield self.send_messsage_on_channel(channel_id, body)
+
+            returnValue(response(
+                request, 'message submitted', msg, code=http.CREATED))
+        else:
+            raise ApiUsageError(
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
@@ -278,9 +285,16 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
-        data = yield self.get_message_events(
-            request, channel_id, message_id)
-        returnValue(response(request, 'message status', data))
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+
+        if (channel.has_destination):
+            data = yield self.get_message_events(
+                request, channel_id, message_id)
+            returnValue(response(request, 'message status', data))
+        else:
+            raise ApiUsageError(
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route('/routers/', methods=['GET'])
     def get_router_list(self, request):
