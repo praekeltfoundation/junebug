@@ -746,7 +746,7 @@ class TestJunebugApi(JunebugTestBase):
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
-                    'message': 'This channel has no destinations',
+                    'message': 'This channel has no "mo_url" or "amqp_queue"',
                     'type': 'ApiUsageError',
                 }]
             })
@@ -955,7 +955,7 @@ class TestJunebugApi(JunebugTestBase):
         yield self.assert_response(
             resp, http.BAD_REQUEST, 'api usage error', {
                 'errors': [{
-                    'message': 'This channel has no destinations',
+                    'message': 'This channel has no "mo_url" or "amqp_queue"',
                     'type': 'ApiUsageError',
                 }]
             })

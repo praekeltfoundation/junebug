@@ -277,7 +277,7 @@ class JunebugApi(object):
                 request, 'message submitted', msg, code=http.CREATED))
         else:
             raise ApiUsageError(
-                'This channel has no destinations')
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
@@ -294,7 +294,7 @@ class JunebugApi(object):
             returnValue(response(request, 'message status', data))
         else:
             raise ApiUsageError(
-                'This channel has no destinations')
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route('/routers/', methods=['GET'])
     def get_router_list(self, request):
