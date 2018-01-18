@@ -29,4 +29,4 @@ if r is not None:
 from junebug.api import JunebugApi  # noqa
 
 __all__ = ['JunebugApi']
-__version__ = '0.1.38'
+__version__ = '0.1.39'
