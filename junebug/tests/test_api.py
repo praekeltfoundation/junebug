@@ -2118,11 +2118,11 @@ class TestJunebugApi(JunebugTestBase):
         event = TransportEvent(
             user_message_id='message-id', sent_message_id='message-id',
             event_type='nack', nack_reason='error error')
-        yield self.outbounds.store_event('channel-id', 'message-id', event)
+        yield self.outbounds.store_event(destination_id, 'message-id', event)
         resp = yield self.get(
             '/routers/{}/destinations/{}/messages/message-id'.format(
                 router_id, destination_id))
-        event_dict = api_from_event('channel-id', event)
+        event_dict = api_from_event(destination_id, event)
         event_dict['timestamp'] = str(event_dict['timestamp'])
         yield self.assert_response(
             resp, http.OK, 'message status', {
@@ -2152,9 +2152,10 @@ class TestJunebugApi(JunebugTestBase):
             event = TransportEvent(
                 user_message_id='message-id', sent_message_id='message-id',
                 event_type='nack', nack_reason='error error')
-            yield self.outbounds.store_event('channel-id', 'message-id', event)
+            yield self.outbounds.store_event(
+                destination_id, 'message-id', event)
             events.append(event)
-            event_dict = api_from_event('channel-id', event)
+            event_dict = api_from_event(destination_id, event)
             event_dict['timestamp'] = str(event_dict['timestamp'])
             event_dicts.append(event_dict)
 

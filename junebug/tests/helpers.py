@@ -170,8 +170,7 @@ class TestRouter(BaseRouterWorker):
     def test_log(self, message='Test log'):
         self.log.msg(message, source=self)
 
-    def get_destination_channel(
-            self, destination_id, message_body=None, message_id=None):
+    def get_destination_channel(self, destination_id, message_body):
         config = self.get_static_config()
 
         for dest in config.destinations:

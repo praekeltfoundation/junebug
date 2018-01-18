@@ -278,7 +278,7 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
-        data = yield self.get_channel_message_events(
+        data = yield self.get_message_events(
             request, channel_id, message_id)
         returnValue(response(request, 'message status', data))
 
@@ -584,7 +584,7 @@ class JunebugApi(object):
         router = yield Router.from_id(self, router_id)
         router.get_destination(destination_id)
         channel_id = yield router.router_worker.get_destination_channel(
-            destination_id, message_body=body)
+            destination_id, body)
 
         msg = yield self.send_messsage_on_channel(channel_id, body)
 
@@ -600,19 +600,17 @@ class JunebugApi(object):
 
         router = yield Router.from_id(self, router_id)
         router.get_destination(destination_id)
-        channel_id = yield router.router_worker.get_destination_channel(
-            destination_id, message_id=message_id)
 
-        data = yield self.get_channel_message_events(
-            request, channel_id, message_id)
+        data = yield self.get_message_events(
+            request, destination_id, message_id)
 
         returnValue(response(request, 'message status', data))
 
     @inlineCallbacks
-    def get_channel_message_events(self, request, channel_id, message_id):
-        events = yield self.outbounds.load_all_events(channel_id, message_id)
+    def get_message_events(self, request, location_id, message_id):
+        events = yield self.outbounds.load_all_events(location_id, message_id)
         events = sorted(
-            (api_from_event(channel_id, e) for e in events),
+            (api_from_event(location_id, e) for e in events),
             key=lambda e: e['timestamp'])
 
         last_event = events[-1] if events else None

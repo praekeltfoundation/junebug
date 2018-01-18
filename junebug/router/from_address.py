@@ -136,8 +136,7 @@ class FromAddressRouter(BaseRouterWorker):
             self.consume_destination(
                 destination['id'], self.handle_outbound_message)
 
-    def get_destination_channel(
-            self, destination_id, message_body=None, message_id=None):
+    def get_destination_channel(self, destination_id, message_body):
         config = self.get_static_config()
         return succeed(str(config.channel))
 
