@@ -305,6 +305,8 @@ class TestRouter(JunebugTestBase):
             'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
         })
 
+        message_worker = worker.namedServices['test-destination2']
+
         outbound = self.messagehelper.make_outbound(
             "test message", from_addr="2234")
         yield self.workerhelper.dispatch_outbound(outbound, 'testqueue2')
@@ -312,13 +314,13 @@ class TestRouter(JunebugTestBase):
         yield self.workerhelper.dispatch_event(
             ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
 
-        [event] = yield worker.outbounds.load_all_events(
-            "test-destination2", outbound["message_id"])
-        self.assertEqual(ack, event)
+        [event] = yield self.workerhelper.wait_for_dispatched_events(
+            connector_name='testqueue2')
 
-        [event] = yield worker.outbounds.load_all_events(
-            "test-destination3", outbound["message_id"])
-        self.assertEqual(ack, event)
+        [stored_event] = yield message_worker.outbounds.load_all_events(
+            "test-destination2", outbound["message_id"])
+
+        self.assertEqual(event, stored_event)
 
     @inlineCallbacks
     def test_inbound_event_routing_no_inbound_message(self):

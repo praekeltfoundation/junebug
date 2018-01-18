@@ -189,8 +189,6 @@ class FromAddressRouter(BaseRouterWorker):
             if result is not None:
                 d.append(self.send_event_to_destination(
                     destination['id'], event))
-                d.append(self.outbounds.store_event(
-                    destination['id'], event['user_message_id'], event))
         yield gatherResults(d)
 
     def teardown_router(self):
