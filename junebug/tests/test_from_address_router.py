@@ -123,6 +123,33 @@ class TestRouter(JunebugTestBase):
                 router.id, channel.id))
 
     @inlineCallbacks
+    def test_get_destination_channel(self):
+        """
+        The get_destination_channel method should return the channel that was
+        configured on the router.
+        """
+        router = yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }, {
+                'id': "test-destination2",
+                'amqp_queue': "testqueue2",
+                'config': {'regular_expression': '^2.*$'},
+            }],
+            'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
+        })
+
+        channel_id = yield router.get_destination_channel(
+            "test-destination1", {})
+        self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+        channel_id = yield router.get_destination_channel(
+            "test-destination2", {})
+        self.assertEqual(channel_id, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+    @inlineCallbacks
     def test_validate_router_destination_config_invalid_regex(self):
         """
         If invalid regex is passed into the regex field, a config error should
@@ -255,6 +282,45 @@ class TestRouter(JunebugTestBase):
         [event] = yield self.workerhelper.wait_for_dispatched_events(
             connector_name='testqueue3')
         self.assertEqual(ack, event)
+
+    @inlineCallbacks
+    def test_inbound_event_store(self):
+        """
+        Inbound events should be stored to the correct destinations
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }, {
+                'id': "test-destination2",
+                'amqp_queue': "testqueue2",
+                'config': {'regular_expression': '^2.*$'},
+            }, {
+                'id': "test-destination3",
+                'amqp_queue': "testqueue3",
+                'config': {'regular_expression': '^2.*$'},
+            }],
+            'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
+        })
+
+        message_worker = worker.namedServices['test-destination2']
+
+        outbound = self.messagehelper.make_outbound(
+            "test message", from_addr="2234")
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue2')
+        ack = self.messagehelper.make_ack(outbound)
+        yield self.workerhelper.dispatch_event(
+            ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+        [event] = yield self.workerhelper.wait_for_dispatched_events(
+            connector_name='testqueue2')
+
+        [stored_event] = yield message_worker.outbounds.load_all_events(
+            "test-destination2", outbound["message_id"])
+
+        self.assertEqual(event, stored_event)
 
     @inlineCallbacks
     def test_inbound_event_routing_no_inbound_message(self):

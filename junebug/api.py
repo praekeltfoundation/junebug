@@ -267,26 +267,17 @@ class JunebugApi(object):
     @inlineCallbacks
     def send_message(self, request, body, channel_id):
         '''Send an outbound (mobile terminated) message'''
-        if 'to' not in body and 'reply_to' not in body:
-            raise ApiUsageError(
-                'Either "to" or "reply_to" must be specified')
-
         channel = yield Channel.from_id(
             self.redis, self.config, channel_id, self.service, self.plugins)
 
-        if 'reply_to' in body:
-            msg = yield channel.send_reply_message(
-                self.message_sender, self.outbounds, self.inbounds, body,
-                allow_expired_replies=self.config.allow_expired_replies)
+        if (channel.has_destination):
+            msg = yield self.send_messsage_on_channel(channel_id, body)
+
+            returnValue(response(
+                request, 'message submitted', msg, code=http.CREATED))
         else:
-            msg = yield channel.send_message(
-                self.message_sender, self.outbounds, body)
-
-        yield self.message_rate.increment(
-            channel_id, 'outbound', self.config.metric_window)
-
-        returnValue(response(
-            request, 'message submitted', msg, code=http.CREATED))
+            raise ApiUsageError(
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route(
         '/channels/<string:channel_id>/messages/<string:message_id>',
@@ -294,21 +285,16 @@ class JunebugApi(object):
     @inlineCallbacks
     def get_message_status(self, request, channel_id, message_id):
         '''Retrieve the status of a message'''
-        events = yield self.outbounds.load_all_events(channel_id, message_id)
-        events = sorted(
-            (api_from_event(channel_id, e) for e in events),
-            key=lambda e: e['timestamp'])
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
 
-        last_event = events[-1] if events else None
-        last_event_type = last_event['event_type'] if last_event else None
-        last_event_timestamp = last_event['timestamp'] if last_event else None
-
-        returnValue(response(request, 'message status', {
-            'id': message_id,
-            'last_event_type': last_event_type,
-            'last_event_timestamp': last_event_timestamp,
-            'events': events,
-        }))
+        if (channel.has_destination):
+            data = yield self.get_message_events(
+                request, channel_id, message_id)
+            returnValue(response(request, 'message status', data))
+        else:
+            raise ApiUsageError(
+                'This channel has no "mo_url" or "amqp_queue"')
 
     @app.route('/routers/', methods=['GET'])
     def get_router_list(self, request):
@@ -583,6 +569,96 @@ class JunebugApi(object):
         router.start(self.service)
 
         returnValue(response(request, 'destination deleted', {}))
+
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>/messages/',  # noqa
+        methods=['POST'])
+    @json_body
+    @validate(
+        body_schema({
+            'type': 'object',
+            'properties': {
+                'to': {'type': 'string'},
+                'from': {'type': ['string', 'null']},
+                'group': {'type': ['string', 'null']},
+                'reply_to': {'type': 'string'},
+                'content': {'type': ['string', 'null']},
+                'event_url': {'type': 'string'},
+                'event_auth_token': {'type': 'string'},
+                'priority': {'type': 'string'},
+                'channel_data': {'type': 'object'},
+            },
+            'required': ['content'],
+            'additionalProperties': False,
+        }))
+    @inlineCallbacks
+    def send_destination_message(
+            self, request, body, router_id, destination_id):
+        '''Send an outbound (mobile terminated) message'''
+        router = yield Router.from_id(self, router_id)
+        router.get_destination(destination_id)
+        channel_id = yield router.router_worker.get_destination_channel(
+            destination_id, body)
+
+        msg = yield self.send_messsage_on_channel(channel_id, body)
+
+        returnValue(response(
+            request, 'message submitted', msg, code=http.CREATED))
+
+    @app.route(
+        '/routers/<string:router_id>/destinations/<string:destination_id>/messages/<string:message_id>',  # noqa
+        methods=['GET'])
+    @inlineCallbacks
+    def get_destination_message_status(
+            self, request, router_id, destination_id, message_id):
+
+        router = yield Router.from_id(self, router_id)
+        router.get_destination(destination_id)
+
+        data = yield self.get_message_events(
+            request, destination_id, message_id)
+
+        returnValue(response(request, 'message status', data))
+
+    @inlineCallbacks
+    def get_message_events(self, request, location_id, message_id):
+        events = yield self.outbounds.load_all_events(location_id, message_id)
+        events = sorted(
+            (api_from_event(location_id, e) for e in events),
+            key=lambda e: e['timestamp'])
+
+        last_event = events[-1] if events else None
+        last_event_type = last_event['event_type'] if last_event else None
+        last_event_timestamp = last_event['timestamp'] if last_event else None
+
+        returnValue({
+            'id': message_id,
+            'last_event_type': last_event_type,
+            'last_event_timestamp': last_event_timestamp,
+            'events': events,
+        })
+
+    @inlineCallbacks
+    def send_messsage_on_channel(self, channel_id, body):
+        if 'to' not in body and 'reply_to' not in body:
+            raise ApiUsageError(
+                'Either "to" or "reply_to" must be specified')
+
+        channel = yield Channel.from_id(
+            self.redis, self.config, channel_id, self.service, self.plugins)
+
+        if 'reply_to' in body:
+            msg = yield channel.send_reply_message(
+                self.message_sender, self.outbounds, self.inbounds, body,
+                allow_expired_replies=self.config.allow_expired_replies)
+        else:
+            msg = yield channel.send_message(
+                self.message_sender, self.outbounds, body)
+
+        yield self.message_rate.increment(
+            channel_id, 'outbound', self.config.metric_window)
+
+        returnValue(msg)
 
     @app.route('/health', methods=['GET'])
     def health_status(self, request):

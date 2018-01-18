@@ -356,6 +356,13 @@ class BaseRouterWorker(BaseWorker):
         done here. May return a deferred.
         """
 
+    def get_destination_channel(self, destination_id, message_body):
+        """
+        Gets the channel associated with the specified destination. The
+        message_body will always be supplied. Should be implemented by router
+        implementation.
+        """
+
     def setup_connectors(self):
         # Connector setup is performed by the class implementation in
         # setup_router

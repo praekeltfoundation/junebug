@@ -593,9 +593,6 @@ Router Destinations
 
 Router logs
 ^^^^^^^^^^^
-.. note::
-
-   Not yet implemented
 
 .. http:get:: /routers/(router_id:str)/logs
 
@@ -610,9 +607,6 @@ Router logs
 
 Router Destination Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. note::
-
-   Not yet implemented
 
 .. http:post:: /routers/(router_id:str)/destinations/(destination_id:str)/messages
 

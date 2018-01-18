@@ -3,6 +3,35 @@
 Release Notes
 =============
 
+v0.1.39
+-------
+.. Pull requests 165, 166, 167
+
+-- Fixes
+    - View messages on destination now fetches from the correct place.
+    - Disabled channel messages endpoint if there is no destination configured.
+
+v0.1.38
+-------
+.. Pull request 164
+
+-- Features
+    - Endpoint to create and view messages directly on a routers destination.
+
+v0.1.37
+-------
+.. Pull request 163
+
+-- Features
+    - Added a log endpoint for routers
+
+v0.1.36
+-------
+.. Pull request 162
+
+- Fixes
+    - Validation on router PATCH api endpoint.
+
 v0.1.35
 -------
 .. Pull request 161
