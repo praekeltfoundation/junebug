@@ -284,6 +284,43 @@ class TestRouter(JunebugTestBase):
         self.assertEqual(ack, event)
 
     @inlineCallbacks
+    def test_inbound_event_store(self):
+        """
+        Inbound events should be stored to the correct destinations
+        """
+        worker = yield self.get_router_worker({
+            'destinations': [{
+                'id': "test-destination1",
+                'amqp_queue': "testqueue1",
+                'config': {'regular_expression': '^1.*$'},
+            }, {
+                'id': "test-destination2",
+                'amqp_queue': "testqueue2",
+                'config': {'regular_expression': '^2.*$'},
+            }, {
+                'id': "test-destination3",
+                'amqp_queue': "testqueue3",
+                'config': {'regular_expression': '^2.*$'},
+            }],
+            'channel': '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14',
+        })
+
+        outbound = self.messagehelper.make_outbound(
+            "test message", from_addr="2234")
+        yield self.workerhelper.dispatch_outbound(outbound, 'testqueue2')
+        ack = self.messagehelper.make_ack(outbound)
+        yield self.workerhelper.dispatch_event(
+            ack, '41e58f4a-2acc-442f-b3e5-3cf2b2f1cf14')
+
+        [event] = yield worker.outbounds.load_all_events(
+            "test-destination2", outbound["message_id"])
+        self.assertEqual(ack, event)
+
+        [event] = yield worker.outbounds.load_all_events(
+            "test-destination3", outbound["message_id"])
+        self.assertEqual(ack, event)
+
+    @inlineCallbacks
     def test_inbound_event_routing_no_inbound_message(self):
         """
         If no message can be found in the message store for the event, then an
