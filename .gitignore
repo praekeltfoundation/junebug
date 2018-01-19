@@ -7,3 +7,4 @@ _trial_temp
 .cache/
 .coverage
 ve/
+.DS_Store

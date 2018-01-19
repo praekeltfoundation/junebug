@@ -66,13 +66,7 @@ class Junebug(Process):
                     'type': 'dmark',
                     'config': {
                         'web_path': 'api',
-                        'web_port': 8001,
-                        "redis_manager": {
-                          "key_prefix": "my_ussd",
-                          "host": "redis",
-                          "db": 2,
-                          "port": 6379
-                        }
+                        'web_port': 8001
                     },
                     'mo_url': 'http://localhost:8002',
                 }),
@@ -86,13 +80,7 @@ class Junebug(Process):
                     "config": {
                         "system_id": "smppclient1",
                         "password": "password",
-                        "twisted_endpoint": "tcp:localhost:2775",
-                        "redis_manager": {
-                          "key_prefix": "my_smpp",
-                          "host": "redis",
-                          "db": 2,
-                          "port": 6379
-                        }
+                        "twisted_endpoint": "tcp:localhost:2775"
                     }
                 }),
                 {'Content-Type': 'application/json'})
@@ -112,7 +100,7 @@ class Junebug(Process):
 
     def delete_ussd_channel(self, channelid):
         self.conn.request(
-            "DELETE", '/channels/%s' % channelid)
+            "DELETE", '/channels/%s' % channelid, json.dumps({}))
         r = self.conn.getresponse()
         assert r.status == 200
 
