@@ -100,7 +100,7 @@ class Junebug(Process):
 
     def delete_ussd_channel(self, channelid):
         self.conn.request(
-            "DELETE", '/channels/%s' % channelid, json.dumps({}))
+            "DELETE", '/channels/%s' % channelid)
         r = self.conn.getresponse()
         assert r.status == 200
 
