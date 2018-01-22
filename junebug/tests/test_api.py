@@ -2110,6 +2110,58 @@ class TestJunebugApi(JunebugTestBase):
         self.assertEqual(event_url, None)
 
     @inlineCallbacks
+    def test_send_destination_message_reply(self):
+        '''Sending a reply message should fetch the relevant inbound message,
+        use it to construct a reply message, and place the reply message on the
+        queue for the channel'''
+        properties = self.create_channel_properties()
+        config = yield self.create_channel_config()
+        redis = yield self.get_redis()
+        channel = Channel(redis, config, properties, id='test-channel')
+        yield channel.save()
+        yield channel.start(self.service)
+
+        router_config = self.create_router_config()
+        resp = yield self.post('/routers/', router_config)
+        router_id = (yield resp.json())['result']['id']
+
+        dest_config = self.create_destination_config(
+            config={'channel': 'test-channel'})
+        resp = yield self.post(
+            '/routers/{}/destinations/'.format(router_id), dest_config)
+        destination_id = (yield resp.json())['result']['id']
+
+        in_msg = TransportUserMessage(
+            from_addr='+2789',
+            to_addr='+1234',
+            transport_name='test-channel',
+            transport_type='_',
+            transport_metadata={'foo': 'bar'})
+
+        yield self.api.inbounds.store_vumi_message(destination_id, in_msg)
+        expected = in_msg.reply(content='testcontent')
+        expected = api_from_message(expected)
+
+        resp = yield self.post(
+            '/routers/{}/destinations/{}/messages/'.format(
+                router_id, destination_id),
+            {'reply_to': in_msg['message_id'], 'content': 'testcontent'})
+
+        yield self.assert_response(
+            resp, http.CREATED,
+            'message submitted',
+            omit(expected, 'timestamp', 'message_id'),
+            ignore=['timestamp', 'message_id'])
+
+        [message] = self.get_dispatched_messages('test-channel.outbound')
+        message_id = (yield resp.json())['result']['message_id']
+        self.assertEqual(message['message_id'], message_id)
+
+        event_url = yield self.api.outbounds.load_event_url(
+            'test-channel', message['message_id'])
+        self.assertEqual(event_url, None)
+
+    @inlineCallbacks
     def test_get_destination_message_invalid_router(self):
         resp = yield self.get(
             '/routers/foo-bar/destinations/test-destination/messages/message-id')  # noqa
