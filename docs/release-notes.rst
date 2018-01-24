@@ -3,6 +3,14 @@
 Release Notes
 =============
 
+v0.1.40
+-------
+.. Pull requests 169
+
+-- Fixes
+    - Destination reply to messages fetches from correct place and saves
+      outbound.
+
 v0.1.39
 -------
 .. Pull requests 165, 166, 167
