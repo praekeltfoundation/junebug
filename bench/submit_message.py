@@ -35,8 +35,9 @@ def parse_arguments(args):
 def main():
     config = parse_arguments(sys.argv[1:])
     print 'create_requests', config.port
-    create_requests(config.port, config.start_id, config.end_id, config.concurrency,
-                    config.save_file, config.warmup)
+    create_requests(config.port, config.start_id, config.end_id,
+                    config.concurrency, config.save_file, config.warmup)
+
 
 def sync_worker(port, item):
     start, end = item
@@ -57,8 +58,8 @@ def sync_worker(port, item):
         l.append(time.time() - t0)
     return l
 
+
 def worker(port, in_q, out_q):
-    print 'worker', port
 
     while True:
         item = in_q.get()
@@ -66,8 +67,8 @@ def worker(port, in_q, out_q):
             break
         out_q.put(sync_worker(port, item))
 
+
 def create_requests(port, start, end, concurrency, save_file, warmup):
-    print "running..."
     t0 = time.time()
     batch = 20
     all_items = []
@@ -101,13 +102,13 @@ def create_requests(port, start, end, concurrency, save_file, warmup):
     if save_file:
         open(save_file, "w").write("l = " + repr(all_items))
     else:
-        print
         tk = time.time()
         # print some statistics
         print_results(all_items, tk - t0)
         if t1:
             print "After warmup"
             print_results(all_items[warmup:], tk - t1)
+
 
 def cut_by(l, fraction):
     l = l[:]

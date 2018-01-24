@@ -71,6 +71,17 @@ class Junebug(Process):
                     'mo_url': 'http://localhost:8002',
                 }),
                 {'Content-Type': 'application/json'})
+        elif self.config.channel_type == 'router':
+            self.conn.request(
+                "POST", '/channels/',
+                json.dumps({
+                    'type': 'dmark',
+                    'config': {
+                        'web_path': 'api',
+                        'web_port': 8001
+                    },
+                }),
+                {'Content-Type': 'application/json'})
         elif self.config.channel_type == 'smpp':
             self.conn.request(
                 "POST", '/channels/',
@@ -90,13 +101,46 @@ class Junebug(Process):
         r = self.conn.getresponse()
         assert r.status == 201
         channel = json.loads(r.read())['result']['id']
-        self._wait_for_channel_start()
+        self._wait_for_start()
         return channel
 
-    def _wait_for_channel_start(self):
+    def create_routing(self, channel_id):
+        self.conn.request(
+            "POST", '/routers/',
+            json.dumps({
+                "config": {
+                    "channel": channel_id
+                },
+                "type": "from_address"
+            }),
+            {'Content-Type': 'application/json'})
+        r = self.conn.getresponse()
+        assert r.status == 201
+        router = json.loads(r.read())['result']['id']
+
+        self._wait_for_start("router")
+
+        self.conn.request(
+            "POST", '/routers/%s/destinations/' % router,
+            json.dumps({
+                "mo_url": "http://localhost:8002",
+                "config": {
+                    "regular_expression": "[^\n]+"
+                }
+            }),
+            {'Content-Type': 'application/json'})
+
+        r = self.conn.getresponse()
+        assert r.status == 201
+        destination = json.loads(r.read())['result']['id']
+
+        self._wait_for_start("destination")
+        return router, destination
+
+    def _wait_for_start(self, item='channel'):
         # This is horrible
-        print 'Waiting for channel to start'
-        time.sleep(5)
+        print 'Waiting for {} to start'.format(item)
+        time.sleep(2)
 
     def delete_ussd_channel(self, channelid):
         self.conn.request(
@@ -104,10 +148,26 @@ class Junebug(Process):
         r = self.conn.getresponse()
         assert r.status == 200
 
+    def delete_routing(self, router_id):
+        self.conn.request(
+            "DELETE", '/routers/%s' % router_id)
+        r = self.conn.getresponse()
+        assert r.status == 200
+
 
 class FakeApplicationServer(Process):
+
+    def __init__(self, router=None, destination=None):
+        self.router = router
+        self.destination = destination
+
     def get_command(self):
-        return ['python', 'application_server.py']
+        command = ['python', 'application_server.py']
+        if self.router and self.destination:
+            command.extend([
+                '--router', str(self.router),
+                '--destination', str(self.destination)])
+        return command
 
 
 class BenchmarkRunner(Process):
@@ -115,7 +175,7 @@ class BenchmarkRunner(Process):
         self.config = config
 
     def get_command(self):
-        if self.config.channel_type == 'ussd':
+        if self.config.channel_type in ('ussd', 'router'):
             command = ['python', 'submit_message.py']
         elif self.config.channel_type == 'smpp':
             command = ['python', 'submit_message_smpp.py']
@@ -155,10 +215,15 @@ def main():
         jb = Junebug(config)
         jb.start()
 
-        app = FakeApplicationServer()
-        app.start()
-
         ch = jb.create_channel()
+
+        if config.channel_type == 'router':
+            rt, dest = jb.create_routing(ch)
+            app = FakeApplicationServer(rt, dest)
+        else:
+            app = FakeApplicationServer()
+
+        app.start()
 
         for concurrency in config.concurrency:
             print 'Running benchmark with concurrency %d' % concurrency
@@ -177,6 +242,9 @@ def main():
                 print "Max memory: %d" % max_rss
 
         jb.delete_ussd_channel(ch)
+
+        if config.channel_type == 'router':
+            jb.delete_routing(rt)
     finally:
         jb.stop()
         app.stop()
