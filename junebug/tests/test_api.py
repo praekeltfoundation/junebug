@@ -2161,6 +2161,12 @@ class TestJunebugApi(JunebugTestBase):
             'test-channel', message['message_id'])
         self.assertEqual(event_url, None)
 
+        # router_worker = self.api.service.namedServices[router_id]
+        stored_message = yield self.api.outbounds.load_message(
+            destination_id, message['message_id'])
+
+        self.assertEqual(api_from_message(message), stored_message)
+
     @inlineCallbacks
     def test_get_destination_message_invalid_router(self):
         resp = yield self.get(

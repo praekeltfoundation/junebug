@@ -600,8 +600,15 @@ class JunebugApi(object):
         channel_id = yield router.router_worker.get_destination_channel(
             destination_id, body)
 
+        in_msg = None
+        if 'reply_to' in body:
+            in_msg = yield self.inbounds.load_vumi_message(
+                destination_id, body['reply_to'])
+
         msg = yield self.send_message_on_channel(
-            channel_id, body, destination_id)
+            channel_id, body, in_msg)
+
+        self.outbounds.store_message(destination_id, msg)
 
         returnValue(response(
             request, 'message submitted', msg, code=http.CREATED))
@@ -640,7 +647,7 @@ class JunebugApi(object):
         })
 
     @inlineCallbacks
-    def send_message_on_channel(self, channel_id, body, destination_id=None):
+    def send_message_on_channel(self, channel_id, body, in_msg=None):
         if 'to' not in body and 'reply_to' not in body:
             raise ApiUsageError(
                 'Either "to" or "reply_to" must be specified')
@@ -652,7 +659,7 @@ class JunebugApi(object):
             msg = yield channel.send_reply_message(
                 self.message_sender, self.outbounds, self.inbounds, body,
                 allow_expired_replies=self.config.allow_expired_replies,
-                destination_id=destination_id)
+                in_msg=in_msg)
         else:
             msg = yield channel.send_message(
                 self.message_sender, self.outbounds, body)

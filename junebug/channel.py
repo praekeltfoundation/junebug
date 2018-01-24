@@ -261,10 +261,10 @@ class Channel(object):
 
     @inlineCallbacks
     def send_reply_message(self, sender, outbounds, inbounds, msg,
-                           allow_expired_replies=False, destination_id=None):
+                           allow_expired_replies=False, in_msg=None):
         '''Sends a reply message.'''
-        in_msg = yield inbounds.load_vumi_message(
-            destination_id or self.id, msg['reply_to'])
+        if not in_msg:
+            in_msg = yield inbounds.load_vumi_message(self.id, msg['reply_to'])
         # NOTE: If we have a `reply_to` that cannot be found but also are
         #       given a `to` and the config says we can send expired
         #       replies then pop the `reply_to` from the message
