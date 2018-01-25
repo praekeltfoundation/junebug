@@ -1,8 +1,11 @@
+import collections
 import json
 
 from twisted.web import http
 from functools import wraps
 from vumi.message import JSONMessageEncoder
+
+from junebug.error import JunebugError
 
 
 def response(req, description, data, code=http.OK):
@@ -17,10 +20,22 @@ def response(req, description, data, code=http.OK):
     }, cls=JSONMessageEncoder)
 
 
+class JsonDecodeError(JunebugError):
+    """
+    Invalid JSON was given to us by the user
+    """
+    name = 'JsonDecodeError'
+    description = 'json decode error'
+    code = http.BAD_REQUEST
+
+
 def json_body(fn):
     @wraps(fn)
     def wrapper(api, req, *a, **kw):
-        body = json.loads(req.content.read())
+        try:
+            body = json.loads(req.content.read())
+        except ValueError as e:
+            raise JsonDecodeError(e.message)
         return fn(api, req, body, *a, **kw)
 
     return wrapper
@@ -41,6 +56,7 @@ def api_from_message(msg):
     ret = {}
     ret['to'] = msg['to_addr']
     ret['from'] = msg['from_addr']
+    ret['group'] = msg['group']
     ret['message_id'] = msg['message_id']
     ret['channel_id'] = msg['transport_name']
     ret['timestamp'] = msg['timestamp']
@@ -62,6 +78,7 @@ def message_from_api(channel_id, msg):
     if 'reply_to' not in msg:
         ret['to_addr'] = msg.get('to')
         ret['from_addr'] = msg.get('from')
+        ret['group'] = msg.get('group')
 
     ret['content'] = msg['content']
     ret['transport_name'] = channel_id
@@ -141,3 +158,15 @@ def channel_public_http_properties(properties):
         return None
     else:
         return results
+
+
+def convert_unicode(data):
+    """Converts unicode to strings"""
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert_unicode, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert_unicode, data))
+    else:
+        return data

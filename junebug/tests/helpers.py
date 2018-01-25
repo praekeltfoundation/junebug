@@ -4,9 +4,11 @@ import logging
 import logging.handlers
 
 from twisted.python.logfile import LogFile
+from twisted.python.failure import Failure
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
+from twisted.internet.error import ConnectionDone
 from twisted.trial.unittest import TestCase
 from twisted.web.server import Site
 
@@ -24,22 +26,27 @@ from junebug import JunebugApi
 from junebug.amqp import JunebugAMQClient, MessageSender
 from junebug.channel import Channel
 from junebug.plugin import JunebugPlugin
+from junebug.router import (
+    InvalidRouterConfig, InvalidRouterDestinationConfig, BaseRouterWorker,
+    Router)
 from junebug.service import JunebugService
 from junebug.config import JunebugConfig
 from junebug.stores import MessageRateStore
 
 
 class DummyLogFile(object):
-    '''LogFile that has a different path to its worker_id'''
+    '''Dummy log file used for testing.'''
     def __init__(
-            self, worker_id, path, rotateLength, maxRotatedFiles):
+            self, worker_id, directory, rotateLength, maxRotatedFiles):
         self.worker_id = worker_id
-        self.path = path
+        self.directory = directory
         self.rotateLength = rotateLength
         self.maxRotatedFiles = maxRotatedFiles
         self.closed_count = 0
-        self.logfile = LogFile.fromFullPath(
-            path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
+        self.logfile = LogFile(
+            worker_id, directory, rotateLength=rotateLength,
+            maxRotatedFiles=maxRotatedFiles)
+        self.path = self.logfile.path
 
     @property
     def logs(self):
@@ -117,10 +124,60 @@ class RequestLoggingApi(object):
         request.setResponseCode(500)
         return 'test-error-response'
 
+    @app.route('/auth/')
+    def auth_token(self, request):
+        headers = request.requestHeaders
+        self.requests.append({
+            'Authorization': headers.getRawHeaders('Authorization'),
+        })
+        request.setResponseCode(200)
+        return 'auth-response'
+
+    @app.route('/implode/')
+    def imploding_request(self, request):
+        request.transport.connectionLost(reason=Failure(ConnectionDone()))
+
 
 class LoggingTestTransport(Transport):
     def test_log(self, message='Test log'):
         self.log.msg(message, source=self)
+
+
+class TestRouter(BaseRouterWorker):
+    """Router used for testing the API."""
+    setup_called = False
+    teardown_called = False
+
+    @classmethod
+    def validate_router_config(cls, api, config, router_id=None):
+        """Testing config requires the ``test`` parameter to be ``pass``"""
+        if config.get('test') != 'pass':
+            raise InvalidRouterConfig('test must be pass')
+
+    @classmethod
+    def validate_destination_config(cls, api, config):
+        """Testing destination config requires the ``target`` parameter to be
+        ``valid``"""
+        if config.get('target') != 'valid':
+            raise InvalidRouterDestinationConfig('target must be valid')
+
+    def setup_router(self):
+        self.setup_called = True
+
+    def teardown_router(self):
+        self.teardown_called = True
+
+    def test_log(self, message='Test log'):
+        self.log.msg(message, source=self)
+
+    def get_destination_channel(self, destination_id, message_body):
+        config = self.get_static_config()
+
+        for dest in config.destinations:
+            if dest['id'] == destination_id:
+                return dest['config']['channel']
+
+        return None
 
 
 class JunebugTestBase(TestCase):
@@ -135,9 +192,24 @@ class JunebugTestBase(TestCase):
         'mo_url': 'http://foo.bar',
     }
 
+    default_router_properties = {
+        'type': 'testing',
+        'config': {
+            'test': 'pass',
+        },
+    }
+
+    default_destination_properties = {
+        'config': {
+            'target': 'valid',
+        },
+    }
+
     default_channel_config = {
         'ttl': 60,
-        'amqp': {},
+        'routers': {
+            'testing': 'junebug.tests.helpers.TestRouter',
+        }
     }
 
     def patch_logger(self):
@@ -176,6 +248,20 @@ class JunebugTestBase(TestCase):
         channel_config['redis'] = channel_config['redis_manager']
         returnValue(JunebugConfig(channel_config))
 
+    def create_router_config(self, **kw):
+        properties = deepcopy(self.default_router_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
+        properties.update(kw)
+        return properties
+
+    def create_destination_config(self, **kw):
+        properties = deepcopy(self.default_destination_properties)
+        config = kw.pop('config', {})
+        properties['config'].update(config)
+        properties.update(kw)
+        return properties
+
     @inlineCallbacks
     def create_channel(
             self, service, redis, transport_class=None,
@@ -212,6 +298,18 @@ class JunebugTestBase(TestCase):
         config = yield self.create_channel_config(**config)
         channel = yield Channel.from_id(redis, config, id, service)
         returnValue(channel)
+
+    @inlineCallbacks
+    def create_test_router(self, service, config={}):
+        self.patch(junebug.logging_service, 'LogFile', DummyLogFile)
+
+        config = self.create_router_config(config=config)
+        router = Router(self.api, config)
+
+        yield router.start(self.service)
+
+        yield router.save()
+        returnValue(router)
 
     @inlineCallbacks
     def get_redis(self):

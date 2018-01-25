@@ -1,10 +1,13 @@
+import json
 from twisted.internet.defer import inlineCallbacks, returnValue
-from vumi.message import TransportEvent, TransportUserMessage, TransportStatus
+from vumi.message import (
+    TransportEvent, TransportUserMessage, TransportStatus, to_json)
 
 from junebug.stores import (
     BaseStore, InboundMessageStore, OutboundMessageStore, StatusStore,
-    MessageRateStore)
+    MessageRateStore, RouterStore)
 from junebug.tests.helpers import JunebugTestBase
+from junebug.utils import api_from_message
 
 
 class TestBaseStore(JunebugTestBase):
@@ -87,6 +90,26 @@ class TestBaseStore(JunebugTestBase):
         self.assertEqual(val, None)
 
     @inlineCallbacks
+    def test_remove_property(self):
+        '''remove_property should remove the specified property from the
+        specified id'''
+        store = yield self.create_store()
+
+        yield self.redis.hmset('testid', {
+            'prop1': 'foo',
+            'prop2': 'bar',
+        })
+        self.assertEqual((yield self.redis.hgetall('testid')), {
+            'prop1': 'foo',
+            'prop2': 'bar',
+        })
+
+        yield store.remove_property('testid', 'prop1')
+        self.assertEqual((yield self.redis.hgetall('testid')), {
+            'prop2': 'bar',
+        })
+
+    @inlineCallbacks
     def test_override_ttl(self):
         '''If a ttl for an action is specified, it should override the default
         ttl'''
@@ -133,6 +156,73 @@ class TestBaseStore(JunebugTestBase):
 
         yield store.get_id('testid3', ttl=None)
         self.assertEqual((yield self.redis.ttl('testid3')), None)
+
+    @inlineCallbacks
+    def test_get_set(self):
+        '''get_set returns the set of values stored at the specified id'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_set('testid')), set())
+
+        yield self.redis.sadd('testid', 'item1')
+        self.assertEqual((yield store.get_set('testid')), set(('item1',)))
+
+        yield self.redis.sadd('testid', 'item2')
+        self.assertEqual(
+            (yield store.get_set('testid')),
+            set(('item1', 'item2'))
+        )
+
+    @inlineCallbacks
+    def test_remove_set_item(self):
+        '''remove_set_item removes a specific item from the set stored at the
+        specified id'''
+        store = yield self.create_store()
+
+        yield self.redis.sadd('testid', 'item1')
+        yield self.redis.sadd('testid', 'item2')
+        self.assertEqual(
+            (yield self.redis.smembers('testid')), set(('item1', 'item2')))
+
+        yield store.remove_set_item('testid', 'item1')
+        self.assertEqual(
+            (yield self.redis.smembers('testid')), set(('item2',)))
+
+    @inlineCallbacks
+    def test_store_value(self):
+        '''stores the given value at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield store.store_value('testid', 'testvalue')
+
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_load_value(self):
+        '''loads the value stored at the given key'''
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.load_value('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+
+        self.assertEqual((yield store.load_value('testid')), 'testvalue')
+
+    @inlineCallbacks
+    def test_remove_value(self):
+        '''removes the value stored at the given key'''
+        store = yield self.create_store()
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
+
+        yield self.redis.set('testid', 'testvalue')
+        self.assertEqual((yield self.redis.get('testid')), 'testvalue')
+
+        yield store.remove_value('testid')
+        self.assertEqual((yield self.redis.get('testid')), None)
 
 
 class TestInboundMessageStore(JunebugTestBase):
@@ -182,27 +272,30 @@ class TestOutboundMessageStore(JunebugTestBase):
         returnValue(store)
 
     @inlineCallbacks
-    def test_store_event_url(self):
-        '''Stores the event URL under the message ID'''
-        store = yield self.create_store()
-        yield store.store_event_url(
-            'channel_id', 'messageid', 'http://test.org')
-        event_url = yield self.redis.hget(
-            'channel_id:outbound_messages:messageid', 'event_url')
-        self.assertEqual(event_url, 'http://test.org')
-
-    @inlineCallbacks
     def test_load_event_url(self):
         '''Returns a vumi message from the stored json'''
         store = yield self.create_store()
         vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
-        yield self.redis.hset(
-            'channel_id:outbound_messages:%s' % vumi_msg.get('message_id'),
-            'event_url', 'http://test.org')
+        msg = {'event_url': "http://test.org"}
+        msg.update(api_from_message(vumi_msg))
+        yield store.store_message('channel_id', msg)
 
         event_url = yield store.load_event_url(
             'channel_id', vumi_msg.get('message_id'))
         self.assertEqual(event_url, 'http://test.org')
+
+    @inlineCallbacks
+    def test_load_event_auth_token(self):
+        '''Returns the event auth token under the message ID'''
+        store = yield self.create_store()
+        vumi_msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        msg = {'event_auth_token': 'the-auth-token'}
+        msg.update(api_from_message(vumi_msg))
+        yield store.store_message('channel_id', msg)
+
+        event_auth_token = yield store.load_event_auth_token(
+            'channel_id', vumi_msg.get('message_id'))
+        self.assertEqual(event_auth_token, "the-auth-token")
 
     @inlineCallbacks
     def test_load_event_url_not_exist(self):
@@ -210,6 +303,41 @@ class TestOutboundMessageStore(JunebugTestBase):
         store = yield self.create_store()
         self.assertEqual((yield store.load_event_url(
             'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_load_event_auth_token_not_exist(self):
+        '''`None` should be returned if the event auth token cannot be found'''
+        store = yield self.create_store()
+        self.assertEqual((yield store.load_event_auth_token(
+            'bad-channel', 'bad-id')), None)
+
+    @inlineCallbacks
+    def test_store_message(self):
+        '''Stores the message under the correct key'''
+        store = yield self.create_store()
+        msg = TransportUserMessage.send(to_addr='+213', content='foo')
+        yield store.store_message('channel_id', api_from_message(msg))
+
+        msg_json = yield self.redis.hget(
+            'channel_id:outbound_messages:{}'.format(msg['message_id']),
+            'message')
+        self.assertEqual(msg_json, to_json(api_from_message(msg)))
+
+    @inlineCallbacks
+    def test_load_message(self):
+        """Returned message is the same as stored message"""
+        message = {'message_id': 'testid'}
+        store = yield self.create_store()
+        yield store.store_message('channelid', message)
+        r_message = yield store.load_message('channelid', 'testid')
+        self.assertEqual(message, r_message)
+
+    @inlineCallbacks
+    def test_load_message_not_exists(self):
+        """Returns None if message doesn't exist"""
+        store = yield self.create_store()
+        message = yield store.load_message('channelid', 'messageid')
+        self.assertEqual(message, None)
 
     @inlineCallbacks
     def test_store_event(self):
@@ -297,8 +425,8 @@ class TestOutboundMessageStore(JunebugTestBase):
             'channel_id:outbound_messages:message_id', event['event_id'],
             event.to_json())
         yield self.redis.hset(
-            'channel_id:outbound_messages:message_id', 'event_url',
-            'test_url')
+            'channel_id:outbound_messages:message_id', 'message',
+            'test_message')
 
         stored_events = yield store.load_all_events('channel_id', 'message_id')
         self.assertEqual(stored_events, [event])
@@ -464,3 +592,168 @@ class TestMessageRateStore(JunebugTestBase):
         self.assertEqual((yield self.redis.get(bucket0)), None)
         self.assertEqual((yield self.redis.get(bucket1)), '1')
         self.assertEqual((yield self.redis.get(bucket2)), '1')
+
+
+class TestRouterStore(JunebugTestBase):
+    @inlineCallbacks
+    def create_store(self):
+        redis = yield self.get_redis()
+        store = RouterStore(redis)
+        returnValue(store)
+
+    @inlineCallbacks
+    def test_get_router_list(self):
+        store = yield self.create_store()
+
+        self.assertEqual((yield store.get_router_list()), [])
+
+        yield self.redis.sadd(
+            'routers', '64f78582-8e83-40c9-be23-cc93d54e9dcd')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd'])
+
+        yield self.redis.sadd(
+            'routers', 'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8')
+        self.assertEqual(
+            (yield store.get_router_list()),
+            ['64f78582-8e83-40c9-be23-cc93d54e9dcd',
+             'ceee6a83-fa6b-42d2-b65f-1a1cf85ac6f8'])
+
+    @inlineCallbacks
+    def test_save_router(self):
+        """save_router should save the router config at the router's uuid and
+        add the uuid to the router list"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield store.save_router(config)
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set(['test-uuid']))
+        self.assertEqual(
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
+
+    @inlineCallbacks
+    def test_get_router_config(self):
+        """get_router_config should return the router config for the uuid
+        specified"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
+
+        value = yield store.get_router_config('test-uuid')
+        self.assertEqual(value, config)
+
+    @inlineCallbacks
+    def test_get_router_config_doesnt_exist(self):
+        """If we don't have a config stored for the specified router ID, then
+        we should return None"""
+        store = yield self.create_store()
+        value = yield store.get_router_config('bad-uuid')
+        self.assertEqual(value, None)
+
+    @inlineCallbacks
+    def test_delete_router(self):
+        """Removes router's config and removes ID from router list"""
+        store = yield self.create_store()
+
+        config = self.create_router_config(id='test-uuid')
+        yield self.redis.sadd('routers', 'test-uuid')
+        yield self.redis.set('routers:test-uuid', json.dumps(config))
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set(['test-uuid']))
+        self.assertEqual(
+            (yield self.redis.get('routers:test-uuid')), json.dumps(config))
+
+        yield store.delete_router('test-uuid')
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers')), set())
+        self.assertEqual(
+            (yield self.redis.get('routers:test-uuid')), None)
+
+    @inlineCallbacks
+    def test_save_router_destination(self):
+        """Saves the destination for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+
+        destination_config = self.create_destination_config(
+            id='destination-id')
+        yield store.save_router_destination('router-id', destination_config)
+
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set(['destination-id']))
+        self.assertEqual(
+            json.loads((yield self.redis.get(
+                'routers:router-id:destinations:destination-id'))),
+            destination_config)
+
+    @inlineCallbacks
+    def test_get_router_destination_list(self):
+        """Gets the list of available router destinations for a router"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), [])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest1')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')), ['dest1'])
+
+        yield self.redis.sadd('routers:router-id:destinations', 'dest2')
+        self.assertEqual(
+            (yield store.get_router_destination_list('router-id')),
+            ['dest1', 'dest2'])
+
+    @inlineCallbacks
+    def test_get_router_destination_config(self):
+        """Should return the router destination config, or None if no config is
+        stored"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id',
+            json.dumps({'test': 'config'}))
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), {'test': 'config'})
+
+    @inlineCallbacks
+    def test_get_router_destination_config_non_existing(self):
+        """If we don't have a config saved for the specified router destination
+        return None"""
+        store = yield self.create_store()
+
+        self.assertEqual(
+            (yield store.get_router_destination_config(
+                'router-id', 'destination-id')), None)
+
+    @inlineCallbacks
+    def test_remove_router_destination(self):
+        """Removing a router destination should remove the destination config
+        and remove it from the destination list of the router"""
+        store = yield self.create_store()
+
+        yield self.redis.set(
+            'routers:router-id:destinations:destination-id', json.dumps({
+                'test': 'config'}))
+        yield self.redis.sadd(
+            'routers:router-id:destinations', 'destination-id')
+
+        yield store.delete_router_destination('router-id', 'destination-id')
+
+        self.assertEqual(
+            (yield self.redis.get(
+                'routers:router-id:destinations:destination-id')), None)
+        self.assertEqual(
+            (yield self.redis.smembers('routers:router-id:destinations')),
+            set())

@@ -16,6 +16,10 @@ class JunebugConfig(Config):
         "File to log to or `None` for no logging",
         default=None)
 
+    sentry_dsn = ConfigText(
+        "DSN to send exceptions",
+        default=None)
+
     redis = ConfigDict(
         "Config to use for redis connection",
         default={
@@ -44,6 +48,12 @@ class JunebugConfig(Config):
         "Maximum time (in seconds) allowed for events to arrive for messages",
         default=60 * 60 * 24 * 2)
 
+    allow_expired_replies = ConfigBool(
+        "If `True` messages with a reply_to that arrive for which the "
+        "original inbound cannot be found (possible of the TTL expiring) are "
+        "sent as normal outbound messages. ",
+        default=False)
+
     channels = ConfigDict(
         "Mapping between channel types and python classes.",
         default={})
@@ -51,6 +61,15 @@ class JunebugConfig(Config):
     replace_channels = ConfigBool(
         "If `True`, replaces the default channels with `channels`. If `False`,"
         " `channels` is added to the default channels.",
+        default=False)
+
+    routers = ConfigDict(
+        "Mapping between router types and python classes.",
+        default={})
+
+    replace_routers = ConfigBool(
+        "If `True`, replaces the default routers with `routers`. If `False`,"
+        "`routers` is added to the default routers.",
         default=False)
 
     plugins = ConfigList(
@@ -75,3 +94,9 @@ class JunebugConfig(Config):
     max_logs = ConfigInt(
         "The maximum amount of logs that is allowed to be retrieved via the "
         "API.", default=100)
+
+    rabbitmq_management_interface = ConfigText(
+        "This should be the url string of the rabbitmq management interface."
+        "If set, the health of each individual queue will be checked. "
+        "This is only available for RabbitMQ",
+        default=None)

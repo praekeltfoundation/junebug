@@ -4,3 +4,7 @@
 *.pyc
 junebug.egg-info
 _trial_temp
+.cache/
+.coverage
+ve/
+.DS_Store

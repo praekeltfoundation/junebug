@@ -1,4 +1,5 @@
 import treq
+from base64 import b64encode
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -26,7 +27,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
         treq._utils.set_global_pool(connection_pool)
 
     @inlineCallbacks
-    def get_worker(self, config=None):
+    def get_worker(self, config=None, start=True):
         '''Get a new MessageForwardingWorker with the provided config'''
         if config is None:
             config = {}
@@ -47,7 +48,7 @@ class TestMessageForwardingWorker(JunebugTestBase):
             'metric_window': 1.0,
         }), config)
 
-        worker = yield self.app_helper.get_application(config)
+        worker = yield self.app_helper.get_application(config, start=start)
         returnValue(worker)
 
     @inlineCallbacks
@@ -92,6 +93,46 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(dispatched_msg, msg)
 
     @inlineCallbacks
+    def test_send_message_with_basic_auth(self):
+        '''If there is an error sending a message to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+
+        # Inject the auth parameters
+        url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
+
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': url,
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        [logged_request] = self.logging_api.requests
+        self.assertEqual(logged_request, {
+            'Authorization': ['Basic %s' % (b64encode('foo:bar'),)]
+        })
+
+    @inlineCallbacks
+    def test_send_message_with_token_auth(self):
+        '''If there is an error sending a message to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': self.url + '/auth/',
+            'mo_message_url_auth_token': 'the-auth-token'
+        })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        [logged_request] = self.logging_api.requests
+        self.assertEqual(logged_request, {
+            'Authorization': ['Token the-auth-token']
+        })
+
+    @inlineCallbacks
     def test_send_message_bad_response(self):
         '''If there is an error sending a message to the configured URL, the
         error and message should be logged'''
@@ -107,6 +148,22 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assert_was_logged("'to': '+1234'")
         self.assert_was_logged('500')
         self.assert_was_logged('test-error-response')
+
+    @inlineCallbacks
+    def test_send_message_imploding_response(self):
+        '''If there is an error connecting to the configured URL, the
+        error and message should be logged'''
+        self.patch_logger()
+        self.worker = yield self.get_worker({
+            'transport_name': 'testtransport',
+            'mo_message_url': self.url + '/implode/',
+            })
+        msg = TransportUserMessage.send(to_addr='+1234', content='testcontent')
+        yield self.worker.consume_user_message(msg)
+
+        self.assert_was_logged('Post to %s/implode/ failed because of' % (
+            self.url,))
+        self.assert_was_logged('ConnectionDone')
 
     @inlineCallbacks
     def test_send_message_storing(self):
@@ -136,6 +193,25 @@ class TestMessageForwardingWorker(JunebugTestBase):
         self.assertEqual(dispatched_msg, msg)
 
     @inlineCallbacks
+    def test_forward_event_no_message_id(self):
+        '''
+        If we receive an event, and we don't have a message ID to associate
+        the event to, then we should log the event and carry on.
+        '''
+        self.patch_logger()
+
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id=None,
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.consume_ack(event)
+        self.assert_was_logged('Cannot store event')
+        self.assert_was_logged('Cannot find event URL')
+        self.assert_was_logged('%r' % event)
+
+    @inlineCallbacks
     def test_forward_ack_http(self):
         event = TransportEvent(
             event_type='ack',
@@ -143,8 +219,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             sent_message_id='msg-21',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
         [req] = self.logging_api.requests
@@ -154,6 +233,53 @@ class TestMessageForwardingWorker(JunebugTestBase):
             method='POST',
             headers={'content-type': ['application/json']},
             body=api_from_event(self.worker.channel_id, event))
+        yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_ack_http_with_token_auth(self):
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/auth/'.format(self.url),
+                'event_auth_token': 'the-auth-token',
+                'message_id': "msg-21",
+            })
+
+        yield self.worker.consume_ack(event)
+        [req] = self.logging_api.requests
+
+        self.assertEqual(req, {
+            'Authorization': ['Token the-auth-token']
+        })
+        yield self.assert_event_stored(event)
+
+    @inlineCallbacks
+    def test_forward_ack_http_with_basic_auth(self):
+        event = TransportEvent(
+            event_type='ack',
+            user_message_id='msg-21',
+            sent_message_id='msg-21',
+            timestamp='2015-09-22 15:39:44.827794')
+
+        # Inject the auth parameters
+        url = self.url.replace('http://', 'http://foo:bar@') + '/auth/'
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': url,
+                'message_id': "msg-21",
+            })
+
+        yield self.worker.consume_ack(event)
+        [req] = self.logging_api.requests
+
+        self.assertEqual(req, {
+            'Authorization': ['Basic %s' % (b64encode('foo:bar'),)]
+        })
         yield self.assert_event_stored(event)
 
     @inlineCallbacks
@@ -186,8 +312,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             sent_message_id='msg-21',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': "{}/bad/".format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_ack(event)
 
@@ -219,8 +348,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             nack_reason='too many foos',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_nack(event)
         [req] = self.logging_api.requests
@@ -262,8 +394,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             nack_reason='too many foos',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % (self.url,))
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/bad/'.format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_nack(event)
 
@@ -295,8 +430,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             delivery_status='pending',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_delivery_report(event)
         [req] = self.logging_api.requests
@@ -338,8 +476,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
             delivery_status='pending',
             timestamp='2015-09-22 15:39:44.827794')
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', "%s/bad/" % self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': '{}/bad/'.format(self.url),
+                'message_id': "msg-21",
+            })
 
         yield self.worker.consume_delivery_report(event)
 
@@ -375,8 +516,11 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         event['event_type'] = 'bad'
 
-        yield self.worker.outbounds.store_event_url(
-            self.worker.channel_id, 'msg-21', self.url)
+        yield self.worker.outbounds.store_message(
+            self.worker.channel_id, {
+                'event_url': self.url,
+                'message_id': "msg-21",
+            })
 
         yield self.worker._forward_event(event)
 
@@ -507,6 +651,16 @@ class TestMessageForwardingWorker(JunebugTestBase):
 
         self.assertEqual((yield worker.message_rate.get_messages_per_second(
             'testtransport', 'delivery_pending', 1.0)), 1.0)
+
+    @inlineCallbacks
+    def test_teardown_without_startup(self):
+        '''If the teardown method is called before the worker was started up
+        correctly, the teardown should still succeed.'''
+        worker = yield self.get_worker(start=False)
+
+        self.assertEqual(getattr(worker, 'redis', None), None)
+
+        yield worker.teardown_application()
 
 
 class TestChannelStatusWorker(JunebugTestBase):

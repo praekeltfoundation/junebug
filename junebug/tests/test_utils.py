@@ -12,7 +12,7 @@ from junebug.tests.utils import ToyServer
 from junebug.utils import (
     response, json_body, conjoin, omit,
     message_from_api, api_from_message, api_from_event, api_from_status,
-    channel_public_http_properties)
+    channel_public_http_properties, convert_unicode)
 
 from vumi.message import TransportUserMessage, TransportEvent, TransportStatus
 
@@ -141,6 +141,7 @@ class TestUtils(TestCase):
                 },
             'from': '+1234',
             'to': '+5432',
+            'group': None,
             'channel_id': 'testtransport',
             'content': None,
             'reply_to': None,
@@ -407,3 +408,22 @@ class TestUtils(TestCase):
     def test_public_http_properties_implicit_no_path(self):
         result = channel_public_http_properties({'web_port': 2323})
         self.assertEqual(result, None)
+
+    def test_convert_unicode(self):
+        resp = convert_unicode({
+            u'both': u'unicode',
+            u'key': 'unicode',
+            'value': u'unicode',
+            'nested': {
+                u'unicode': u'nested'
+                },
+            })
+        for key, value in resp.iteritems():
+            self.assertTrue(isinstance(key, str))
+            if not isinstance(value, dict):
+                self.assertTrue(isinstance(value, str))
+        for key, value in resp['nested'].iteritems():
+            self.assertTrue(isinstance(key, str))
+            self.assertTrue(isinstance(value, str))
+
+        self.assertTrue(isinstance(convert_unicode(1), int))

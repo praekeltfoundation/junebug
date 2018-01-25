@@ -66,9 +66,20 @@ class Junebug(Process):
                     'type': 'dmark',
                     'config': {
                         'web_path': 'api',
-                        'web_port': 8001,
+                        'web_port': 8001
                     },
                     'mo_url': 'http://localhost:8002',
+                }),
+                {'Content-Type': 'application/json'})
+        elif self.config.channel_type == 'router':
+            self.conn.request(
+                "POST", '/channels/',
+                json.dumps({
+                    'type': 'dmark',
+                    'config': {
+                        'web_path': 'api',
+                        'web_port': 8001
+                    },
                 }),
                 {'Content-Type': 'application/json'})
         elif self.config.channel_type == 'smpp':
@@ -80,7 +91,7 @@ class Junebug(Process):
                     "config": {
                         "system_id": "smppclient1",
                         "password": "password",
-                        "twisted_endpoint": "tcp:localhost:2775",
+                        "twisted_endpoint": "tcp:localhost:2775"
                     }
                 }),
                 {'Content-Type': 'application/json'})
@@ -88,14 +99,66 @@ class Junebug(Process):
             raise RuntimeError(
                 'Invalid channel type %r' % self.config.channel_type)
         r = self.conn.getresponse()
-        assert r.status == 200
+        assert r.status == 201
         channel = json.loads(r.read())['result']['id']
-        self._wait_for_channel_start()
+        self._wait_for_start()
         return channel
 
-    def _wait_for_channel_start(self):
+    def create_routing(self, channel_id, extra_destinations):
+        self.conn.request(
+            "POST", '/routers/',
+            json.dumps({
+                "config": {
+                    "channel": channel_id
+                },
+                "type": "from_address"
+            }),
+            {'Content-Type': 'application/json'})
+        r = self.conn.getresponse()
+        assert r.status == 201
+        router = json.loads(r.read())['result']['id']
+
+        self._wait_for_start("router")
+
+        for i in range(0, extra_destinations):
+            self.conn.request(
+                "POST", '/routers/%s/destinations/' % router,
+                json.dumps({
+                    "mo_url": "http://localhost:8%02d3" % i,
+                    "config": {
+                        "regular_expression": "$^"
+                    }
+                }),
+                {'Content-Type': 'application/json'})
+
+            r = self.conn.getresponse()
+
+            assert r.status == 201
+            destination = json.loads(r.read())['result']['id']
+            self._wait_for_start(
+                "extra destination {}".format(destination))
+
+        self.conn.request(
+            "POST", '/routers/%s/destinations/' % router,
+            json.dumps({
+                "mo_url": "http://localhost:8002",
+                "config": {
+                    "regular_expression": "[^\n]+"
+                }
+            }),
+            {'Content-Type': 'application/json'})
+
+        r = self.conn.getresponse()
+        assert r.status == 201
+        destination = json.loads(r.read())['result']['id']
+
+        self._wait_for_start("destination")
+        return router, destination
+
+    def _wait_for_start(self, item='channel'):
         # This is horrible
-        time.sleep(1)
+        print 'Waiting for {} to start'.format(item)
+        time.sleep(2)
 
     def delete_ussd_channel(self, channelid):
         self.conn.request(
@@ -103,10 +166,26 @@ class Junebug(Process):
         r = self.conn.getresponse()
         assert r.status == 200
 
+    def delete_routing(self, router_id):
+        self.conn.request(
+            "DELETE", '/routers/%s' % router_id)
+        r = self.conn.getresponse()
+        assert r.status == 200
+
 
 class FakeApplicationServer(Process):
+
+    def __init__(self, router=None, destination=None):
+        self.router = router
+        self.destination = destination
+
     def get_command(self):
-        return ['python', 'application_server.py']
+        command = ['python', 'application_server.py']
+        if self.router and self.destination:
+            command.extend([
+                '--router', str(self.router),
+                '--destination', str(self.destination)])
+        return command
 
 
 class BenchmarkRunner(Process):
@@ -114,7 +193,7 @@ class BenchmarkRunner(Process):
         self.config = config
 
     def get_command(self):
-        if self.config.channel_type == 'ussd':
+        if self.config.channel_type in ('ussd', 'router'):
             command = ['python', 'submit_message.py']
         elif self.config.channel_type == 'smpp':
             command = ['python', 'submit_message_smpp.py']
@@ -144,6 +223,9 @@ def parse_arguments(args):
     parser.add_argument(
         '--concurrency', dest='concurrency', type=int, default=[2, 5, 10, 20],
         nargs='+', help='The list of concurrencies to test')
+    parser.add_argument(
+        '--extra-destinations', dest='extra_destinations', type=int, default=5,
+        help='Extra destinations to add to the router')
     return parser.parse_args(args)
 
 
@@ -154,10 +236,15 @@ def main():
         jb = Junebug(config)
         jb.start()
 
-        app = FakeApplicationServer()
-        app.start()
-
         ch = jb.create_channel()
+
+        if config.channel_type == 'router':
+            rt, dest = jb.create_routing(ch, config.extra_destinations)
+            app = FakeApplicationServer(rt, dest)
+        else:
+            app = FakeApplicationServer()
+
+        app.start()
 
         for concurrency in config.concurrency:
             print 'Running benchmark with concurrency %d' % concurrency
@@ -176,6 +263,9 @@ def main():
                 print "Max memory: %d" % max_rss
 
         jb.delete_ussd_channel(ch)
+
+        if config.channel_type == 'router':
+            jb.delete_routing(rt)
     finally:
         jb.stop()
         app.stop()
