@@ -104,7 +104,7 @@ class Junebug(Process):
         self._wait_for_start()
         return channel
 
-    def create_routing(self, channel_id):
+    def create_routing(self, channel_id, extra_destinations):
         self.conn.request(
             "POST", '/routers/',
             json.dumps({
@@ -119,6 +119,24 @@ class Junebug(Process):
         router = json.loads(r.read())['result']['id']
 
         self._wait_for_start("router")
+
+        for i in range(0, extra_destinations):
+            self.conn.request(
+                "POST", '/routers/%s/destinations/' % router,
+                json.dumps({
+                    "mo_url": "http://localhost:8%02d3" % i,
+                    "config": {
+                        "regular_expression": "$^"
+                    }
+                }),
+                {'Content-Type': 'application/json'})
+
+            r = self.conn.getresponse()
+
+            assert r.status == 201
+            destination = json.loads(r.read())['result']['id']
+            self._wait_for_start(
+                "extra destination {}".format(destination))
 
         self.conn.request(
             "POST", '/routers/%s/destinations/' % router,
@@ -205,6 +223,9 @@ def parse_arguments(args):
     parser.add_argument(
         '--concurrency', dest='concurrency', type=int, default=[2, 5, 10, 20],
         nargs='+', help='The list of concurrencies to test')
+    parser.add_argument(
+        '--extra-destinations', dest='extra_destinations', type=int, default=5,
+        help='Extra destinations to add to the router')
     return parser.parse_args(args)
 
 
@@ -218,7 +239,7 @@ def main():
         ch = jb.create_channel()
 
         if config.channel_type == 'router':
-            rt, dest = jb.create_routing(ch)
+            rt, dest = jb.create_routing(ch, config.extra_destinations)
             app = FakeApplicationServer(rt, dest)
         else:
             app = FakeApplicationServer()
