@@ -23,7 +23,7 @@ setup(
         # We install pyasn1 first, because setuptools gets confused if it
         # installs pyasn1-modules first.
         'pyasn1',
-        'klein',
+        'klein<=16.12.0',
         'jsonschema',
         'treq<16.12.0',
         # We install a newer version of twisted before vumi, since vumi has a
