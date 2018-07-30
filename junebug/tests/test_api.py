@@ -13,6 +13,7 @@ from vumi.message import TransportEvent, TransportUserMessage
 from vumi.tests.helpers import MessageHelper
 
 from junebug.channel import Channel
+from junebug.router.base import Router
 from junebug.utils import api_from_message
 from junebug.tests.helpers import JunebugTestBase, FakeJunebugPlugin
 from junebug.utils import api_from_event, conjoin, omit
@@ -1079,6 +1080,60 @@ class TestJunebugApi(JunebugTestBase):
                         'rate': 1.25,
                         'stuck': False
                     }])
+
+    @inlineCallbacks
+    def test_get_channels_and_destinations_health_check(self):
+
+        config = yield self.create_channel_config(
+            rabbitmq_management_interface="rabbitmq:15672"
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
+
+        channel = yield self.create_channel(self.service, self.redis)
+
+        config = self.create_router_config()
+        router = Router(self.api, config)
+        dest_config = self.create_destination_config()
+        destination = router.add_destination(dest_config)
+        dest_config = self.create_destination_config()
+        destination2 = router.add_destination(dest_config)
+        router.save()
+
+        destinations = sorted([destination.id, destination2.id])
+
+        request_list = []
+        response = []
+
+        for queue_id in [channel.id] + destinations:
+            for sub in ['inbound', 'outbound', 'event']:
+                queue_name = "%s.%s" % (queue_id, sub)
+                url = 'http://rabbitmq:15672/api/queues/%%2F/%s' % (queue_name)
+                request_list.append(
+                    ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
+                     (http.OK, {b'Content-Type': b'application/json'},
+                      b'{"messages": 1256, "messages_details": {"rate": 1.25}, "name": "%s"}' % queue_name)))  # noqa
+
+                response.append({
+                    'messages': 1256,
+                    'name': '{}.{}'.format(queue_id, sub),
+                    'rate': 1.25,
+                    'stuck': False
+                })
+
+        async_failures = []
+        sequence_stubs = RequestSequence(request_list, async_failures.append)
+        stub_treq = StubTreq(StringStubbingResource(sequence_stubs))
+
+        def new_get(*args, **kwargs):
+            return stub_treq.request("GET", args[0])
+
+        with (mock.patch('treq.client.HTTPClient.get', side_effect=new_get)):
+            with sequence_stubs.consume(self.fail):
+                resp = yield self.request('GET', '/health')
+
+            yield self.assertEqual(async_failures, [])
+            yield self.assert_response(resp, http.OK, 'queues ok', response)
 
     @inlineCallbacks
     def test_get_channels_health_check_stuck(self):

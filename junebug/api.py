@@ -673,17 +673,18 @@ class JunebugApi(object):
     def health_status(self, request):
         if self.config.rabbitmq_management_interface:
 
-            def get_queues(channel_ids):
+            def get_queues(queue_data):
 
                 gets = []
 
-                for channel_id in channel_ids:
-                    for sub in ['inbound', 'outbound', 'event']:
-                        queue_name = "%s.%s" % (channel_id, sub)
+                for _, queue_ids in queue_data:
+                    for queue_id in queue_ids:
+                        for sub in ['inbound', 'outbound', 'event']:
+                            queue_name = "%s.%s" % (queue_id, sub)
 
-                        get = self.rabbitmq_management_client.get_queue(
-                            self.amqp_config['vhost'], queue_name)
-                        gets.append(get)
+                            get = self.rabbitmq_management_client.get_queue(
+                                self.amqp_config['vhost'], queue_name)
+                            gets.append(get)
 
                 return gets
 
@@ -691,8 +692,7 @@ class JunebugApi(object):
                 queues = []
                 stuck = False
 
-                for result in results:
-                    queue = result[1]
+                for _, queue in results:
 
                     if ('messages' in queue):
                         details = {
@@ -715,7 +715,27 @@ class JunebugApi(object):
 
                 return response(request, status, queues, code=code)
 
-            d = Channel.get_all(self.redis)
+            def get_routers_objects(router_ids):
+                gets = []
+                for router_id in router_ids:
+                    get = Router.from_id(self, router_id)
+                    gets.append(get)
+
+                return gets
+
+            def get_destinations(routers):
+                destinations = []
+                for _, router in routers:
+                    destinations.extend(router.get_destination_list())
+                return destinations
+
+            d1 = Channel.get_all(self.redis)
+            d2 = Router.get_all(self.router_store)
+            d2.addCallback(get_routers_objects)
+            d2.addCallback(defer.DeferredList)
+            d2.addCallback(get_destinations)
+
+            d = defer.DeferredList([d1, d2])
             d.addCallback(get_queues)
             d.addCallback(defer.DeferredList)
             d.addCallback(return_queue_results)
