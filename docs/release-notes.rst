@@ -7,10 +7,10 @@ v0.1.41
 -------
 .. Pull requests 173
 
---Fixes
+-- Fixes
     - Included destination queues in health checks.
 
---New Minimum Requirements
+-- New Minimum Requirements
     - Twisted==17.9.0
 
 v0.1.40
