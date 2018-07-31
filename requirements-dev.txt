@@ -1,3 +1,4 @@
 mock
+twisted==17.9.0
 treq==17.8.0
 flake8
