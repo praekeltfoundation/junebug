@@ -3,6 +3,16 @@
 Release Notes
 =============
 
+v0.1.41
+-------
+.. Pull requests 173
+
+--Fixes
+    - Included destination queues in health checks.
+
+--New Minimum Requirements
+    - Twisted==17.9.0
+
 v0.1.40
 -------
 .. Pull requests 169

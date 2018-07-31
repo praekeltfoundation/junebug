@@ -8,7 +8,7 @@ matrix:
       env: PYPY_VERSION="5.7.1" NO_COVERAGE=1
     # Test against the lowest version of Twisted that we claim to support
     - python: "2.7"
-      env: TWISTED_VERSION="Twisted==15.3.0"
+      env: TWISTED_VERSION="Twisted==17.9.0"
 before_install:
   - if [ ! -z "$PYPY_VERSION" ]; then source utils/setup-pypy-travis.sh; fi
 install:
