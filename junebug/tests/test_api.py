@@ -1044,7 +1044,7 @@ class TestJunebugApi(JunebugTestBase):
             request_list.append(
                 ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
                  (http.OK, {b'Content-Type': b'application/json'},
-                  b'{"messages": 1256, "messages_stats": {"ack_details": {"rate": 1.25}}, "name": "%s"}' % queue_name)))  # noqa
+                  b'{"messages": 1256, "message_stats": {"ack_details": {"rate": 1.25}}, "name": "%s"}' % queue_name)))  # noqa
 
         async_failures = []
         sequence_stubs = RequestSequence(request_list, async_failures.append)
@@ -1108,7 +1108,7 @@ class TestJunebugApi(JunebugTestBase):
                 request_list.append(
                     ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
                      (http.OK, {b'Content-Type': b'application/json'},
-                      b'{"messages": 1256, "messages_stats": {"ack_details": {"rate": 1.25}}, "name": "%s"}' % queue_name)))  # noqa
+                      b'{"messages": 1256, "message_stats": {"ack_details": {"rate": 1.25}}, "name": "%s"}' % queue_name)))  # noqa
 
                 response.append({
                     'messages': 1256,
@@ -1150,7 +1150,7 @@ class TestJunebugApi(JunebugTestBase):
             request_list.append(
                 ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
                  (http.OK, {b'Content-Type': b'application/json'},
-                  b'{"messages": 1256, "messages_stats": {"ack_details": {"rate": 0.0}}, "name": "%s"}' % queue_name)))  # noqa
+                  b'{"messages": 1256, "message_stats": {"ack_details": {"rate": 0.0}}, "name": "%s"}' % queue_name)))  # noqa
 
         async_failures = []
         sequence_stubs = RequestSequence(request_list, async_failures.append)

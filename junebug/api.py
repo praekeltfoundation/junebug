@@ -700,7 +700,7 @@ class JunebugApi(object):
                             'stuck': False,
                             'messages': queue.get('messages'),
                             'rate':
-                                queue['messages_stats']['ack_details']['rate']
+                                queue['message_stats']['ack_details']['rate']
                         }
                         if (details['messages'] > 0 and details['rate'] == 0):
                             stuck = True
