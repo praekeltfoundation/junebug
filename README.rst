@@ -1,13 +1,6 @@
 Junebug
 =======
 
-|junebug-docs|
-
-.. |junebug-docs| image:: https://readthedocs.org/projects/junebug/badge/?version=latest
-    :alt: Documentation
-    :scale: 100%
-    :target: http://junebug.readthedocs.org/
-
 Junebug is an open-source server application providing SMS and USSD
 gateway connectivity for integrators, operators and application
 developers.
