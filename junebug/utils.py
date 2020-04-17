@@ -14,7 +14,7 @@ def response(req, description, data, code=http.OK):
 
     return json.dumps({
         'status': code,
-        'code': http.RESPONSES[code],
+        'code': http.RESPONSES.get(code, code),
         'description': description,
         'result': data,
     }, cls=JSONMessageEncoder)

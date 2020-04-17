@@ -78,7 +78,7 @@ class TestJunebugApi(JunebugTestBase):
 
         self.assertEqual(data, {
             'status': code,
-            'code': http.RESPONSES[code],
+            'code': http.RESPONSES.get(code, code),
             'description': description,
             'result': result,
         })
@@ -88,12 +88,12 @@ class TestJunebugApi(JunebugTestBase):
         resp = yield self.get('/foobar')
         yield self.assert_response(
             resp, http.NOT_FOUND,
-            'The requested URL was not found on the server.  If you entered '
+            'The requested URL was not found on the server. If you entered '
             'the URL manually please check your spelling and try again.', {
                 'errors': [{
                     'code': 404,
                     'message': ('404 Not Found: The requested URL was not '
-                                'found on the server.  If you entered the URL'
+                                'found on the server. If you entered the URL'
                                 ' manually please check your spelling and try'
                                 ' again.'),
                     'type': 'Not Found',
@@ -103,20 +103,16 @@ class TestJunebugApi(JunebugTestBase):
     @inlineCallbacks
     def test_redirect_http_error(self):
         resp = yield self.get('/channels')
-        [redirect] = resp.history()
         yield self.assert_response(
-            redirect, http.MOVED_PERMANENTLY,
+            resp, 308,
             None, {
                 'errors': [{
-                    'code': 301,
-                    'message': '301 Moved Permanently: None',
+                    'code': 308,
+                    'message': '308 Permanent Redirect: None',
                     'new_url': '%s/channels/' % self.url,
-                    'type': 'Moved Permanently',
+                    'type': 'Permanent Redirect',
                 }],
             })
-        yield self.assert_response(
-            resp, http.OK,
-            'channels listed', [])
 
     @inlineCallbacks
     def test_invalid_json_handling(self):
