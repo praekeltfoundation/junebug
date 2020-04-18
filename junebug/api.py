@@ -706,7 +706,8 @@ class JunebugApi(object):
                             details['rate'] = \
                                 queue['message_stats']['ack_details']['rate']
 
-                            if (details['messages'] > 0 and details['rate'] == 0):
+                            if (details['messages'] > 0
+                                    and details['rate'] == 0):
                                 stuck = True
                                 details['stuck'] = True
 
