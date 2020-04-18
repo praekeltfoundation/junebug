@@ -1184,6 +1184,58 @@ class TestJunebugApi(JunebugTestBase):
                     }])
 
     @inlineCallbacks
+    def test_get_channels_health_check_stuck_no_message_stats(self):
+
+        config = yield self.create_channel_config(
+            rabbitmq_management_interface="rabbitmq:15672"
+        )
+        yield self.stop_server()
+        yield self.start_server(config=config)
+
+        channel = yield self.create_channel(self.service, self.redis)
+
+        request_list = []
+
+        for sub in ['inbound', 'outbound', 'event']:
+            queue_name = "%s.%s" % (channel.id, sub)
+            url = 'http://rabbitmq:15672/api/queues/%%2F/%s' % (queue_name)
+            request_list.append(
+                ((b'get', url, mock.ANY, mock.ANY, mock.ANY),
+                 (http.OK, {b'Content-Type': b'application/json'},
+                  b'{"messages": 1256, "messages_details": {"rate": 0.0}, "name": "%s"}' % queue_name)))  # noqa
+
+        async_failures = []
+        sequence_stubs = RequestSequence(request_list, async_failures.append)
+        stub_treq = StubTreq(StringStubbingResource(sequence_stubs))
+
+        def new_get(*args, **kwargs):
+            return stub_treq.request("GET", args[0])
+
+        with (mock.patch('treq.client.HTTPClient.get', side_effect=new_get)):
+            with sequence_stubs.consume(self.fail):
+                resp = yield self.request('GET', '/health')
+
+            yield self.assertEqual(async_failures, [])
+            yield self.assert_response(
+                resp, http.INTERNAL_SERVER_ERROR, 'queues stuck', [
+                    {
+                        'messages': 1256,
+                        'name': '%s.inbound' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }, {
+                        'messages': 1256,
+                        'name': '%s.outbound' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }, {
+                        'messages': 1256,
+                        'name': '%s.event' % (channel.id),
+                        'rate': 0,
+                        'stuck': True
+                    }])
+
+    @inlineCallbacks
     def test_get_channel_logs_no_logs(self):
         '''If there are no logs, an empty list should be returned.'''
         channel = yield self.create_channel(self.service, self.redis)
