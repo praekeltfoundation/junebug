@@ -1217,22 +1217,19 @@ class TestJunebugApi(JunebugTestBase):
 
             yield self.assertEqual(async_failures, [])
             yield self.assert_response(
-                resp, http.INTERNAL_SERVER_ERROR, 'queues stuck', [
+                resp, http.OK, 'queues ok', [
                     {
                         'messages': 1256,
                         'name': '%s.inbound' % (channel.id),
-                        'rate': 0,
-                        'stuck': True
+                        'stuck': False
                     }, {
                         'messages': 1256,
                         'name': '%s.outbound' % (channel.id),
-                        'rate': 0,
-                        'stuck': True
+                        'stuck': False
                     }, {
                         'messages': 1256,
                         'name': '%s.event' % (channel.id),
-                        'rate': 0,
-                        'stuck': True
+                        'stuck': False
                     }])
 
     @inlineCallbacks

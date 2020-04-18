@@ -705,12 +705,10 @@ class JunebugApi(object):
                         if("message_stats" in queue):
                             details['rate'] = \
                                 queue['message_stats']['ack_details']['rate']
-                        else:
-                            details['rate'] = queue['messages_details']['rate']
 
-                        if (details['messages'] > 0 and details['rate'] == 0):
-                            stuck = True
-                            details['stuck'] = True
+                            if (details['messages'] > 0 and details['rate'] == 0):
+                                stuck = True
+                                details['stuck'] = True
 
                         queues.append(details)
 
