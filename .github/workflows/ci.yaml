@@ -1,0 +1,30 @@
+name: continuous integration
+on:
+  - push
+  - pull_request
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['2.x', 'pypy2']
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: install deps
+        run: |
+          pip install wheel
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: run tests
+        env:
+          VUMITEST_REDIS_DB: '1'
+        run: |
+          flake8 junebug
+          trial junebug
