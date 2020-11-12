@@ -23,8 +23,6 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
       - name: run tests
-        env:
-          VUMITEST_REDIS_DB: '1'
         run: |
           flake8 junebug
           trial junebug
