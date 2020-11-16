@@ -27,7 +27,7 @@ setup(
         'jsonschema',
         'treq<20.4.1',  # https://github.com/twisted/treq/issues/303
         'Twisted>=20.3.0,<21.0.0',
-        'vumi>=0.6.18',
+        'vumi>=0.6.19',
         'confmodel',
         'PyYAML',
         'raven>=6.0.0,<7.0.0',
