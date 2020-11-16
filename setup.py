@@ -25,11 +25,9 @@ setup(
         'pyasn1',
         'klein<=17.10.0',
         'jsonschema',
-        'treq<=17.8.0',
-        # We install a newer version of twisted before vumi, since vumi has a
-        # lower minimum version requirement.
-        'Twisted>=17.9.0,<18.0.0',
-        'vumi>=0.6.18',
+        'treq<20.4.1',  # https://github.com/twisted/treq/issues/303
+        'Twisted>=20.3.0,<21.0.0',
+        'vumi>=0.6.19',
         'confmodel',
         'PyYAML',
         'raven>=6.0.0,<7.0.0',
